@@ -6,7 +6,7 @@ import java.util.List;
 public class BinaryHeap<T> {
 
     private final List<T> buffer;
-    private final Comparator<T> comparator; // TODO rename to comparator
+    private final Comparator<T> comparator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="BinaryHeap{T}"/> class.
