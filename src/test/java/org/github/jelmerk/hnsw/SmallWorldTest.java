@@ -3,11 +3,8 @@ package org.github.jelmerk.hnsw;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -16,44 +13,56 @@ public class SmallWorldTest {
 
     private float floatError = 0.000000596f;
 
-    private List<Float[]> vectors;
+    private List<float[]> vectors;
 
     @Before
     public void setUp() throws Exception {
         this.vectors = readTextFile("/vectors.txt").stream()
-                .map(l -> Arrays.stream(l.split("\t"))
-                            .map(Float::parseFloat)
-                            .toArray(Float[]::new))
+                .map(l -> {
+                        String[] tokens = l.split("\t");
+
+                        float[] floats = new float[tokens.length];
+
+                        for (int i = 0; i < tokens.length; i++) {
+                            floats[i] = Float.parseFloat(tokens[i]);
+                        }
+
+                        return floats;
+                })
                 .collect(Collectors.toList());
     }
 
     @Test
     public void testKnnSearch() {
-        Random random = new Random(42);
-
-        // TODO: work out how to not use boxed primitives here
 
         SmallWorld.Parameters parameters = new SmallWorld.Parameters();
-        parameters.setM(15);
-        parameters.setLevelLambda(1 / Math.log(parameters.getM()));
-
-        SmallWorld<Float[], Float> graph = new SmallWorld<>(CosineDistance::nonOptimized);
+        SmallWorld<float[], Float> graph = new SmallWorld<>(CosineDistance::nonOptimized);
         graph.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 
-        System.out.println(graph.print());
+        for (int i = 0; i < this.vectors.size(); i++) {
 
-        for (int i = 0; i < this.vectors.size(); ++i) {
-            List<SmallWorld<Float[], Float>.KNNSearchResult> results = graph.kNNSearch(this.vectors.get(i), 20);
+            List<SmallWorld.KNNSearchResult<float[], Float>> result = graph.knnSearch(this.vectors.get(i), 20);
+            result.sort(Comparator.comparing(SmallWorld.KNNSearchResult::getDistance));
 
-            SmallWorld<Float[], Float>.KNNSearchResult best = results.stream()
-                    .sorted(Comparator.comparing((Function<SmallWorld<Float[], Float>.KNNSearchResult, Float>) SmallWorld.KNNSearchResult::getDistance))
-                    .collect(Collectors.toList())
-                    .get(0);
+            SmallWorld.KNNSearchResult<float[], Float> best = result.get(0);
 
+            assertEquals(20, result.size());
             assertEquals(i, best.getId());
             assertEquals(0, best.getDistance(), floatError);
         }
 
+    }
+
+    @Test
+    public void testSerialization() throws Exception {
+        SmallWorld.Parameters parameters = new SmallWorld.Parameters();
+        SmallWorld<float[], Float> graph = new SmallWorld<>(CosineDistance::nonOptimized);
+        graph.buildGraph(this.vectors, new DotNetRandom(42), parameters);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        ObjectOutputStream oos = new ObjectOutputStream(baos);
+
+        oos.writeObject(graph);
     }
 
     private List<String> readTextFile(String path) throws IOException {

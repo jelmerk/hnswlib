@@ -1,10 +1,28 @@
 package org.github.jelmerk.hnsw;
 
+/**
+ * Calculates cosine similarity.
+ *
+ * Intuition behind selecting float as a carrier.
+ *
+ * 1. In practice we work with vectors of dimensionality 100 and each component has value in range [-1; 1]
+ *    There certainly is a possibility of underflow.
+ *    But we assume that such cases are rare and we can rely on such underflow losses.
+ *
+ * 2. According to the article http://www.ti3.tuhh.de/paper/rump/JeaRu13.pdf
+ *    the floating point rounding error is less then 100 * 2^-24 * sqrt(100) * sqrt(100) &lt; 0.0005960
+ *    We deem such precision is satisfactory for out needs.
+ */
 public class CosineDistance {
 
-
-    // TODO boxed primitives are not great for performance nor memory usage
-    public static Float nonOptimized(Float[] u, Float[] v)  {
+    /**
+     * Calculates cosine distance without making any optimizations.
+     *
+     * @param u Left vector.
+     * @param v Right vector.
+     * @return Cosine distance between u and v.
+     */
+    public static float nonOptimized(float[] u, float[] v)  {
         if (u.length != v.length) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
         }
@@ -22,9 +40,14 @@ public class CosineDistance {
         return 1 - similarity;
     }
 
-
-    // TODO boxed primitives are not great for performance nor memory usage
-    public static Float forUnits(Float[] u, Float[] v) {
+    /**
+     * Calculates cosine distance with assumption that u and v are unit vectors.
+     *
+     * @param u Left vector.
+     * @param v Right vector.
+     * @return Cosine distance between u and v.
+     */
+    public static float forUnits(float[] u, float[] v) {
         if (u.length != v.length) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
         }
