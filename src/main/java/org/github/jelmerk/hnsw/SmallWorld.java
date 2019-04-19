@@ -3,20 +3,20 @@ package org.github.jelmerk.hnsw;
 import java.io.Serializable;
 import java.util.*;
 
-public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
+public class SmallWorld<TItem> implements Serializable {
 
     // The distance function in the items space.
-    private DistanceFunction<TItem, TDistance> distance;
+    private DistanceFunction<TItem> distance;
 
     // The hierarchical small world graph instance.
-    private Graph<TItem, TDistance> graph;
+    private Graph<TItem> graph;
 
     /**
      * Initializes a new instance of the {@link SmallWorld} class.
      *
      * @param distance The distance function to use in the small world.
      */
-    public SmallWorld(DistanceFunction<TItem, TDistance> distance) {
+    public SmallWorld(DistanceFunction<TItem> distance) {
         this.distance = distance;
     }
 
@@ -45,7 +45,7 @@ public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implemen
      * @param parameters Parameters of the algorithm.
      */
     public void buildGraph(List<TItem> items, DotNetRandom generator, Parameters parameters) {
-        Graph<TItem, TDistance> graph = new Graph<>(this.distance, parameters);
+        Graph<TItem> graph = new Graph<>(this.distance, parameters);
         graph.build(items, generator);
         this.graph = graph;
     }
@@ -57,7 +57,7 @@ public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implemen
      * @param k The number of nearest neighbours.
      * @return The list of found nearest neighbours.
      */
-    public List<KNNSearchResult<TItem, TDistance>> knnSearch(TItem item, int k) {
+    public List<KNNSearchResult<TItem>> knnSearch(TItem item, int k) {
         return this.graph.kNearest(item, k);
     }
 
@@ -223,11 +223,11 @@ public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implemen
     /**
      * Representation of knn search result.
      */
-    static class KNNSearchResult<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
+    static class KNNSearchResult<TItem> implements Serializable {
 
         private int id;
         private TItem item;
-        private TDistance distance;
+        private float distance;
 
         /**
          * Gets the id of the item = rank of the item in source collection.
@@ -260,14 +260,14 @@ public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implemen
         /**
          * Gets the distance between the item and the knn search query.
          */
-        public TDistance getDistance() {
+        public float getDistance() {
             return distance;
         }
 
         /**
          * Sets the distance between the item and the knn search query.
          */
-        public void setDistance(TDistance distance) {
+        public void setDistance(float distance) {
             this.distance = distance;
         }
 

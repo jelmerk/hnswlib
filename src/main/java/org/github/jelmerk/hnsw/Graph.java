@@ -9,12 +9,11 @@ import java.util.stream.Collectors;
  * The implementation of a hierarchical small world graph.
  *
  * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
  */
-class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
+class Graph<TItem> implements Serializable {
 
     // The distance.
-    private DistanceFunction<TItem, TDistance> distance;
+    private DistanceFunction<TItem> distance;
 
     // The core.
     private Core core;
@@ -34,7 +33,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
      * @param distance The distance function.
      * @param parameters The parameters of the world.
      */
-    Graph(DistanceFunction<TItem, TDistance> distance, SmallWorld.Parameters parameters) {
+    Graph(DistanceFunction<TItem> distance, SmallWorld.Parameters parameters) {
         this.distance = distance;
         this.parameters = parameters;
     }
@@ -64,7 +63,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
 
         Node entryPoint = core.nodes.get(0);
         Searcher searcher = new Searcher(core);
-        DistanceFunction<Integer, TDistance> nodeDistance = core::calculateDistance;
+        DistanceFunction<Integer> nodeDistance = core::calculateDistance;
         List<Integer> neighboursIdsBuffer = new ArrayList<>(core.getAlgorithm().getM(0) + 1);
 
         for (int nodeId = 1; nodeId < core.getNodes().size(); nodeId++) {
@@ -92,7 +91,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
             // zoom in and find the best peer on the same level as newNode
             Node bestPeer = entryPoint;
             Node currentNode = core.getNodes().get(nodeId);
-            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(nodeDistance, nodeId);
+            TravelingCosts<Integer> currentNodeTravelingCosts = new TravelingCosts<>(nodeDistance, nodeId);
             for (int layer = bestPeer.getMaxLayer(); layer > currentNode.getMaxLayer(); layer--) {
                 searcher.runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
                 bestPeer = core.getNodes().get(neighboursIdsBuffer.get(0));
@@ -109,7 +108,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
                     core.getAlgorithm().connect(core.getNodes().get(newNeighbourId), currentNode, layer);
 
                     // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
-                    if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeer.getId()))) {
+                    if (currentNodeTravelingCosts.from(newNeighbourId) < currentNodeTravelingCosts.from(bestPeer.getId())) {
                         bestPeer = core.getNodes().get(newNeighbourId);
                     }
                 }
@@ -138,9 +137,9 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
      * @param k The size of the neighbourhood.
      * @return The list of the nearest neighbours.
      */
-    List<SmallWorld.KNNSearchResult<TItem, TDistance>> kNearest(TItem destination, int k) {
+    List<SmallWorld.KNNSearchResult<TItem>> kNearest(TItem destination, int k) {
 
-        DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
+        DistanceFunction<Integer>  runtimeDistance = (x, y) -> {
             int nodeId = x >= 0 ? x : y;
             return this.distance.distance(destination, this.core.getItems().get(nodeId));
         };
@@ -148,7 +147,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         Node bestPeer = this.entryPoint;
         // TODO: hack we know that destination id is -1.
 
-        TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
+        TravelingCosts<Integer> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
             int nodeId = x >= 0 ? x : y;
             return this.distance.distance(destination, this.core.getItems().get(nodeId));
         }, -1);
@@ -165,7 +164,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
 
         return resultIds.stream()
                 .map(id -> {
-                    SmallWorld.KNNSearchResult<TItem, TDistance> result = new SmallWorld.KNNSearchResult<>();
+                    SmallWorld.KNNSearchResult<TItem> result = new SmallWorld.KNNSearchResult<>();
                     result.setId(id);
                     result.setItem(this.core.getItems().get(id));
                     result.setDistance(runtimeDistance.distance(id,  -1));
@@ -195,7 +194,6 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
 
         return buffer.toString();
     }
-
 
     /**
      * Runs breadth first search.
@@ -227,11 +225,13 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
      */
     class Core implements Serializable {
 
+        private static final float MISSING_CACHE_VALUE_MARKER = Float.MIN_VALUE;
+
         // The original distance function.
-        private DistanceFunction<TItem, TDistance> distance;
+        private DistanceFunction<TItem> distance;
 
         // The distance cache.
-        private DistanceCache<TDistance> distanceCache;
+        private DistanceCache distanceCache;
 
         // The parameters of the world.
         private SmallWorld.Parameters parameters;
@@ -239,9 +239,11 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         // The original items.
         private List<TItem> items;
 
+        // The graph nodes
         private List<Node> nodes;
 
-        private Node.Algorithm<TItem, TDistance> algorithm;
+        // Algorithm for allocating and managing nodes capacity
+        private Node.Algorithm<TItem> algorithm;
 
         /**
          * Initializes a new instance of the {@link Core} class.
@@ -250,7 +252,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          * @param parameters The parameters of the world.
          * @param items The original items.
          */
-        Core(DistanceFunction<TItem, TDistance> distance, SmallWorld.Parameters parameters, List<TItem> items) {
+        Core(DistanceFunction<TItem> distance, SmallWorld.Parameters parameters, List<TItem> items) {
             this.distance = distance;
             this.parameters = parameters;
             this.items = items;
@@ -265,7 +267,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
             }
 
             if (this.parameters.isEnableDistanceCacheForConstruction()) {
-                this.distanceCache = new DistanceCache<>(this.items.size());
+                this.distanceCache = new DistanceCache(this.items.size());
             }
         }
 
@@ -286,7 +288,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         /**
          * Gets the algorithm for allocating and managing nodes capacity.
          */
-        Node.Algorithm<TItem, TDistance> getAlgorithm() {
+        Node.Algorithm<TItem> getAlgorithm() {
             return algorithm;
         }
 
@@ -300,7 +302,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         /**
          * Gets the distance function
          */
-        DistanceFunction<TItem, TDistance> getDistance() {
+        DistanceFunction<TItem> getDistance() {
             return distance;
         }
 
@@ -325,21 +327,20 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          * @param toId The identifier of the "to" item.
          * @return The distance between items.
          */
-        TDistance calculateDistance(int fromId, int toId) {
-            TDistance result = null;
+        float calculateDistance(int fromId, int toId) {
+            float result = MISSING_CACHE_VALUE_MARKER;
             if (distanceCache != null) {
-                result = this.distanceCache.tryGetValue(fromId, toId);
+                result = this.distanceCache.getValueOrDefault(fromId, toId, MISSING_CACHE_VALUE_MARKER);
             }
 
-            if (result == null) {
+            if (result == MISSING_CACHE_VALUE_MARKER) {
                 result = this.distance.distance(this.getItems().get(fromId), this.getItems().get(toId));
-                if (result != null && this.distanceCache != null) {
+                if (this.distanceCache != null) {
                     this.distanceCache.setValue(fromId, toId, result);
                 }
             }
             return result;
         }
-
 
         /**
          * Gets the random layer.
@@ -350,7 +351,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          */
         private  int randomLayer(DotNetRandom generator, double lambda) {
             double r = -Math.log(generator.nextDouble()) * lambda;
-            return (int)r;
+            return (int) r;
         }
     }
 
@@ -428,7 +429,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          * @param layer The layer to perform search at.
          * @param k The number of the nearest neighbours to get from the layer.
          */
-        void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, List<Integer> resultList, int layer, int k) {
+        void runKnnAtLayer(int entryPointId, TravelingCosts<Integer> targetCosts, List<Integer> resultList, int layer, int k) {
             /*
              * v ← ep // set of visited elements
              * C ← ep // set of candidates
@@ -468,7 +469,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
                 // get next candidate to check and expand
                 Integer toExpandId = expansionHeap.pop();
                 Integer farthestResultId = resultHeap.getBuffer().get(0);
-                if (DistanceUtils.gt(targetCosts.from(toExpandId), targetCosts.from(farthestResultId))) {
+                if (targetCosts.from(toExpandId) > targetCosts.from(farthestResultId)) {
                     // the closest candidate is farther than farthest result
                     break;
                 }
@@ -480,7 +481,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
                         // enqueue perspective neighbours to expansion list
                         farthestResultId = resultHeap.getBuffer().get(0);
                         if (resultHeap.getBuffer().size() < k
-                                || DistanceUtils.lt(targetCosts.from(neighbourId), targetCosts.from(farthestResultId))) {
+                                || targetCosts.from(neighbourId) < targetCosts.from(farthestResultId)) {
                             expansionHeap.push(neighbourId);
                             resultHeap.push(neighbourId);
                             if (resultHeap.getBuffer().size() > k) {

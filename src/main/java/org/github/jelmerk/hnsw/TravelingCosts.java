@@ -7,15 +7,11 @@ import java.util.Comparator;
  * Implementation of distance calculation from an arbitrary point to the given destination.
  *
  * @param <TItem> >Type of the points.
- * @param <TDistance> Type of the diatnce.
  */
-public class TravelingCosts<TItem, TDistance extends Comparable<TDistance>> implements Comparator<TItem>, Serializable {
-
-    // Default distance comparator.
-    private final Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
+public class TravelingCosts<TItem> implements Comparator<TItem>, Serializable {
 
     // The distance function.
-    private final DistanceFunction<TItem, TDistance> distance;
+    private final DistanceFunction<TItem> distance;
 
     // he destination point.
     private final TItem destination;
@@ -26,7 +22,7 @@ public class TravelingCosts<TItem, TDistance extends Comparable<TDistance>> impl
      * @param distance The distance function.
      * @param destination The destination point.
      */
-    public TravelingCosts(DistanceFunction<TItem, TDistance> distance, TItem destination) {
+    public TravelingCosts(DistanceFunction<TItem> distance, TItem destination) {
         this.distance = distance;
         this.destination = destination;
     }
@@ -34,7 +30,7 @@ public class TravelingCosts<TItem, TDistance extends Comparable<TDistance>> impl
     /**
      * Gets the distance function.
      */
-    public DistanceFunction<TItem, TDistance> getDistance() {
+    public DistanceFunction<TItem> getDistance() {
         return distance;
     }
 
@@ -51,7 +47,7 @@ public class TravelingCosts<TItem, TDistance extends Comparable<TDistance>> impl
      *
      * @return The distance from the departure to the destination.
      */
-    public TDistance from(TItem departure) {
+    public float from(TItem departure) {
         return this.distance.distance(departure, this.destination);
     }
 
@@ -65,8 +61,9 @@ public class TravelingCosts<TItem, TDistance extends Comparable<TDistance>> impl
      * 1 if x is farther from the destination than y.
      */
     public int compare(TItem x, TItem y) {
-        TDistance fromX = this.from(x);
-        TDistance fromY = this.from(y);
-        return distanceComparator.compare(fromX, fromY);
+        float fromX = this.from(x);
+        float fromY = this.from(y);
+
+        return Float.compare(fromX, fromY);
     }
 }
