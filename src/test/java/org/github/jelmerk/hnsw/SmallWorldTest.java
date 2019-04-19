@@ -56,13 +56,15 @@ public class SmallWorldTest {
     @Test
     public void testSerialization() throws Exception {
         SmallWorld.Parameters parameters = new SmallWorld.Parameters();
-        SmallWorld<float[]> graph = new SmallWorld<>(CosineDistance::nonOptimized);
-        graph.buildGraph(this.vectors, new DotNetRandom(42), parameters);
+        SmallWorld<float[]> original = new SmallWorld<>(CosineDistance::nonOptimized);
+        original.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ObjectOutputStream oos = new ObjectOutputStream(baos);
+        original.save(baos);
 
-        oos.writeObject(graph);
+        SmallWorld<float[]> loaded = SmallWorld.load(new ByteArrayInputStream(baos.toByteArray()));
+
+        assertEquals(original.print(), loaded.print());
     }
 
     private List<String> readTextFile(String path) throws IOException {

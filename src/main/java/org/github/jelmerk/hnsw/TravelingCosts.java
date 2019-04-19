@@ -1,14 +1,13 @@
 package org.github.jelmerk.hnsw;
 
-import java.io.Serializable;
 import java.util.Comparator;
 
 /**
  * Implementation of distance calculation from an arbitrary point to the given destination.
  *
- * @param <TItem> >Type of the points.
+ * @param <TItem> Type of the points.
  */
-public class TravelingCosts<TItem> implements Comparator<TItem>, Serializable {
+public class TravelingCosts<TItem> implements Comparator<TItem> {
 
     // The distance function.
     private final DistanceFunction<TItem> distance;

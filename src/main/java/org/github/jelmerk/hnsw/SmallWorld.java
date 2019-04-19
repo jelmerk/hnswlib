@@ -1,8 +1,14 @@
 package org.github.jelmerk.hnsw;
 
-import java.io.Serializable;
+import java.io.*;
 import java.util.*;
 
+/**
+ * The Hierarchical Navigable Small World Graphs.
+ *
+ * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
+ * @param <TItem> The type of items to connect into small world.
+ */
 public class SmallWorld<TItem> implements Serializable {
 
     // The distance function in the items space.
@@ -69,6 +75,58 @@ public class SmallWorld<TItem> implements Serializable {
      */
     public String print() {
         return this.graph.print();
+    }
+
+    /**
+     * Saves the small world to disk.
+     *
+     * @param file file to write to
+     * @throws IOException in case of an I/O exception
+     */
+    public void save(File file) throws IOException {
+        save(new FileOutputStream(file));
+    }
+
+    /**
+     * Saves the small world to the passed in OutputStream.
+     *
+     * @param out OutputStream to write to
+     * @throws IOException in case of an I/O exception
+     */
+    public void save(OutputStream out) throws IOException {
+        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
+            oos.writeObject(this);
+        }
+    }
+
+    /**
+     * Restores a {@link SmallWorld} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
+     *
+     * @param file file to initialize the small world from
+     * @param <T> The type of items to connect into small world.
+     * @return the Small world restored from a file
+     * @throws IOException in case of an I/O exception
+     */
+    public static <T> SmallWorld<T> load(File file) throws IOException {
+        return load(new FileInputStream(file));
+    }
+
+    /**
+     * Restores a {@link SmallWorld} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
+     *
+     * @param inputStream InputStream to initialize the small world from
+     * @param <T> The type of items to connect into small world.
+     * @return the Small world restored from a file
+     * @throws IOException in case of an I/O exception
+     * @throws IllegalArgumentException in case the file cannot be read
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> SmallWorld<T> load(InputStream inputStream) throws IOException {
+        try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
+            return (SmallWorld<T>) ois.readObject();
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("Could not read input file.", e);
+        }
     }
 
     /**
