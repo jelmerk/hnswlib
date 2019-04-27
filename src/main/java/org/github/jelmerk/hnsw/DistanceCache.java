@@ -6,8 +6,9 @@ import java.io.Serializable;
 /**
  * Cache for distance between 2 points.
  *
+ * @param <TDistance> The type of the distance
  */
-class DistanceCache implements Serializable {
+class DistanceCache<TDistance> implements Serializable {
 
     /**
      * https://referencesource.microsoft.com/#mscorlib/system/array.cs,2d2b551eabe74985,references
@@ -21,7 +22,7 @@ class DistanceCache implements Serializable {
     /**
      * The cached values.
      */
-    private float[] values;
+    private TDistance[] values;
 
     /**
      * The cached keys;
@@ -40,13 +41,13 @@ class DistanceCache implements Serializable {
         capacity = capacity < MAX_ARRAY_LENGTH ? capacity : MAX_ARRAY_LENGTH;
 
         this.keys = new long[(int) capacity];
-        this.values = new float[(int) capacity];
+        this.values = (TDistance[])(new Object[(int) capacity]);
 
 
         // TODO: may be there is a better way to warm up cache and force OS to allocate pages
         for (int i = 0; i < this.keys.length; i++) {
             this.keys[i] = -1;
-            this.values[i] = 0;
+            this.values[i] = null;
         }
     }
 
@@ -57,7 +58,7 @@ class DistanceCache implements Serializable {
      * @param toId The 'to' point identifier.
      * @return True if the distance value is retrieved from the cache.
      */
-    float getValueOrDefault(int fromId, int toId, float defaultValue)  {
+    TDistance tryGetValue(int fromId, int toId)  {
         long key = makeKey(fromId, toId);
         int hash = (int)(key & (MAX_ARRAY_LENGTH - 1));
 
@@ -65,7 +66,7 @@ class DistanceCache implements Serializable {
             return this.values[hash];
         }
 
-        return defaultValue;
+        return null;
     }
 
     /**
@@ -75,7 +76,7 @@ class DistanceCache implements Serializable {
      * @param toId The 'to' point identifier.
      * @param distance The distance value to cache.
      */
-    void setValue(int fromId, int toId, float distance) {
+    void setValue(int fromId, int toId, TDistance distance) {
         long key = makeKey(fromId, toId);
         int hash = (int)(key & (MAX_ARRAY_LENGTH - 1));
         this.keys[hash] = key;

@@ -8,21 +8,22 @@ import java.util.*;
  *
  * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  * @param <TItem> The type of items to connect into small world.
+ * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
  */
-public class SmallWorld<TItem> implements Serializable {
+public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
 
     // The distance function in the items space.
-    private DistanceFunction<TItem> distance;
+    private DistanceFunction<TItem, TDistance> distance;
 
     // The hierarchical small world graph instance.
-    private Graph<TItem> graph;
+    private Graph<TItem, TDistance> graph;
 
     /**
      * Initializes a new instance of the {@link SmallWorld} class.
      *
      * @param distance The distance function to use in the small world.
      */
-    public SmallWorld(DistanceFunction<TItem> distance) {
+    public SmallWorld(DistanceFunction<TItem, TDistance> distance) {
         this.distance = distance;
     }
 
@@ -51,7 +52,7 @@ public class SmallWorld<TItem> implements Serializable {
      * @param parameters Parameters of the algorithm.
      */
     public void buildGraph(List<TItem> items, DotNetRandom generator, Parameters parameters) {
-        Graph<TItem> graph = new Graph<>(this.distance, parameters);
+        Graph<TItem, TDistance> graph = new Graph<>(this.distance, parameters);
         graph.build(items, generator);
         this.graph = graph;
     }
@@ -63,7 +64,7 @@ public class SmallWorld<TItem> implements Serializable {
      * @param k The number of nearest neighbours.
      * @return The list of found nearest neighbours.
      */
-    public List<KNNSearchResult<TItem>> knnSearch(TItem item, int k) {
+    public List<KNNSearchResult<TItem, TDistance>> knnSearch(TItem item, int k) {
         return this.graph.kNearest(item, k);
     }
 
@@ -103,11 +104,12 @@ public class SmallWorld<TItem> implements Serializable {
      * Restores a {@link SmallWorld} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
      *
      * @param file file to initialize the small world from
-     * @param <T> The type of items to connect into small world.
+     * @param <TItem> The type of items to connect into small world.
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <T> SmallWorld<T> load(File file) throws IOException {
+    public static <TItem, TDistance extends Comparable<TDistance>> SmallWorld<TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
@@ -115,15 +117,16 @@ public class SmallWorld<TItem> implements Serializable {
      * Restores a {@link SmallWorld} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
      *
      * @param inputStream InputStream to initialize the small world from
-     * @param <T> The type of items to connect into small world.
+     * @param <TItem> The type of items to connect into small world.
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <T> SmallWorld<T> load(InputStream inputStream) throws IOException {
+    public static <TItem, TDistance extends Comparable<TDistance>> SmallWorld<TItem, TDistance> load(InputStream inputStream) throws IOException {
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (SmallWorld<T>) ois.readObject();
+            return (SmallWorld<TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
@@ -281,11 +284,11 @@ public class SmallWorld<TItem> implements Serializable {
     /**
      * Representation of knn search result.
      */
-    static class KNNSearchResult<TItem> implements Serializable {
+    static class KNNSearchResult<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
 
         private int id;
         private TItem item;
-        private float distance;
+        private TDistance distance;
 
         /**
          * Gets the id of the item = rank of the item in source collection.
@@ -318,14 +321,14 @@ public class SmallWorld<TItem> implements Serializable {
         /**
          * Gets the distance between the item and the knn search query.
          */
-        public float getDistance() {
+        public TDistance getDistance() {
             return distance;
         }
 
         /**
          * Sets the distance between the item and the knn search query.
          */
-        public void setDistance(float distance) {
+        public void setDistance(TDistance distance) {
             this.distance = distance;
         }
 

@@ -40,21 +40,22 @@ class Node implements Serializable {
      * The abstract class representing algorithm to control node capacity.
      *
      * @param <TItem> The typeof the items in the small world.
+     * @param <TDistance> The type of the distance in the small world.
      */
-    static abstract class Algorithm<TItem> implements Serializable {
+    static abstract class Algorithm<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
 
         // Gives access to the core of the graph.
-        protected Graph<TItem>.Core graphCore;
+        protected Graph<TItem, TDistance>.Core graphCore;
 
         /// Cache of the distance function between the nodes.
-        protected DistanceFunction<Integer> nodeDistance;
+        protected DistanceFunction<Integer, TDistance> nodeDistance;
 
         /**
          * Initializes a new instance of the {@link Algorithm} class
          *
          * @param graphCore The core of the graph.
          */
-        public Algorithm(Graph<TItem>.Core graphCore) {
+        public Algorithm(Graph<TItem, TDistance>.Core graphCore) {
             this.graphCore = graphCore;
             this.nodeDistance = graphCore::calculateDistance;
         }
@@ -90,7 +91,7 @@ class Node implements Serializable {
          * @return Best nodes selected from the candidates.
          */
         abstract List<Integer> selectBestForConnecting(List<Integer> candidatesIds,
-                                                       TravelingCosts<Integer> travelingCosts,
+                                                       TravelingCosts<Integer, TDistance> travelingCosts,
                                                        int layer);
         /**
          * Get maximum allowed connections for the given level.
@@ -121,7 +122,7 @@ class Node implements Serializable {
         void connect(Node node, Node neighbour, int layer) {
             node.connections.get(layer).add(neighbour.id);
             if (node.connections.get(layer).size() > this.getM(layer)) {
-                TravelingCosts<Integer> travelingCosts = new TravelingCosts<>(this.nodeDistance, node.id);
+                TravelingCosts<Integer, TDistance> travelingCosts = new TravelingCosts<>(this.nodeDistance, node.id);
                 node.connections.set(layer, this.selectBestForConnecting(node.connections.get(layer), travelingCosts, layer));
             }
         }
@@ -132,15 +133,16 @@ class Node implements Serializable {
      * Article: Section 4. Algorithm 3.
      *
      * @param <TItem> The typeof the items in the small world.
+     * @param <TDistance> The type of the distance in the small world.
      */
-    static class Algorithm3<TItem> extends Algorithm<TItem> {
+    static class Algorithm3<TItem, TDistance extends Comparable<TDistance>> extends Algorithm<TItem, TDistance> {
 
         /**
          * Initializes a new instance of the {@link Algorithm3} class.
          *
          * @param graphCore The core of the graph.
          */
-        public Algorithm3(Graph<TItem>.Core graphCore) {
+        public Algorithm3(Graph<TItem, TDistance>.Core graphCore) {
             super(graphCore);
         }
 
@@ -148,7 +150,7 @@ class Node implements Serializable {
          * {@inheritDoc}
          */
         @Override
-        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer> travelingCosts, int layer) {
+        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
             /*
              * q ← this
              * return M nearest elements from C to q
@@ -170,15 +172,16 @@ class Node implements Serializable {
      * Article: Section 4. Algorithm 4.
      *
      * @param <TItem> The typeof the items in the small world.
+     * @param <TDistance> The type of the distance in the small world.
      */
-    static class Algorithm4<TItem> extends Algorithm<TItem> {
+    static class Algorithm4<TItem, TDistance extends Comparable<TDistance>> extends Algorithm<TItem, TDistance> {
 
         /**
          * Initializes a new instance of the {@link Algorithm4} class.
          *
          * @param graphCore The core of the graph.
          */
-        public Algorithm4(Graph<TItem>.Core graphCore) {
+        public Algorithm4(Graph<TItem, TDistance>.Core graphCore) {
             super(graphCore);
         }
 
@@ -186,7 +189,7 @@ class Node implements Serializable {
          * {@inheritDoc}
          */
         @Override
-        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer> travelingCosts, int layer) {
+        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
 
             /*
              * q ← this
@@ -247,7 +250,7 @@ class Node implements Serializable {
                 Integer farestResultId = resultHeap.getBuffer().stream().findFirst().orElse(0);
 
                 if (resultHeap.getBuffer().isEmpty()
-                        || travelingCosts.from(candidateId) < travelingCosts.from(farestResultId)) {
+                        || DistanceUtils.lt(travelingCosts.from(candidateId), travelingCosts.from(farestResultId))) {
                     resultHeap.push(candidateId);
 
                 }  else if (this.graphCore.getParameters().isKeepPrunedConnections()) {

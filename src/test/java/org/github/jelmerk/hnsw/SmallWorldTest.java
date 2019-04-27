@@ -36,15 +36,15 @@ public class SmallWorldTest {
     public void testKnnSearch() {
 
         SmallWorld.Parameters parameters = new SmallWorld.Parameters();
-        SmallWorld<float[]> graph = new SmallWorld<>(CosineDistance::nonOptimized);
+        SmallWorld<float[], Float> graph = new SmallWorld<>(CosineDistance::nonOptimized);
         graph.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 
         for (int i = 0; i < this.vectors.size(); i++) {
 
-            List<SmallWorld.KNNSearchResult<float[]>> result = graph.knnSearch(this.vectors.get(i), 20);
+            List<SmallWorld.KNNSearchResult<float[], Float>> result = graph.knnSearch(this.vectors.get(i), 20);
             result.sort(Comparator.comparing(SmallWorld.KNNSearchResult::getDistance));
 
-            SmallWorld.KNNSearchResult<float[]> best = result.get(0);
+            SmallWorld.KNNSearchResult<float[], Float> best = result.get(0);
 
             assertEquals(20, result.size());
             assertEquals(i, best.getId());
@@ -56,13 +56,13 @@ public class SmallWorldTest {
     @Test
     public void testSerialization() throws Exception {
         SmallWorld.Parameters parameters = new SmallWorld.Parameters();
-        SmallWorld<float[]> original = new SmallWorld<>(CosineDistance::nonOptimized);
+        SmallWorld<float[], Float> original = new SmallWorld<>(CosineDistance::nonOptimized);
         original.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         original.save(baos);
 
-        SmallWorld<float[]> loaded = SmallWorld.load(new ByteArrayInputStream(baos.toByteArray()));
+        SmallWorld<float[], Float> loaded = SmallWorld.load(new ByteArrayInputStream(baos.toByteArray()));
 
         assertEquals(original.print(), loaded.print());
     }

@@ -7,7 +7,7 @@ import java.io.Serializable;
  *
  * @param <Item>
  */
-public interface DistanceFunction<Item> extends Serializable {
+public interface DistanceFunction<Item, TDistance extends Comparable<TDistance>> extends Serializable {
 
     /**
      * Gets the distance between 2 items.
@@ -16,6 +16,6 @@ public interface DistanceFunction<Item> extends Serializable {
      * @param v to item
      * @return The distance between items.
      */
-    float distance(Item u, Item v);
+    TDistance distance(Item u, Item v);
 
 }
