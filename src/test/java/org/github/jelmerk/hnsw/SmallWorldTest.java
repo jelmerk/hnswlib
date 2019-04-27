@@ -35,16 +35,16 @@ public class SmallWorldTest {
     @Test
     public void testKnnSearch() {
 
-        SmallWorld.Parameters parameters = new SmallWorld.Parameters();
+        Parameters parameters = new Parameters();
         SmallWorld<float[], Float> graph = new SmallWorld<>(CosineDistance::nonOptimized);
         graph.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 
         for (int i = 0; i < this.vectors.size(); i++) {
 
-            List<SmallWorld.KNNSearchResult<float[], Float>> result = graph.knnSearch(this.vectors.get(i), 20);
-            result.sort(Comparator.comparing(SmallWorld.KNNSearchResult::getDistance));
+            List<KNNSearchResult<float[], Float>> result = graph.knnSearch(this.vectors.get(i), 20);
+            result.sort(Comparator.comparing(KNNSearchResult::getDistance));
 
-            SmallWorld.KNNSearchResult<float[], Float> best = result.get(0);
+            KNNSearchResult<float[], Float> best = result.get(0);
 
             assertEquals(20, result.size());
             assertEquals(i, best.getId());
@@ -55,7 +55,7 @@ public class SmallWorldTest {
 
     @Test
     public void testSerialization() throws Exception {
-        SmallWorld.Parameters parameters = new SmallWorld.Parameters();
+        Parameters parameters = new Parameters();
         SmallWorld<float[], Float> original = new SmallWorld<>(CosineDistance::nonOptimized);
         original.buildGraph(this.vectors, new DotNetRandom(42), parameters);
 

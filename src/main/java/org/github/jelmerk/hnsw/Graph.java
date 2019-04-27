@@ -26,7 +26,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
     private Searcher searcher;
 
     // The parameters of the world
-    private SmallWorld.Parameters parameters;
+    private Parameters parameters;
 
     /**
      * Initializes a new instance of the {@link Graph} class.
@@ -34,7 +34,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
      * @param distance The distance function.
      * @param parameters The parameters of the world.
      */
-    Graph(DistanceFunction<TItem, TDistance> distance, SmallWorld.Parameters parameters) {
+    Graph(DistanceFunction<TItem, TDistance> distance, Parameters parameters) {
         this.distance = distance;
         this.parameters = parameters;
     }
@@ -42,7 +42,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
     /**
      * Gets the parameters.
      */
-    SmallWorld.Parameters getParameters() {
+    Parameters getParameters() {
         return parameters;
     }
 
@@ -138,7 +138,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
      * @param k The size of the neighbourhood.
      * @return The list of the nearest neighbours.
      */
-    List<SmallWorld.KNNSearchResult<TItem, TDistance>> kNearest(TItem destination, int k) {
+    List<KNNSearchResult<TItem, TDistance>> kNearest(TItem destination, int k) {
 
         DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
             int nodeId = x >= 0 ? x : y;
@@ -165,7 +165,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
 
         return resultIds.stream()
                 .map(id -> {
-                    SmallWorld.KNNSearchResult<TItem, TDistance> result = new SmallWorld.KNNSearchResult<>();
+                    KNNSearchResult<TItem, TDistance> result = new KNNSearchResult<>();
                     result.setId(id);
                     result.setItem(this.core.getItems().get(id));
                     result.setDistance(runtimeDistance.distance(id,  -1));
@@ -234,7 +234,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         private DistanceCache<TDistance> distanceCache;
 
         // The parameters of the world.
-        private SmallWorld.Parameters parameters;
+        private Parameters parameters;
 
         // The original items.
         private List<TItem> items;
@@ -250,7 +250,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          * @param parameters The parameters of the world.
          * @param items The original items.
          */
-        Core(DistanceFunction<TItem, TDistance> distance, SmallWorld.Parameters parameters, List<TItem> items) {
+        Core(DistanceFunction<TItem, TDistance> distance, Parameters parameters, List<TItem> items) {
             this.distance = distance;
             this.parameters = parameters;
             this.items = items;
@@ -293,7 +293,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         /**
          * Gets parameters of the small world.
          */
-        SmallWorld.Parameters getParameters() {
+        Parameters getParameters() {
             return parameters;
         }
 
