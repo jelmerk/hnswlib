@@ -13,7 +13,6 @@ public class Parameters implements Serializable {
     private int constructionPruning;
     private boolean expandBestSelection;
     private boolean keepPrunedConnections;
-    private boolean enableDistanceCacheForConstruction;
 
     /**
      * Initializes a new instance of the {@link Parameters} class.
@@ -25,7 +24,6 @@ public class Parameters implements Serializable {
         this.constructionPruning = 200;
         this.expandBestSelection = false;
         this.keepPrunedConnections = true;
-        this.enableDistanceCacheForConstruction = true;
     }
 
     /**
@@ -136,17 +134,4 @@ public class Parameters implements Serializable {
         this.keepPrunedConnections = keepPrunedConnections;
     }
 
-    /**
-     * Gets a value indicating whether to cache calculated distances at graph construction time.
-     */
-    public boolean isEnableDistanceCacheForConstruction() {
-        return enableDistanceCacheForConstruction;
-    }
-
-    /**
-     * Sets a value indicating whether to cache calculated distances at graph construction time.
-     */
-    public void setEnableDistanceCacheForConstruction(boolean enableDistanceCacheForConstruction) {
-        this.enableDistanceCacheForConstruction = enableDistanceCacheForConstruction;
-    }
 }

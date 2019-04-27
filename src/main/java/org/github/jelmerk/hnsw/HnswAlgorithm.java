@@ -11,7 +11,6 @@ import java.util.List;
 public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
         implements NearestNeighboursAlgorithm<TItem, TDistance> {
 
-
     private final DotNetRandom random;
     private final Parameters parameters;
     private final DistanceFunction<TItem, TDistance> distanceFunction;

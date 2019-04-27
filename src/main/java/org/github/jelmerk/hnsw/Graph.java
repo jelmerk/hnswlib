@@ -230,9 +230,6 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
         // The original distance function.
         private DistanceFunction<TItem, TDistance> distance;
 
-        // The distance cache.
-        private DistanceCache<TDistance> distanceCache;
-
         // The parameters of the world.
         private Parameters parameters;
 
@@ -262,10 +259,6 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
                 case SELECT_HEURISTIC:
                     this.algorithm = new Node.Algorithm4<>(this);
                     break;
-            }
-
-            if (this.parameters.isEnableDistanceCacheForConstruction()) {
-                this.distanceCache = new DistanceCache<>(this.items.size());
             }
         }
 
@@ -326,18 +319,7 @@ class Graph<TItem, TDistance extends Comparable<TDistance>> implements Serializa
          * @return The distance between items.
          */
         TDistance calculateDistance(int fromId, int toId) {
-            TDistance result = null;
-            if (distanceCache != null) {
-                result = this.distanceCache.tryGetValue(fromId, toId);
-            }
-
-            if (result == null) {
-                result = this.distance.distance(this.getItems().get(fromId), this.getItems().get(toId));
-                if (result != null && this.distanceCache != null) {
-                    this.distanceCache.setValue(fromId, toId, result);
-                }
-            }
-            return result;
+            return this.distance.distance(this.getItems().get(fromId), this.getItems().get(toId));
         }
 
 
