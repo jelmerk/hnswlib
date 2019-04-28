@@ -10,6 +10,8 @@ import java.util.*;
  * @param <TItem> The type of items to connect into small world.
  * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
  */
+
+// TODO kill off this class i guess, it does very little
 public class SmallWorld<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
 
     // The distance function in the items space.

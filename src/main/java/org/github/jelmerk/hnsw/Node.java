@@ -67,6 +67,8 @@ class Node implements Serializable {
          * @param maxLayer The max layer where the node is presented.
          * @return The new instance.
          */
+
+        // TODO should this be in algorithm ?? since its the same for both
         protected Node newNode(int nodeId, int maxLayer) {
             List<List<Integer>> connections = new ArrayList<>(maxLayer + 1);
             for (int layer = 0; layer <= maxLayer; layer++) {
