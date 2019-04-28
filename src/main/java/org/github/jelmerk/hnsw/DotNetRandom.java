@@ -1,6 +1,8 @@
 package org.github.jelmerk.hnsw;
 
-public class DotNetRandom {
+import java.io.Serializable;
+
+public class DotNetRandom implements Serializable {
     private static final int MBIG = Integer.MAX_VALUE;
     private static final int MSEED = 161803398;
 
