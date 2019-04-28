@@ -8,7 +8,9 @@ import java.util.List;
 
 public interface NearestNeighboursAlgorithm<TItem, TDistance extends Comparable<TDistance>> {
 
-    void addPoint(TItem item);
+    TItem getItemById(int id);
+
+    int addItem(TItem item);
 
     List<SearchResult<TItem, TDistance>> search(TItem item, int k);
 

@@ -5,6 +5,8 @@ import java.io.Serializable;
 /**
  * Parameters of the algorithm.
  */
+
+// TODO lets see if we can make this class immutable i dont think it makes sense to have a getter for parameters on algorithm and have it be mutable
 public class Parameters implements Serializable {
 
     private int m;

@@ -6,7 +6,7 @@ import java.util.*;
 /**
  * The implementation of the node in hnsw graph.
  */
-class Node implements Serializable {
+class NodeNew implements Serializable {
 
     private int id;
 
@@ -42,22 +42,22 @@ class Node implements Serializable {
      * @param <TItem> The typeof the items in the small world.
      * @param <TDistance> The type of the distance in the small world.
      */
-    static abstract class Algorithm<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
+    static abstract class AlgorithmNew<TItem, TDistance extends Comparable<TDistance>> implements Serializable {
 
         // Gives access to the core of the graph.
-        protected Graph<TItem, TDistance>.Core graphCore;
+        protected HnswAlgorithm<TItem, TDistance> algorithm;
 
         /// Cache of the distance function between the nodes.
         protected DistanceFunction<Integer, TDistance> nodeDistance;
 
         /**
-         * Initializes a new instance of the {@link Algorithm} class
+         * Initializes a new instance of the {@link AlgorithmNew} class
          *
-         * @param graphCore The core of the graph.
+         * @param algorithm The algorithm.
          */
-        public Algorithm(Graph<TItem, TDistance>.Core graphCore) {
-            this.graphCore = graphCore;
-            this.nodeDistance = graphCore::calculateDistance;
+        public AlgorithmNew(HnswAlgorithm<TItem, TDistance> algorithm) {
+            this.algorithm = algorithm;
+            this.nodeDistance = algorithm::calculateDistance; // TODO do i really want to reference this method in algorithm like this here ?
         }
 
         /**
@@ -69,7 +69,7 @@ class Node implements Serializable {
          */
 
         // TODO should this be in algorithm ?? since its the same for both
-        protected Node newNode(int nodeId, int maxLayer) {
+        protected NodeNew newNode(int nodeId, int maxLayer) {
             List<List<Integer>> connections = new ArrayList<>(maxLayer + 1);
             for (int layer = 0; layer <= maxLayer; layer++) {
                 // M + 1 neighbours to not realloc in addConnection when the level is full
@@ -77,7 +77,7 @@ class Node implements Serializable {
                 connections.add(new ArrayList<>(layerM));
             }
 
-            Node node = new Node();
+            NodeNew node = new NodeNew();
             node.id = nodeId;
             node.connections = connections;
 
@@ -111,7 +111,7 @@ class Node implements Serializable {
          * @return The maximum number of connections.
          */
         int getM(int layer) {
-            return layer == 0 ? 2 * this.graphCore.getParameters().getM() : this.graphCore.getParameters().getM();
+            return layer == 0 ? 2 * this.algorithm.getParameters().getM() : this.algorithm.getParameters().getM();
         }
 
         /**
@@ -121,7 +121,7 @@ class Node implements Serializable {
          * @param neighbour The new neighbour.
          * @param layer The layer to add neighbour to.
          */
-        void connect(Node node, Node neighbour, int layer) {
+        void connect(NodeNew node, NodeNew neighbour, int layer) {
             node.connections.get(layer).add(neighbour.id);
             if (node.connections.get(layer).size() > this.getM(layer)) {
                 TravelingCosts<Integer, TDistance> travelingCosts = new TravelingCosts<>(this.nodeDistance, node.id);
@@ -137,15 +137,15 @@ class Node implements Serializable {
      * @param <TItem> The typeof the items in the small world.
      * @param <TDistance> The type of the distance in the small world.
      */
-    static class Algorithm3<TItem, TDistance extends Comparable<TDistance>> extends Algorithm<TItem, TDistance> {
+    static class Algorithm3New<TItem, TDistance extends Comparable<TDistance>> extends AlgorithmNew<TItem, TDistance> {
 
         /**
-         * Initializes a new instance of the {@link Algorithm3} class.
+         * Initializes a new instance of the {@link Algorithm3New} class.
          *
-         * @param graphCore The core of the graph.
+         * @param algorithm The algorithm.
          */
-        public Algorithm3(Graph<TItem, TDistance>.Core graphCore) {
-            super(graphCore);
+        public Algorithm3New(HnswAlgorithm<TItem, TDistance> algorithm) {
+            super(algorithm);
         }
 
         /**
@@ -176,15 +176,15 @@ class Node implements Serializable {
      * @param <TItem> The typeof the items in the small world.
      * @param <TDistance> The type of the distance in the small world.
      */
-    static class Algorithm4<TItem, TDistance extends Comparable<TDistance>> extends Algorithm<TItem, TDistance> {
+    static class Algorithm4New<TItem, TDistance extends Comparable<TDistance>> extends AlgorithmNew<TItem, TDistance> {
 
         /**
-         * Initializes a new instance of the {@link Algorithm4} class.
+         * Initializes a new instance of the {@link Algorithm4New} class.
          *
-         * @param graphCore The core of the graph.
+         * @param algorithm The algorithm.
          */
-        public Algorithm4(Graph<TItem, TDistance>.Core graphCore) {
-            super(graphCore);
+        public Algorithm4New(HnswAlgorithm<TItem, TDistance> algorithm) {
+            super(algorithm);
         }
 
         /**
@@ -227,13 +227,13 @@ class Node implements Serializable {
             BinaryHeap<Integer> candidatesHeap = new BinaryHeap<>(candidatesIds, closerIsOnTop);
 
             // expand candidates option is enabled
-            if (this.graphCore.getParameters().isExpandBestSelection()) {
+            if (this.algorithm.getParameters().isExpandBestSelection()) {
 
                 Set<Integer> visited = new HashSet<>(candidatesHeap.getBuffer());
 
                 for (Integer candidateId: candidatesHeap.getBuffer()) {
 
-                    for(Integer candidateNeighbourId : this.graphCore.getNodes().get(candidateId).getConnections(layer)) {
+                    for(Integer candidateNeighbourId : this.algorithm.getNodeById(candidateId).getConnections(layer)) {
 
                         if (!visited.contains(candidateNeighbourId)) {
                             candidatesHeap.push(candidateNeighbourId);
@@ -255,13 +255,13 @@ class Node implements Serializable {
                         || DistanceUtils.lt(travelingCosts.from(candidateId), travelingCosts.from(farestResultId))) {
                     resultHeap.push(candidateId);
 
-                }  else if (this.graphCore.getParameters().isKeepPrunedConnections()) {
+                }  else if (this.algorithm.getParameters().isKeepPrunedConnections()) {
                     discardedHeap.push(candidateId);
                 }
             }
 
             // keep pruned option is enabled
-            if (this.graphCore.getParameters().isKeepPrunedConnections()) {
+            if (this.algorithm.getParameters().isKeepPrunedConnections()) {
                 while (!discardedHeap.getBuffer().isEmpty() && resultHeap.getBuffer().size() < layerM) {
                     resultHeap.push(discardedHeap.pop());
                 }

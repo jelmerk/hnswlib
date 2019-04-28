@@ -6,16 +6,16 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>> {
 
     private final TItem item;
 
-    public SearchResult(TDistance distance, TItem item) {
-        this.distance = distance;
+    public SearchResult( TItem item, TDistance distance) {
         this.item = item;
-    }
-
-    public TDistance getDistance() {
-        return distance;
+        this.distance = distance;
     }
 
     public TItem getItem() {
         return item;
+    }
+
+    public TDistance getDistance() {
+        return distance;
     }
 }
