@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 
-public class HnswAlgoritmTest {
+public class HnswIndexTest {
 
     private float floatError = 0.000000596f;
 
@@ -40,15 +40,15 @@ public class HnswAlgoritmTest {
 
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
-        HnswAlgorithm<float[], Float> graph = new HnswAlgorithm<>(random, parameters, CosineDistance::nonOptimized);
+        HnswIndex<float[], Float> index = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
 
         for (float[] vector : vectors) {
-            graph.addItem(vector);
+            index.add(vector);
         }
 
         for (int i = 0; i < this.vectors.size(); i++) {
 
-            List<SearchResult<float[], Float>> result = graph.search(this.vectors.get(i), 20);
+            List<SearchResult<float[], Float>> result = index.search(this.vectors.get(i), 20);
             result.sort(Comparator.comparing(SearchResult::getDistance));
 
             SearchResult<float[], Float> best = result.get(0);
@@ -64,15 +64,15 @@ public class HnswAlgoritmTest {
     public void testSerialization() throws Exception {
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
-        HnswAlgorithm<float[], Float> original = new HnswAlgorithm<>(random, parameters, CosineDistance::nonOptimized);
+        HnswIndex<float[], Float> original = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
         for (float[] vector : vectors) {
-            original.addItem(vector);
+            original.add(vector);
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        original.saveIndex(baos);
+        original.save(baos);
 
-        HnswAlgorithm<float[], Float> loaded = HnswAlgorithm.load(new ByteArrayInputStream(baos.toByteArray()));
+        HnswIndex<float[], Float> loaded = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
 
         assertEquals(original.print(), loaded.print());
     }

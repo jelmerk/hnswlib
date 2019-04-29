@@ -1,7 +1,7 @@
 package org.github.jelmerk.hnsw;
 
 
-import org.github.jelmerk.NearestNeighboursAlgorithm;
+import org.github.jelmerk.Index;
 import org.github.jelmerk.SearchResult;
 
 import java.io.*;
@@ -9,8 +9,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
-        implements NearestNeighboursAlgorithm<TItem, TDistance>, Serializable {
+public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
+        implements Index<TItem, TDistance>, Serializable {
 
     private final DotNetRandom random;
     private final Parameters parameters;
@@ -22,15 +22,15 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
 
     private NodeNew entryPoint = null;
 
-    public HnswAlgorithm(Parameters parameters,
-                         DistanceFunction<TItem, TDistance> distanceFunction) {
+    public HnswIndex(Parameters parameters,
+                     DistanceFunction<TItem, TDistance> distanceFunction) {
 
         this(new DotNetRandom(), parameters, distanceFunction);
     }
 
-    public HnswAlgorithm(DotNetRandom random,
-                         Parameters parameters,
-                         DistanceFunction<TItem, TDistance> distanceFunction) {
+    public HnswIndex(DotNetRandom random,
+                     Parameters parameters,
+                     DistanceFunction<TItem, TDistance> distanceFunction) {
 
         this.random = random;
         this.parameters = parameters;
@@ -48,12 +48,7 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
     }
 
     @Override
-    public TItem getItemById(int id) {
-        return this.items.get(id);
-    }
-
-    @Override
-    public int addItem(TItem item) {
+    public int add(TItem item) {
 
         NodeNew newNode;
         synchronized (items) {
@@ -177,14 +172,14 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
     }
 
     @Override
-    public void saveIndex(OutputStream out) throws IOException {
+    public void save(OutputStream out) throws IOException {
         try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
             oos.writeObject(this);
         }
     }
 
     /**
-     * Restores a {@link HnswAlgorithm} instance from a file created by invoking the {@link HnswAlgorithm#saveIndex(File)} method.
+     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(File)} method.
      *
      * @param file file to initialize the small world from
      * @param <TItem> The type of items to connect into small world.
@@ -192,12 +187,12 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <TItem, TDistance extends Comparable<TDistance>> HnswAlgorithm<TItem, TDistance> load(File file) throws IOException {
+    public static <TItem, TDistance extends Comparable<TDistance>> HnswIndex<TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
     /**
-     * Restores a {@link HnswAlgorithm} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
+     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
      *
      * @param inputStream InputStream to initialize the small world from
      * @param <TItem> The type of items to connect into small world.
@@ -207,9 +202,9 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <TItem, TDistance extends Comparable<TDistance>> HnswAlgorithm<TItem, TDistance> load(InputStream inputStream) throws IOException {
+    public static <TItem, TDistance extends Comparable<TDistance>> HnswIndex<TItem, TDistance> load(InputStream inputStream) throws IOException {
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (HnswAlgorithm<TItem, TDistance>) ois.readObject();
+            return (HnswIndex<TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
@@ -250,8 +245,7 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
 
 
         // prepare tools
-        Comparator<Integer> fartherIsOnTop = targetCosts;
-        Comparator<Integer> closerIsOnTop = fartherIsOnTop.reversed();
+        Comparator<Integer> closerIsOnTop = targetCosts.reversed();
 
         // prepare collections
 
@@ -260,7 +254,7 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
         VisitedBitSet visitedSet = new VisitedBitSet(nodes.size()); // TODO synchronize
 
         // TODO: Optimize by providing buffers
-        BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, fartherIsOnTop);
+        BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, targetCosts);
         BinaryHeap<Integer> expansionHeap = new BinaryHeap<>(expansionBuffer, closerIsOnTop);
 
         resultHeap.push(entryPointId);
@@ -431,7 +425,7 @@ public class HnswAlgorithm<TItem, TDistance extends Comparable<TDistance>>
          *
          */
         AlgorithmNew() {
-            this.nodeDistance = HnswAlgorithm.this::calculateDistance; // TODO do i really want to reference this method in algorithm like this here ?
+            this.nodeDistance = HnswIndex.this::calculateDistance; // TODO do i really want to reference this method in algorithm like this here ?
         }
 
         /**
