@@ -49,43 +49,34 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         this.globalLock = new ReentrantLock();
 
-        this.items = new ArrayList<>();
-        this.nodes = new ArrayList<>();
+        this.items = Collections.synchronizedList(new ArrayList<>());
+        this.nodes = Collections.synchronizedList(new ArrayList<>());
     }
 
     @Override
     public int add(TItem item) {
 
-        NodeNew newNode;
-        int currentLevel;
+        int id;
         synchronized (items) {
             items.add(item);
-
-            int nodeId = items.size() - 1;
-
-            synchronized (nodes) {
-                currentLevel = randomLayer(random, this.parameters.getLevelLambda());
-                newNode = this.algorithm.newNode(nodeId, currentLevel);
-                nodes.add(newNode);
-            }
+            id = items.size() - 1;
         }
 
+        NodeNew newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
+        nodes.add(newNode);
 
+        // TODO i guess we need to sync this somehow too
         if (this.entryPoint == null) {
             this.entryPoint = newNode;
         }
 
-
         int maxlevelcopy = maxLevel;
 
-        if (currentLevel > maxlevelcopy) {
+        if (newNode.getMaxLayer() > maxlevelcopy) {
             globalLock.lock();
         }
 
         try {
-
-            // TODO we need to unlock it somewhere else  if we add a level
-
 
             // zoom in and find the best peer on the same level as newNode
             NodeNew bestPeer = this.entryPoint;
@@ -121,7 +112,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             for (int layer = bestPeer.getMaxLayer(); layer > currentNode.getMaxLayer(); layer--) {
                 runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-                bestPeer = nodes.get(neighboursIdsBuffer.get(0)); // todo synchronize
+                bestPeer = nodes.get(neighboursIdsBuffer.get(0));
                 neighboursIdsBuffer.clear();
             }
 
@@ -133,13 +124,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
                 for (int newNeighbourId : bestNeighboursIds) {
 
-                    // TODO this also mutates stuff so we need to sync
-                    algorithm.connect(currentNode, nodes.get(newNeighbourId), layer); // TODO synchronize
-                    algorithm.connect(nodes.get(newNeighbourId), currentNode, layer); // TODO synchronize
+                    NodeNew neighbourNode = nodes.get(newNeighbourId);
+
+                    algorithm.connect(currentNode, neighbourNode, layer);
+                    algorithm.connect(neighbourNode, currentNode, layer);
 
                     // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
                     if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeer.getId()))) {
-                        bestPeer = nodes.get(newNeighbourId);
+                        bestPeer = neighbourNode;
                     }
                 }
 
@@ -149,7 +141,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             // zoom out to the highest level
             if (currentNode.getMaxLayer() > entryPoint.getMaxLayer()) {
                 this.entryPoint = currentNode;
-                this.maxLevel = currentLevel;
+                this.maxLevel = newNode.getMaxLayer();
             }
 
             return newNode.getId();
@@ -169,7 +161,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             return this.distanceFunction.distance(destination, this.items.get(nodeId));
         };
 
-        NodeNew bestPeer = this.entryPoint;
+        int bestPeerId = this.entryPoint.getId();
         // TODO: hack we know that destination id is -1.
 
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
@@ -180,12 +172,12 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
         List<Integer> resultIds = new ArrayList<>(k + 1);
 
         for (int layer = this.entryPoint.getMaxLayer(); layer > 0; layer--) {
-            runKnnAtLayer(bestPeer.getId(), destinationTravelingCosts, resultIds, layer, 1);
-            bestPeer = this.nodes.get(resultIds.get(0));
+            runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
+            bestPeerId = resultIds.get(0);
             resultIds.clear();
         }
 
-        runKnnAtLayer(bestPeer.getId(), destinationTravelingCosts, resultIds, 0, k);
+        runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
 
         return resultIds.stream()
                 .map(id -> {
@@ -274,9 +266,10 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         // prepare collections
 
-        // TODO these where instance variables that originally got reused in searcher
+        // TODO these where instance variables that originally got reused in searcher and since this visited bitset creates a giant array this is not great
+
         List<Integer> expansionBuffer = new ArrayList<>();
-        VisitedBitSet visitedSet = new VisitedBitSet(nodes.size()); // TODO synchronize
+        VisitedBitSet visitedSet = new VisitedBitSet(nodes.size());
 
         // TODO: Optimize by providing buffers
         BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, targetCosts);
@@ -300,7 +293,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
             NodeNew node = this.nodes.get(toExpandId);
 
-            List<Integer> neighboursIds = node.getConnections(layer); // TODO synchronize
+            List<Integer> neighboursIds = node.getConnections(layer);
             for (Integer neighbourId : neighboursIds) {
                 if (!visitedSet.contains(neighbourId)) {
                     // enqueue perspective neighbours to expansion list
@@ -376,16 +369,9 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
      */
     TDistance calculateDistance(int fromId, int toId) {
 
-        // TODO make items a synchronized list ??
+        TItem fromItem = this.items.get(fromId);
+        TItem toItem = this.items.get(toId);
 
-        TItem fromItem;
-        TItem toItem;
-
-        synchronized (items) {
-            fromItem = this.items.get(fromId);
-            toItem = this.items.get(toId);
-
-        }
         return this.distanceFunction.distance(fromItem, toItem);
     }
 

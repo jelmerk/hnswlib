@@ -58,6 +58,9 @@ public class HnswIndexTest {
             assertEquals(0, best.getDistance(), floatError);
         }
 
+        System.out.println(index.print());
+
+
     }
 
     @Test
