@@ -6,6 +6,7 @@ import org.github.jelmerk.SearchResult;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -21,6 +22,9 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     private final AlgorithmNew algorithm;
 
     private NodeNew entryPoint = null;
+    private int maxLevel = -1;
+
+    private ReentrantLock globalLock;
 
     public HnswIndex(Parameters parameters,
                      DistanceFunction<TItem, TDistance> distanceFunction) {
@@ -43,6 +47,8 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             this.algorithm = new Algorithm4New();
         }
 
+        this.globalLock = new ReentrantLock();
+
         this.items = new ArrayList<>();
         this.nodes = new ArrayList<>();
     }
@@ -51,13 +57,15 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     public int add(TItem item) {
 
         NodeNew newNode;
+        int currentLevel;
         synchronized (items) {
             items.add(item);
 
             int nodeId = items.size() - 1;
 
             synchronized (nodes) {
-                newNode = this.algorithm.newNode(nodeId, randomLayer(random, this.parameters.getLevelLambda()));
+                currentLevel = randomLayer(random, this.parameters.getLevelLambda());
+                newNode = this.algorithm.newNode(nodeId, currentLevel);
                 nodes.add(newNode);
             }
         }
@@ -68,12 +76,23 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
         }
 
 
-        // zoom in and find the best peer on the same level as newNode
-        NodeNew bestPeer = this.entryPoint;
-        NodeNew currentNode = newNode;
+        int maxlevelcopy = maxLevel;
+
+        if (currentLevel > maxlevelcopy) {
+            globalLock.lock();
+        }
+
+        try {
+
+            // TODO we need to unlock it somewhere else  if we add a level
 
 
-        List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
+            // zoom in and find the best peer on the same level as newNode
+            NodeNew bestPeer = this.entryPoint;
+            NodeNew currentNode = newNode;
+
+
+            List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
 
 
 //            /*
@@ -97,42 +116,48 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 //             *   set enter point for hnsw to q
 //             */
 
-        // zoom in and find the best peer on the same level as newNode
-        TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
-        for (int layer = bestPeer.getMaxLayer(); layer > currentNode.getMaxLayer(); layer--) {
-            runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
+            // zoom in and find the best peer on the same level as newNode
+            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
+            for (int layer = bestPeer.getMaxLayer(); layer > currentNode.getMaxLayer(); layer--) {
+                runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-            bestPeer = nodes.get(neighboursIdsBuffer.get(0)); // todo synchronize
-            neighboursIdsBuffer.clear();
-        }
-
-
-        // connecting new node to the small world
-        for (int layer = Math.min(currentNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
-            runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
-            List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
-
-            for (int newNeighbourId : bestNeighboursIds) {
-
-                // TODO this also mutates stuff so we need to sync
-                algorithm.connect(currentNode, nodes.get(newNeighbourId), layer); // TODO synchronize
-                algorithm.connect(nodes.get(newNeighbourId), currentNode, layer); // TODO synchronize
-
-                // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
-                if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeer.getId()))) {
-                    bestPeer = nodes.get(newNeighbourId);
-                }
+                bestPeer = nodes.get(neighboursIdsBuffer.get(0)); // todo synchronize
+                neighboursIdsBuffer.clear();
             }
 
-            neighboursIdsBuffer.clear();
-        }
 
-        // zoom out to the highest level
-        if (currentNode.getMaxLayer() > entryPoint.getMaxLayer()) {
-            this.entryPoint = currentNode;
-        }
+            // connecting new node to the small world
+            for (int layer = Math.min(currentNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
+                runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
+                List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
-        return newNode.getId();
+                for (int newNeighbourId : bestNeighboursIds) {
+
+                    // TODO this also mutates stuff so we need to sync
+                    algorithm.connect(currentNode, nodes.get(newNeighbourId), layer); // TODO synchronize
+                    algorithm.connect(nodes.get(newNeighbourId), currentNode, layer); // TODO synchronize
+
+                    // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
+                    if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeer.getId()))) {
+                        bestPeer = nodes.get(newNeighbourId);
+                    }
+                }
+
+                neighboursIdsBuffer.clear();
+            }
+
+            // zoom out to the highest level
+            if (currentNode.getMaxLayer() > entryPoint.getMaxLayer()) {
+                this.entryPoint = currentNode;
+                this.maxLevel = currentLevel;
+            }
+
+            return newNode.getId();
+        } finally {
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
+        }
     }
 
     @Override
@@ -272,7 +297,10 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             }
 
             // expand candidate
-            List<Integer> neighboursIds = this.nodes.get(toExpandId).getConnections(layer); // TODO synchronize
+
+            NodeNew node = this.nodes.get(toExpandId);
+
+            List<Integer> neighboursIds = node.getConnections(layer); // TODO synchronize
             for (Integer neighbourId : neighboursIds) {
                 if (!visitedSet.contains(neighbourId)) {
                     // enqueue perspective neighbours to expansion list
