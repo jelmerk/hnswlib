@@ -70,14 +70,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             this.entryPoint = newNode;
         }
 
-        if (newNode.getMaxLayer() <= entryPoint.getMaxLayer()) {
+        if (newNode.maxLayer() <= entryPoint.maxLayer()) {
             globalLock.unlock();
         }
 
         try {
 
             // zoom in and find the best peer on the same level as newNode
-            int bestPeerId = this.entryPoint.getId();
+            int bestPeerId = this.entryPoint.id;
 
 
             List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
@@ -105,7 +105,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 //             */
 
             // zoom in and find the best peer on the same level as newNode
-            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
+            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
 
             // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
             // TODO JK: should we lock the entire layer ??
@@ -113,7 +113,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             // TODO JK: the original c++ implementation short circuits this loop if thee bestp0eer does not change
             // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
 
-            for (int layer = entryPoint.getMaxLayer(); layer > newNode.getMaxLayer(); layer--) {
+            for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
                 runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
                 int candidateBestPeerId = neighboursIdsBuffer.get(0);
@@ -127,7 +127,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             }
 
             // connecting new node to the small world
-            for (int layer = Math.min(newNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
+            for (int layer = Math.min(newNode.maxLayer(), entryPoint.maxLayer()); layer >= 0; layer--) {
                 runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
                 List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
@@ -140,7 +140,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
                     // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
                     if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
-                        bestPeerId = neighbourNode.getId();
+                        bestPeerId = neighbourNode.id;
                     }
                 }
 
@@ -148,12 +148,12 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             }
 
             // zoom out to the highest level
-            if (newNode.getMaxLayer() > entryPoint.getMaxLayer()) {
+            if (newNode.maxLayer() > entryPoint.maxLayer()) {
                 // JK: this is thread safe because we get the global lock when we add a level
                 this.entryPoint = newNode;
             }
 
-            return newNode.getId();
+            return newNode.id;
         } finally {
             if (globalLock.isHeldByCurrentThread()) {
                 globalLock.unlock();
@@ -170,7 +170,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             return this.distanceFunction.distance(destination, this.items.get(nodeId));
         };
 
-        int bestPeerId = this.entryPoint.getId();
+        int bestPeerId = this.entryPoint.id;
         // TODO: hack we know that destination id is -1.
 
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
@@ -180,7 +180,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
 
-        for (int layer = this.entryPoint.getMaxLayer(); layer > 0; layer--) {
+        for (int layer = this.entryPoint.maxLayer(); layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
 
             int candidateBestPeerId = resultIds.get(0);
@@ -309,7 +309,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
             NodeNew node = this.nodes.get(toExpandId);
 
-            List<Integer> neighboursIds = node.getConnections(layer);
+            List<Integer> neighboursIds = node.connections.get(layer);
             for (Integer neighbourId : neighboursIds) {
                 if (!visitedSet.contains(neighbourId)) {
                     // enqueue perspective neighbours to expansion list
@@ -338,14 +338,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
      */
     public String print() {
         StringBuilder buffer = new StringBuilder();
-        for (int layer = this.entryPoint.getMaxLayer(); layer >= 0; --layer) {
+        for (int layer = this.entryPoint.maxLayer(); layer >= 0; --layer) {
             buffer.append(String.format("[LEVEL %s]%n", layer));
             int finalLevel = layer;
 
             bfs(this.entryPoint, layer, node -> {
-                String neighbours = node.getConnections(finalLevel).stream().map(String::valueOf)
+                String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
                         .collect(Collectors.joining(","));
-                buffer.append(String.format("(%d) -> {%s}%n", node.getId(), neighbours));
+                buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
             });
             buffer.append(String.format("%n"));
         }
@@ -363,15 +363,15 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     private void bfs(NodeNew entryPoint, int layer, Consumer<NodeNew> visitConsumer) {
 
         Set<Integer> visitedIds = new HashSet<>();
-        Queue<Integer> expansionQueue = new LinkedList<>(Collections.singleton(entryPoint.getId()));
+        Queue<Integer> expansionQueue = new LinkedList<>(Collections.singleton(entryPoint.id));
 
         while (!expansionQueue.isEmpty()) {
 
             NodeNew currentNode = nodes.get(expansionQueue.remove());
-            if (!visitedIds.contains(currentNode.getId())) {
+            if (!visitedIds.contains(currentNode.id)) {
                 visitConsumer.accept(currentNode);
-                visitedIds.add(currentNode.getId());
-                expansionQueue.addAll(currentNode.getConnections(layer));
+                visitedIds.add(currentNode.id);
+                expansionQueue.addAll(currentNode.connections.get(layer));
             }
         }
     }
@@ -415,30 +415,11 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
         private List<List<Integer>> connections; // TODO JK i think this can be changed to an array of primitive int's since this size is pretty fixed
 
         /**
-         * Gets the identifier of the node.
-         */
-        public int getId() {
-            return id;
-        }
-
-        /**
          * Gets the max layer where the node is presented.
          */
-        public int getMaxLayer() {
+        public int maxLayer() {
             return this.connections.size() - 1;
         }
-
-        /**
-         * Gets connections ids of the node at the given layer.
-         *
-         * @param layer The layer to get connections at.
-         * @return The connections of the node at the given layer.
-         */
-        public List<Integer> getConnections(int layer) {
-            return Collections.unmodifiableList(this.connections.get(layer));
-        }
-
-
     }
 
 
@@ -611,7 +592,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
                 for (Integer candidateId: candidatesHeap.getBuffer()) {
 
 
-                    for(Integer candidateNeighbourId : nodes.get(candidateId).getConnections(layer)) {
+                    for(Integer candidateNeighbourId : nodes.get(candidateId).connections.get(layer)) {
 
                         if (!visited.contains(candidateNeighbourId)) {
                             candidatesHeap.push(candidateNeighbourId);
