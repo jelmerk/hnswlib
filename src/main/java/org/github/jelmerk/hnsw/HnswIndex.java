@@ -110,7 +110,6 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
             // TODO JK: should we lock the entire layer ??
 
-            // TODO JK: the original c++ implementation short circuits this loop if thee bestp0eer does not change
             // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
 
             for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
@@ -118,12 +117,13 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
                 int candidateBestPeerId = neighboursIdsBuffer.get(0);
 
+                neighboursIdsBuffer.clear();
+
                 if (bestPeerId == candidateBestPeerId) {
                     break;
                 }
 
                 bestPeerId = candidateBestPeerId;
-                neighboursIdsBuffer.clear();
             }
 
             // connecting new node to the small world
@@ -185,12 +185,13 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
             int candidateBestPeerId = resultIds.get(0);
 
+            resultIds.clear();
+
             if (bestPeerId == candidateBestPeerId) {
                 break;
             }
 
             bestPeerId = candidateBestPeerId;
-            resultIds.clear();
         }
 
         runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
