@@ -64,13 +64,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
         NodeNew newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
         nodes.add(newNode);
 
-        // TODO i guess we need to sync this somehow too
+        globalLock.lock();
+
         if (this.entryPoint == null) {
             this.entryPoint = newNode;
         }
 
-        if (newNode.getMaxLayer() > entryPoint.getMaxLayer()) {
-            globalLock.lock();
+        if (newNode.getMaxLayer() <= entryPoint.getMaxLayer()) {
+            globalLock.unlock();
         }
 
         try {
@@ -104,11 +105,17 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 //             */
 
             // zoom in and find the best peer on the same level as newNode
-
-            // TODO i dont think we need objects here either
             TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
+
+            // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
+            // TODO JK: should we lock the entire layer ??
+
+            // TODO JK: the original c++ implementation short circuits this loop if thee bestp0eer does not change
+            // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
+
             for (int layer = entryPoint.getMaxLayer(); layer > newNode.getMaxLayer(); layer--) {
                 runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
+
 
                 bestPeerId = neighboursIdsBuffer.get(0);
                 neighboursIdsBuffer.clear();
@@ -124,8 +131,8 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
                     NodeNew neighbourNode = nodes.get(newNeighbourId);
 
-                    algorithm.connect(newNode, neighbourNode, layer);
-                    algorithm.connect(neighbourNode, newNode, layer);
+                    algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
+                    algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
 
                     // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
                     if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
@@ -138,6 +145,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
             // zoom out to the highest level
             if (newNode.getMaxLayer() > entryPoint.getMaxLayer()) {
+                // JK: this is thread safe because we get the global lock when we add a level
                 this.entryPoint = newNode;
             }
 
