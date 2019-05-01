@@ -22,7 +22,6 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     private final AlgorithmNew algorithm;
 
     private NodeNew entryPoint = null;
-    private int maxLevel = -1;
 
     private ReentrantLock globalLock;
 
@@ -70,17 +69,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             this.entryPoint = newNode;
         }
 
-        int maxlevelcopy = maxLevel;
-
-        if (newNode.getMaxLayer() > maxlevelcopy) {
+        if (newNode.getMaxLayer() > entryPoint.getMaxLayer()) {
             globalLock.lock();
         }
 
         try {
 
             // zoom in and find the best peer on the same level as newNode
-            NodeNew bestPeer = this.entryPoint;
-            NodeNew currentNode = newNode;
+            int bestPeerId = this.entryPoint.getId();
 
 
             List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
@@ -108,30 +104,32 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 //             */
 
             // zoom in and find the best peer on the same level as newNode
-            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
-            for (int layer = bestPeer.getMaxLayer(); layer > currentNode.getMaxLayer(); layer--) {
-                runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-                bestPeer = nodes.get(neighboursIdsBuffer.get(0));
+            // TODO i dont think we need objects here either
+            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.getId());
+            for (int layer = entryPoint.getMaxLayer(); layer > newNode.getMaxLayer(); layer--) {
+                runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
+
+                bestPeerId = neighboursIdsBuffer.get(0);
                 neighboursIdsBuffer.clear();
             }
 
 
             // connecting new node to the small world
-            for (int layer = Math.min(currentNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
-                runKnnAtLayer(bestPeer.getId(), currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
+            for (int layer = Math.min(newNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
+                runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
                 List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
                 for (int newNeighbourId : bestNeighboursIds) {
 
                     NodeNew neighbourNode = nodes.get(newNeighbourId);
 
-                    algorithm.connect(currentNode, neighbourNode, layer);
-                    algorithm.connect(neighbourNode, currentNode, layer);
+                    algorithm.connect(newNode, neighbourNode, layer);
+                    algorithm.connect(neighbourNode, newNode, layer);
 
                     // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
-                    if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeer.getId()))) {
-                        bestPeer = neighbourNode;
+                    if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
+                        bestPeerId = neighbourNode.getId();
                     }
                 }
 
@@ -139,9 +137,8 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             }
 
             // zoom out to the highest level
-            if (currentNode.getMaxLayer() > entryPoint.getMaxLayer()) {
-                this.entryPoint = currentNode;
-                this.maxLevel = newNode.getMaxLayer();
+            if (newNode.getMaxLayer() > entryPoint.getMaxLayer()) {
+                this.entryPoint = newNode;
             }
 
             return newNode.getId();
