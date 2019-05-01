@@ -116,11 +116,15 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             for (int layer = entryPoint.getMaxLayer(); layer > newNode.getMaxLayer(); layer--) {
                 runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
+                int candidateBestPeerId = neighboursIdsBuffer.get(0);
 
-                bestPeerId = neighboursIdsBuffer.get(0);
+                if (bestPeerId == candidateBestPeerId) {
+                    break;
+                }
+
+                bestPeerId = candidateBestPeerId;
                 neighboursIdsBuffer.clear();
             }
-
 
             // connecting new node to the small world
             for (int layer = Math.min(newNode.getMaxLayer(), entryPoint.getMaxLayer()); layer >= 0; layer--) {
@@ -178,7 +182,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         for (int layer = this.entryPoint.getMaxLayer(); layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
-            bestPeerId = resultIds.get(0);
+
+            int candidateBestPeerId = resultIds.get(0);
+
+            if (bestPeerId == candidateBestPeerId) {
+                break;
+            }
+
+            bestPeerId = candidateBestPeerId;
             resultIds.clear();
         }
 
