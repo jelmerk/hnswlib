@@ -178,7 +178,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             return this.distanceFunction.distance(destination, this.items.get(nodeId));
         }, -1);
 
-        List<Integer> resultIds = new ArrayList<>(k + 1);
+        List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
 
         for (int layer = this.entryPoint.getMaxLayer(); layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
@@ -408,11 +408,11 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     /**
      * The implementation of the node in hnsw graph.
      */
-    class NodeNew implements Serializable {
+    static class NodeNew implements Serializable {
 
         private int id;
 
-        private List<List<Integer>> connections;
+        private List<List<Integer>> connections; // TODO JK i think this can be changed to an array of primitive int's since this size is pretty fixed
 
         /**
          * Gets the identifier of the node.
@@ -447,6 +447,8 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
      */
     abstract class AlgorithmNew implements Serializable {
 
+        // TODO JK i think we should try and change this class to a strategy, eg NodeSelectionStrategy
+
         /// Cache of the distance function between the nodes.
         DistanceFunction<Integer, TDistance> nodeDistance;
 
@@ -466,7 +468,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
          * @return The new instance.
          */
 
-        // TODO should this be in algorithm ?? since its the same for both
+        // TODO JK should this be in algorithm ?? since its the same for both
         NodeNew newNode(int nodeId, int maxLayer) {
             List<List<Integer>> connections = new ArrayList<>(maxLayer + 1);
             for (int layer = 0; layer <= maxLayer; layer++) {
@@ -519,6 +521,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
          * @param neighbour The new neighbour.
          * @param layer The layer to add neighbour to.
          */
+        // TODO JK: need to see ifg i can move this to the node classs
         void connect(NodeNew node, NodeNew neighbour, int layer) {
             node.connections.get(layer).add(neighbour.id);
             if (node.connections.get(layer).size() > this.getM(layer)) {
