@@ -10,7 +10,9 @@ public interface AlgorithmInterface<ID, ITEM extends Item<ID>> {
 
     void addPoint(ITEM item);
 
-    PriorityQueue<SearchResult<ID, ITEM>> searchKnn(float[] vector, int k); // the first element of the pair is the distance, the second the label
+//    ITEM getById(ID id);
+
+    PriorityQueue<SearchResult<ITEM>> searchKnn(float[] vector, int k); // the first element of the pair is the distance, the second the label
 
     void saveIndex(OutputStream out) throws IOException;
 
