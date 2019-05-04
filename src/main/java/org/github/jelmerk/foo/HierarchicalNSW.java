@@ -42,7 +42,7 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
     private int offsetLevel0;
 
     private ByteBuffer dataLevel0Memory;
-    private ByteBuffer linkLists;
+    private List<ByteBuffer> linkLists;
     private List<Integer> elementLevels; // TODO use the elipse collections collection here ?
 
 
@@ -101,7 +101,9 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         this.maxLevel = -1;
 
 
-        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements); // void * = size of an object pointer , function pointers can have different sizes, as can member pointers
+        this.linkLists = new ArrayList<>();
+
+//        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements); // void * = size of an object pointer , function pointers can have different sizes, as can member pointers
 
 
         this.mult = 1 / Math.log(1d * m);
@@ -145,7 +147,6 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
 
             elementLevels.set(curC, curlevel);
 
-
             global.lock(); // TODO make sure we unlock this
 
             int maxLevelCopy = this.maxLevel;
@@ -157,6 +158,10 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
             try {
 
                 int currObj = enterpointNode;
+
+
+
+
 
 
 
