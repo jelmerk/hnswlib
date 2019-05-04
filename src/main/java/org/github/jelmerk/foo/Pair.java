@@ -33,4 +33,9 @@ public class Pair<A, B> {
     public int hashCode() {
         return Objects.hash(first, b);
     }
+
+
+    public static<A,B> Pair<A, B> of(A a, B b) {
+        return new Pair<>(a, b);
+    }
 }

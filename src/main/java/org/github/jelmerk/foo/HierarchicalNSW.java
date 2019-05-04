@@ -6,8 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
-        implements AlgorithmInterface<TItem, TDistance> {
+public class HierarchicalNSW<T> implements AlgorithmInterface {
 
 
     private final SpaceInterface spaceInterface;
@@ -32,7 +31,7 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 //    VisitedListPool *visited_list_pool_;
     private final Object currentElementCountGuard = new Object();
 
-
+    private List<Object> linkListLocks;
     private int enterpointNode;
 
     private int sizeLinksLevel0;
@@ -46,7 +45,8 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
     private int dataSize;
     private int labelOffset;
-    private DistanceFunction<TItem, TDistance> distanceFunction;
+    private DistanceFunction<T> fstdistfunc;
+    private T distFuncParam;
 
 //    void *dist_func_param_;
 //    std::unordered_map<labeltype, tableint> label_lookup_;
@@ -61,20 +61,14 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
 
 
-
-
-
-
-
-    public HierarchicalNSW(SpaceInterface spaceInterface, int maxElements, int m, int efConstruction, int randomSeed) {
+    public HierarchicalNSW(SpaceInterface<T> spaceInterface, int maxElements, int m, int efConstruction, int randomSeed) {
         this.spaceInterface = spaceInterface;
         this.maxElements = maxElements;
 
-
-
         this.dataSize = spaceInterface.getDataSize();
-        this.distanceFunction = spaceInterface.getDistanceFunction();
-//        dist_func_param_ = s->get_dist_func_param();  TODO JK not sure what this is
+        this.fstdistfunc = spaceInterface.getDistanceFunction();
+        this.distFuncParam = spaceInterface.getDistanceFunctionParam();
+
         this.m = m;
         this.maxM = m;
         this.maxM0 = m * 2;
@@ -88,7 +82,7 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
         this.sizeLinksLevel0 = this.maxM0 * sizeof(tableint) + sizeof(linklistsizeint);
 
-        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + izeof(labeltype);
+        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + sizeof(labeltype);
 
         this.offsetData  = sizeLinksLevel0;
         this.labelOffset = sizeLinksLevel0 + dataSize;
@@ -107,7 +101,7 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
         this.maxLevel = -1;
 
 
-        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements);
+        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements); // void * = size of an object pointer , function pointers can have different sizes, as can member pointers
 
 
         this.mult = 1 / Math.log(1d * m);
@@ -120,11 +114,11 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
     }
 
     @Override
-    public void addPoint(TItem item) {
+    public void addPoint(float[] item) {
         addPoint(item, -1);
     }
 
-    private int addPoint(TItem item, int level) {
+    private int addPoint(float[] item, int level) {
 
         int curC;
 
@@ -189,7 +183,7 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
                 // TODO JK , the original code passes in spaceInterface.get_dist_func_param as 3rd argument to the distance function
                 // TODO JK i guess we need to find the item for the id here or something in getDataByInternalId
 
-                TDistance curDist = distanceFunction.distance(item, items.get(currObj));
+                TDistance curDist = fstdistfunc.distance(item, items.get(currObj));
 
                 for (int activeLevel = maxLevelCopy; activeLevel > curlevel; activeLevel--) {
 
@@ -210,7 +204,7 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
                                     throw new IllegalStateException("cand error");
                                 }
 
-                                TDistance d = distanceFunction.distance(item, items.get(cand)); // TODO
+                                TDistance d = fstdistfunc.distance(item, items.get(cand)); // TODO
 
                                 if (d.compareTo(curDist) < 0) {
                                     curDist = d;
@@ -314,20 +308,18 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
 
 
-    void getNeighborsByHeuristic2(PriorityQueue<Pair<TDistance, Integer>> topCandidates, int m) {
+    private void getNeighborsByHeuristic2(PriorityQueue<Pair<Float, Integer>> topCandidates, int m) {
 
         if (topCandidates.size() < m) {
             return;
         }
 
-        PriorityQueue<Pair<TDistance, Integer>> queueClosest = new PriorityQueue<>();
-        List<Pair<TDistance, Integer>> returnList = new ArrayList<>();
+        PriorityQueue<Pair<Float, Integer>> queueClosest = new PriorityQueue<>();
+        List<Pair<Float, Integer>> returnList = new ArrayList<>();
 
-
-        // TODO: JK i guess this just reverses the queue ?
         while(!topCandidates.isEmpty()) {
-            Pair<TDistance, Integer> element = topCandidates.remove();
-            queueClosest.add(element);
+            Pair<Float, Integer> element = topCandidates.remove();
+            queueClosest.add(Pair.of(-element.getFirst(), element.getSecond()));
         }
 
         while(!queueClosest.isEmpty()) {
@@ -335,19 +327,20 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
                 break;
             }
 
-            Pair<TDistance, Integer> currentPair = queueClosest.remove();
+            Pair<Float, Integer> currentPair = queueClosest.remove();
 
-            TDistance distanceToQuery = -currentPair.getFirst(); // TODO this is made negative in the original code i think its written as -curent_pair.first
+            float distToQuery = -currentPair.getFirst();
 
             boolean good = true;
-            for (Pair<TDistance, Integer> secondPair : returnList) {
+            for (Pair<Float, Integer> secondPair : returnList) {
 
-                TItem secondItem = this.items.get(secondPair.getSecond());
-                TItem firstItem = this.items.get(currentPair.getSecond());
+                float curdist = fstdistfunc.distance(
+                        getDataByInternalId(secondPair.getSecond()),
+                        getDataByInternalId(currentPair.getSecond()),
+                        distFuncParam
+                );
 
-                TDistance curdist = distanceFunction.distance(secondItem, firstItem);
-
-                if (curdist.compareTo(distanceToQuery) < 0) {
+                if (curdist < distToQuery) {
                     good = false;
                     break;
                 }
@@ -358,8 +351,8 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
             }
         }
 
-        for (Pair<TDistance, Integer> currentPair : returnList) {
-            topCandidates.add(new Pair<>(-currentPair.getFirst(), currentPair.getSecond())); // TODO this is made negative in the original code top_candidates.emplace(-curent_pair.first, curent_pair.second);
+        for (Pair<Float, Integer> currentPair : returnList) {
+            topCandidates.add(new Pair<>(-currentPair.getFirst(), currentPair.getSecond()));
         }
 
     }
@@ -601,9 +594,20 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 //    }
 
 
+    private float[] getDataByInternalId(int internalId) {
+        float[] result = new float[dataSize]; // TODO JK this seems wasteful do we really have to create a new array every time
+        dataLevel0Memory.asFloatBuffer().get(result, internalId, dataSize);
+        return result;
+    }
+
+
+//    inline char *getDataByInternalId(tableint internal_id) const {
+//        return (data_level0_memory_ + internal_id * size_data_per_element_ + offsetData_);
+//    }
+
     @Override
-    public PriorityQueue<TDistance> searchKnn(TItem tItem, int k) {
-        return null;
+    public PriorityQueue<float[]> searchKnn(float[] item, int k) {
+        throw new UnsupportedOperationException("");
     }
 
     @Override

@@ -1,7 +1,8 @@
 package org.github.jelmerk.foo;
 
-public interface DistanceFunction<Item, TDistance extends Comparable<TDistance>> {
+@FunctionalInterface
+public interface DistanceFunction<T> {
 
-    TDistance distance(Item u, Item v);
+    float distance(float[] u, float[] v, T param);
 
 }
