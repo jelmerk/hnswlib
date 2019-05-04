@@ -8,6 +8,7 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -16,11 +17,11 @@ public class HnswIndexTest {
 
     private float floatError = 0.000000596f;
 
-    private List<float[]> vectors;
+    private List<TestItem> items;
 
     @Before
     public void setUp() throws Exception {
-        this.vectors = readTextFile("/vectors.txt").stream()
+        this.items = readTextFile("/vectors.txt").stream()
                 .map(l -> {
                         String[] tokens = l.split("\t");
 
@@ -30,7 +31,7 @@ public class HnswIndexTest {
                             floats[i] = Float.parseFloat(tokens[i]);
                         }
 
-                        return floats;
+                        return new TestItem(UUID.randomUUID().toString(), floats);
                 })
                 .collect(Collectors.toList());
     }
@@ -40,18 +41,18 @@ public class HnswIndexTest {
 
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
-        HnswIndex<float[], Float> index = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
+        HnswIndex<String, float[], TestItem, Float> index = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
 
-        for (float[] vector : vectors) {
-            index.add(vector);
+        for (TestItem item : items) {
+            index.add(item);
         }
 
-        for (int i = 0; i < this.vectors.size(); i++) {
+        for (int i = 0; i < this.items.size(); i++) {
 
-            List<SearchResult<float[], Float>> result = index.search(this.vectors.get(i), 20);
+            List<SearchResult<TestItem, Float>> result = index.findNearest(this.items.get(i).getVector(), 20);
             result.sort(Comparator.comparing(SearchResult::getDistance));
 
-            SearchResult<float[], Float> best = result.get(0);
+            SearchResult<TestItem, Float> best = result.get(0);
 
             assertEquals(20, result.size());
 //            assertEquals(i, best.getId());
@@ -67,15 +68,15 @@ public class HnswIndexTest {
     public void testSerialization() throws Exception {
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
-        HnswIndex<float[], Float> original = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
-        for (float[] vector : vectors) {
-            original.add(vector);
+        HnswIndex<String, float[], TestItem, Float> original = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
+        for (TestItem item : items) {
+            original.add(item);
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         original.save(baos);
 
-        HnswIndex<float[], Float> loaded = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
+        HnswIndex<String, float[], TestItem, Float> loaded = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
 
         assertEquals(original.print(), loaded.print());
     }

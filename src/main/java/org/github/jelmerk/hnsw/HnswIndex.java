@@ -2,21 +2,25 @@ package org.github.jelmerk.hnsw;
 
 
 import org.github.jelmerk.Index;
+import org.github.jelmerk.Item;
 import org.github.jelmerk.SearchResult;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
-public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
-        implements Index<TItem, TDistance>, Serializable {
+public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
+        implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
     private final DotNetRandom random;
     private final Parameters parameters;
-    private final DistanceFunction<TItem, TDistance> distanceFunction;
+    private final DistanceFunction<TVector, TDistance> distanceFunction;
 
+
+    private final Map<TId, TItem> lookup;
     private final List<TItem> items;
     private final List<NodeNew> nodes;
     private final AlgorithmNew algorithm;
@@ -26,14 +30,14 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     private ReentrantLock globalLock;
 
     public HnswIndex(Parameters parameters,
-                     DistanceFunction<TItem, TDistance> distanceFunction) {
+                     DistanceFunction<TVector, TDistance> distanceFunction) {
 
         this(new DotNetRandom(), parameters, distanceFunction);
     }
 
     public HnswIndex(DotNetRandom random,
                      Parameters parameters,
-                     DistanceFunction<TItem, TDistance> distanceFunction) {
+                     DistanceFunction<TVector, TDistance> distanceFunction) {
 
         this.random = random;
         this.parameters = parameters;
@@ -50,6 +54,13 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         this.items = Collections.synchronizedList(new ArrayList<>());
         this.nodes = Collections.synchronizedList(new ArrayList<>());
+
+        this.lookup = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public TItem get(TId id) {
+        return lookup.get(id);
     }
 
     @Override
@@ -57,9 +68,12 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         int id;
         synchronized (items) {
+            id = items.size();
+
             items.add(item);
-            id = items.size() - 1;
         }
+
+        lookup.put(item.getId(), item);
 
         NodeNew newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
         nodes.add(newNode);
@@ -164,12 +178,12 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
     }
 
     @Override
-    public List<SearchResult<TItem, TDistance>> search(TItem destination, int k) {
+    public List<SearchResult<TItem, TDistance>> findNearest(TVector destination, int k) {
 
 
         DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
             int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, this.items.get(nodeId));
+            return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
         };
 
         int bestPeerId = this.entryPoint.id;
@@ -177,7 +191,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
 
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
             int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, this.items.get(nodeId));
+            return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
         }, -1);
 
         List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
@@ -223,7 +237,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <TItem, TDistance extends Comparable<TDistance>> HnswIndex<TItem, TDistance> load(File file) throws IOException {
+    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
@@ -238,9 +252,9 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <TItem, TDistance extends Comparable<TDistance>> HnswIndex<TItem, TDistance> load(InputStream inputStream) throws IOException {
+    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(InputStream inputStream) throws IOException {
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (HnswIndex<TItem, TDistance>) ois.readObject();
+            return (HnswIndex<ID, VECTOR, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
@@ -391,7 +405,7 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
         TItem fromItem = this.items.get(fromId);
         TItem toItem = this.items.get(toId);
 
-        return this.distanceFunction.distance(fromItem, toItem);
+        return this.distanceFunction.distance(fromItem.getVector(), toItem.getVector());
     }
 
 

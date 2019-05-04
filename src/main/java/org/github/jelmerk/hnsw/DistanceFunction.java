@@ -5,10 +5,11 @@ import java.io.Serializable;
 /**
  * Calculates distance between 2 items.
  *
- * @param <Item>
+ * @param <TVector>
+ * @param <TDistance>
  */
 @FunctionalInterface
-public interface DistanceFunction<Item, TDistance extends Comparable<TDistance>> extends Serializable {
+public interface DistanceFunction<TVector, TDistance extends Comparable<TDistance>> extends Serializable {
 
     /**
      * Gets the distance between 2 items.
@@ -17,6 +18,6 @@ public interface DistanceFunction<Item, TDistance extends Comparable<TDistance>>
      * @param v to item
      * @return The distance between items.
      */
-    TDistance distance(Item u, Item v);
+    TDistance distance(TVector u, TVector v);
 
 }

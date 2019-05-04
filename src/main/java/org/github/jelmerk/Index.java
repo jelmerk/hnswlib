@@ -6,11 +6,13 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
 
-public interface Index<TItem, TDistance extends Comparable<TDistance>> {
+public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>> {
+
+    TItem get(TId id);
 
     int add(TItem item);
 
-    List<SearchResult<TItem, TDistance>> search(TItem item, int k);
+    List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k);
 
     void save(OutputStream out) throws IOException;
 
