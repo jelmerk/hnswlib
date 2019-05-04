@@ -8,10 +8,9 @@ import java.util.PriorityQueue;
 
 public interface AlgorithmInterface {
 
-    void addPoint(float[] dataPoint);
+    void addPoint(float[] dataPoint, int label);
 
-    // TODO JK : do we want to explicitly expose a priority queue or just use a list here
-    PriorityQueue<float[]> searchKnn(float[] item, int k);
+    PriorityQueue<Pair<Float, Integer>> searchKnn(float[] item, int k); // the first element of the pair is the distance, the second the label
 
     void saveIndex(OutputStream out) throws IOException;
 

@@ -8,10 +8,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class HierarchicalNSW<T> implements AlgorithmInterface {
 
+    private static final int NUM_BYTES_INT = 4;
+    private static final int NUM_BYTES_FLOAT = 4;
 
-    private final SpaceInterface spaceInterface;
 
-    private final int maxElements;
+    private  SpaceInterface spaceInterface;
+
+    private int maxElements;
 
     private int curElementCount;
 
@@ -19,10 +22,10 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
     private int sizeLinksPerElement;
 
 
-    private final int m;
-    private final int maxM;
-    private final int maxM0;
-    private final int efConstruction;
+    private int m;
+    private int maxM;
+    private int maxM0;
+    private int efConstruction;
 
     private double mult;
     private double revSize;
@@ -47,13 +50,10 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
     private int labelOffset;
     private DistanceFunction<T> fstdistfunc;
     private T distFuncParam;
-
-//    void *dist_func_param_;
-//    std::unordered_map<labeltype, tableint> label_lookup_;
-    private Map<String, Integer> labelLookup;
+    private Map<Integer, Integer> labelLookup;
 
 
-    private final Random levelGenerator;
+    private Random levelGenerator;
 
 
     private int ef;
@@ -80,9 +80,9 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         this.levelGenerator = new Random(randomSeed);
 
 
-        this.sizeLinksLevel0 = this.maxM0 * sizeof(tableint) + sizeof(linklistsizeint);
+        this.sizeLinksLevel0 = this.maxM0 * NUM_BYTES_INT + NUM_BYTES_INT;
 
-        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + sizeof(labeltype);
+        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + NUM_BYTES_INT; //
 
         this.offsetData  = sizeLinksLevel0;
         this.labelOffset = sizeLinksLevel0 + dataSize;
@@ -108,54 +108,55 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         this.revSize = 1d / this.mult;
 
 
-
         this.global = new ReentrantLock();
 
+        this.linkListLocks = Collections.synchronizedList(new ArrayList<>());
     }
 
     @Override
-    public void addPoint(float[] item) {
-        addPoint(item, -1);
+    public void addPoint(float[] dataPoint, int label) {
+        addPoint(dataPoint, label,-1);
     }
 
-    private int addPoint(float[] item, int level) {
+    private int addPoint(float[] dataPoint, int label, int level) {
 
         int curC;
 
         synchronized (currentElementCountGuard) {
-
             if (curElementCount >= maxElements) {
                 throw new IllegalArgumentException("The number of elements exceeds the specified limit.");
             }
 
-            items.set(curElementCount, item);
+            labelLookup.put(label, curElementCount); // expected unique, if not will overwrite
+
+            linkListLocks.add(new Object()); // TODO is this really efficient, if we are creating an object per element anyway why not just create an object with the embedding and id and synchronize on that it will make everything easier, also i guess this collection needs to be synchronized then ?
 
             curC = curElementCount;
-//        label_lookup_[label] = cur_c;  // expected unique, if not will overwrite TODO: JK not sure what to do with this
             curElementCount++;
-
         }
 
+        synchronized (linkListLocks.get(curC)) {
+
+            int curlevel = getRandomLevel(mult);
+
+            if (level > 0) {
+                curlevel = level;
+            }
+
+            elementLevels.set(curC, curlevel);
 
 
-        int curlevel = getRandomLevel(mult);
+            global.lock(); // TODO make sure we unlock this
 
-        if (level > 0) {
-            curlevel = level;
-        }
+            int maxLevelCopy = this.maxLevel;
 
-        elementLevels.set(curC, curlevel);
+            if (curlevel <= maxLevelCopy) {
+                global.unlock();
+            }
 
+            try {
 
-        global.lock(); // TODO make sure we unlock this
-
-        int maxLevelCopy = this.maxLevel;
-
-        if (curlevel <= maxLevelCopy) {
-            global.unlock();
-        }
-
-        int currObj = enterpointNode;
+                int currObj = enterpointNode;
 
 
 
@@ -169,80 +170,93 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         */
 
 
-        // if (c) is the same as if (c != 0). And if (!c) is the same as if (c == 0).
+                // if (c) is the same as if (c != 0). And if (!c) is the same as if (c == 0).
 
-        if (curlevel != 0) {
+                if (curlevel != 0) {
 //            linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
 //            memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
-        }
+                }
 
-        if (currObj != -1) {
+                if (currObj != -1) {
 
-            if (curlevel < maxLevelCopy) {
+                    if (curlevel < maxLevelCopy) {
 
-                // TODO JK , the original code passes in spaceInterface.get_dist_func_param as 3rd argument to the distance function
-                // TODO JK i guess we need to find the item for the id here or something in getDataByInternalId
+                        // TODO JK , the original code passes in spaceInterface.get_dist_func_param as 3rd argument to the distance function
+                        // TODO JK i guess we need to find the item for the id here or something in getDataByInternalId
 
-                TDistance curDist = fstdistfunc.distance(item, items.get(currObj));
+                        TDistance curDist = fstdistfunc.distance(dataPoint, items.get(currObj));
 
-                for (int activeLevel = maxLevelCopy; activeLevel > curlevel; activeLevel--) {
+                        for (int activeLevel = maxLevelCopy; activeLevel > curlevel; activeLevel--) {
 
-                    boolean changed = true;
+                            boolean changed = true;
 
-                    while(changed) {
-                        changed = false;
+                            while (changed) {
+                                changed = false;
 
-                        synchronized (items.get(currObj)) { // TODO jk : ehm i guess just getting the item from an unsynchronized list is not thread safe.. though if its an array what could go wrong
-
-
+                                synchronized (items.get(currObj)) { // TODO jk : ehm i guess just getting the item from an unsynchronized list is not thread safe.. though if its an array what could go wrong
 
 
-                            for (int i = 0; i < size; i++) {
+                                    for (int i = 0; i < size; i++) {
 
-                                int cand = ???
-                                if (cand < 0 || cand > maxElements) {
-                                    throw new IllegalStateException("cand error");
+                                        int cand = ???
+                                        if (cand < 0 || cand > maxElements) {
+                                            throw new IllegalStateException("cand error");
+                                        }
+
+                                        TDistance d = fstdistfunc.distance(dataPoint, items.get(cand)); // TODO
+
+                                        if (d.compareTo(curDist) < 0) {
+                                            curDist = d;
+                                            currObj = cand;
+                                            changed = true;
+                                        }
+                                    }
+
+
                                 }
 
-                                TDistance d = fstdistfunc.distance(item, items.get(cand)); // TODO
+                            }
+                        }
 
-                                if (d.compareTo(curDist) < 0) {
-                                    curDist = d;
-                                    currObj = cand;
-                                    changed = true;
-                                }
+                        for (int level = Math.min(curlevel, maxLevelCopy); level >= 0; level--) {
+                            if (level > maxLevelCopy || level < 0) {
+                                throw new IllegalStateException("Level error");
                             }
 
+                            PriorityQueue<Pair<TDistance, Integer>> topCandidates = searchBaseLayer(currObj, dataPoint, level);
 
+                            mutuallyConnectNewElement(dataPoint, curC, topCandidates, level);
                         }
 
                     }
+
+                } else {
+                    // Do nothing for the first element
+                    this.enterpointNode = 0;
+                    this.maxLevel = curlevel;
                 }
 
-                for (int level = Math.min(curlevel, maxLevelCopy); level >= 0; level--) {
-                    if (level > maxLevelCopy || level < 0) {
-                        throw new IllegalStateException("Level error");
-                    }
-
-                    PriorityQueue<Pair<TDistance, Integer>> topCandidates = searchBaseLayer(currObj, item, level);
-
-                    mutuallyConnectNewElement(item, curC, topCandidates, level);
+                //Releasing lock for the maximum level
+                if (curlevel > maxLevelCopy) {
+                    this.enterpointNode = curC;
+                    this.maxLevel = curlevel;
                 }
+                return curC;
 
+
+            } finally {
+                if (global.isHeldByCurrentThread()) {
+                    global.unlock();
+                }
             }
-
-        } else {
-            // Do nothing for the first element
-            this.enterpointNode = 0;
-            this.maxLevel = curlevel;
         }
 
-        //Releasing lock for the maximum level
-        if (curlevel > maxLevelCopy) {
-            this.enterpointNode = curC;
-            this.maxLevel = curlevel;
-        }
-        return curC;
+
+
+
+
+
+
 
 
         /*
@@ -401,26 +415,10 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
 //    }
 
 
-    // TODO jk :looks like this is all done with direct memory access..
-    // TODO data_level0_memory_ is defined as data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-    // TODO i guess i could do the same to safe on memory.. and use off heap stuff maybe
 
-
-//    linklistsizeint *get_linklist0(tableint internal_id) {
-//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
-//    };
-//
-//    linklistsizeint *get_linklist0(tableint internal_id, char *data_level0_memory_) {
-//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
-//    };
-//
-//    linklistsizeint *get_linklist(tableint internal_id, int level) {
-//        return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
-//    };
-
-    private void mutuallyConnectNewElement(TItem dataPoint,
+    private void mutuallyConnectNewElement(float[] dataPoint,
                                            int curC,
-                                           PriorityQueue<Pair<TDistance, Integer>> topCandidates,
+                                           PriorityQueue<Pair<Float, Integer>> topCandidates,
                                            int level) {
 
         int mCurMax = level != 0 ? maxM : maxM0;
@@ -600,14 +598,39 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         return result;
     }
 
-
 //    inline char *getDataByInternalId(tableint internal_id) const {
 //        return (data_level0_memory_ + internal_id * size_data_per_element_ + offsetData_);
 //    }
 
+
+
+    getLinkList0(int internalId) {
+
+    }
+
+
+
+    // TODO jk :looks like this is all done with direct memory access..
+    // TODO data_level0_memory_ is defined as data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
+    // TODO i guess i could do the same to safe on memory.. and use off heap stuff maybe
+
+
+//    linklistsizeint *get_linklist0(tableint internal_id) {
+//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
+//    };
+//
+//    linklistsizeint *get_linklist0(tableint internal_id, char *data_level0_memory_) {
+//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
+//    };
+//
+//    linklistsizeint *get_linklist(tableint internal_id, int level) {
+//        return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
+//    };
+
+
     @Override
-    public PriorityQueue<float[]> searchKnn(float[] item, int k) {
-        throw new UnsupportedOperationException("");
+    public PriorityQueue<Pair<Float, Integer>> searchKnn(float[] item, int k) {
+        return null;
     }
 
     @Override
