@@ -2,56 +2,12 @@ package org.github.jelmerk.foo;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
         implements AlgorithmInterface<TItem, TDistance> {
-
-
-    /*
-
-        size_t max_elements_;
-        size_t cur_element_count;
-        size_t size_data_per_element_;
-        size_t size_links_per_element_;
-
-        size_t M_;
-        size_t maxM_;
-        size_t maxM0_;
-        size_t ef_construction_;
-
-        double mult_, revSize_;
-        int maxlevel_;
-
-
-        VisitedListPool *visited_list_pool_;
-        std::mutex cur_element_count_guard_;
-
-        std::vector<std::mutex> link_list_locks_;
-        tableint enterpoint_node_;
-
-
-
-        size_t size_links_level0_;
-        size_t offsetData_, offsetLevel0_;
-
-
-        char *data_level0_memory_;
-        char **linkLists_;
-        std::vector<int> element_levels_;
-
-
-        size_t data_size_;
-        size_t label_offset_;
-        DISTFUNC<dist_t> fstdistfunc_;
-        void *dist_func_param_;
-        std::unordered_map<labeltype, tableint> label_lookup_;
-
-        std::default_random_engine level_generator_;
-
-
-     */
 
 
     private final SpaceInterface spaceInterface;
@@ -60,40 +16,55 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
     private int curElementCount;
 
+    private int sizeDataPerElement;
+    private int sizeLinksPerElement;
+
+
     private final int m;
-    private final int efConstruction;
-
-
-    private final int dataSize;
-    private final DistanceFunction<TItem, TDistance> distanceFunction;
-    private final int maxM0;
-
-    private final Random levelGenerator;
-    private final int ef;
     private final int maxM;
-    private final int offsetLevel0;
-
-    private int enterpointNode;
-    private int maxLevel;
-
-
+    private final int maxM0;
+    private final int efConstruction;
 
     private double mult;
     private double revSize;
+    private int maxLevel;
 
-
-
-//    private final ReentrantLock currentElementCountGuard;
-    private final ReentrantLock global;
-
+//    VisitedListPool *visited_list_pool_;
     private final Object currentElementCountGuard = new Object();
 
 
-    private List<Integer> elementLevels; // TODO JK can we use a primitive array here and use maxElements as the size ?
+    private int enterpointNode;
+
+    private int sizeLinksLevel0;
+    private int offsetData;
+    private int offsetLevel0;
+
+    private ByteBuffer dataLevel0Memory;
+    private ByteBuffer linkLists;
+    private List<Integer> elementLevels; // TODO use the elipse collections collection here ?
+
+
+    private int dataSize;
+    private int labelOffset;
+    private DistanceFunction<TItem, TDistance> distanceFunction;
+
+//    void *dist_func_param_;
+//    std::unordered_map<labeltype, tableint> label_lookup_;
+    private Map<String, Integer> labelLookup;
+
+
+    private final Random levelGenerator;
+
+
+    private int ef;
+    private ReentrantLock global;
 
 
 
-    private List<TItem> items; // JK added thia myself
+
+
+
+
 
     public HierarchicalNSW(SpaceInterface spaceInterface, int maxElements, int m, int efConstruction, int randomSeed) {
         this.spaceInterface = spaceInterface;
@@ -114,53 +85,37 @@ public class HierarchicalNSW<TItem, TDistance extends Comparable<TDistance>>
 
         this.levelGenerator = new Random(randomSeed);
 
+
+        this.sizeLinksLevel0 = this.maxM0 * sizeof(tableint) + sizeof(linklistsizeint);
+
+        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + izeof(labeltype);
+
+        this.offsetData  = sizeLinksLevel0;
+        this.labelOffset = sizeLinksLevel0 + dataSize;
+
         this.offsetLevel0 = 0;
+
+
+        this.dataLevel0Memory = ByteBuffer.allocateDirect(maxElements * sizeDataPerElement); // use off heap memory
+
+
+        this.curElementCount = 0;
+
 
         //initializations for special treatment of the first node
         this.enterpointNode = -1;
         this.maxLevel = -1;
 
 
+        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements);
+
+
         this.mult = 1 / Math.log(1d * m);
         this.revSize = 1d / this.mult;
 
 
-        this.curElementCount = 0;
+
         this.global = new ReentrantLock();
-        /*
-
-            level_generator_.seed(random_seed);
-
-            size_links_level0_ = maxM0_ * sizeof(tableint) + sizeof(linklistsizeint);
-            size_data_per_element_ = size_links_level0_ + data_size_ + sizeof(labeltype);
-            offsetData_ = size_links_level0_;
-            label_offset_ = size_links_level0_ + data_size_;
-            offsetLevel0_ = 0;
-
-            data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-            if (data_level0_memory_ == nullptr)
-                throw std::runtime_error("Not enough memory");
-
-            cur_element_count = 0;
-
-            visited_list_pool_ = new VisitedListPool(1, max_elements);
-
-
-
-            //initializations for special treatment of the first node
-            enterpoint_node_ = -1;
-            maxlevel_ = -1;
-
-            linkLists_ = (char **) malloc(sizeof(void *) * max_elements_);
-            size_links_per_element_ = maxM_ * sizeof(tableint) + sizeof(linklistsizeint);
-
-         */
-
-
-        this.elementLevels = new ArrayList<>();
-
-        this.items = Collections.synchronizedList(new ArrayList<>()); // synchronuzed i guess since we need to read and write from it
-
 
     }
 
