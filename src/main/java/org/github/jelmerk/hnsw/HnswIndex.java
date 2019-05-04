@@ -113,17 +113,19 @@ public class HnswIndex<TItem, TDistance extends Comparable<TDistance>>
             // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
 
             for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
-                runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
+                synchronized (items.get(bestPeerId)) {
+                    runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-                int candidateBestPeerId = neighboursIdsBuffer.get(0);
+                    int candidateBestPeerId = neighboursIdsBuffer.get(0);
 
-                neighboursIdsBuffer.clear();
+                    neighboursIdsBuffer.clear();
 
-                if (bestPeerId == candidateBestPeerId) {
-                    break;
+                    if (bestPeerId == candidateBestPeerId) {
+                        break;
+                    }
+
+                    bestPeerId = candidateBestPeerId;
                 }
-
-                bestPeerId = candidateBestPeerId;
             }
 
             // connecting new node to the small world

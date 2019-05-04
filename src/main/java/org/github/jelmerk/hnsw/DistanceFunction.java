@@ -7,6 +7,7 @@ import java.io.Serializable;
  *
  * @param <Item>
  */
+@FunctionalInterface
 public interface DistanceFunction<Item, TDistance extends Comparable<TDistance>> extends Serializable {
 
     /**
