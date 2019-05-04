@@ -6,11 +6,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.PriorityQueue;
 
-public interface AlgorithmInterface {
+public interface AlgorithmInterface<ID, ITEM extends Item<ID>> {
 
-    void addPoint(float[] dataPoint, int label);
+    void addPoint(ITEM item);
 
-    PriorityQueue<Pair<Float, Integer>> searchKnn(float[] item, int k); // the first element of the pair is the distance, the second the label
+    PriorityQueue<SearchResult<ID, ITEM>> searchKnn(float[] vector, int k); // the first element of the pair is the distance, the second the label
 
     void saveIndex(OutputStream out) throws IOException;
 

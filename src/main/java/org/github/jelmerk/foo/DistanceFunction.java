@@ -1,8 +1,8 @@
 package org.github.jelmerk.foo;
 
 @FunctionalInterface
-public interface DistanceFunction<T> {
+public interface DistanceFunction {
 
-    float distance(float[] u, float[] v, T param);
+    float distance(float[] u, float[] v);
 
 }

@@ -6,7 +6,7 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class HierarchicalNSW<T> implements AlgorithmInterface {
+public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
     private static final int NUM_BYTES_INT = 4;
     private static final int NUM_BYTES_FLOAT = 4;
@@ -50,7 +50,7 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
     private int labelOffset;
     private DistanceFunction<T> fstdistfunc;
     private T distFuncParam;
-    private Map<Integer, Integer> labelLookup;
+    private Map<Integer, Integer> idLookup;
 
 
     private Random levelGenerator;
@@ -115,12 +115,14 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
         this.linkListLocks = Collections.synchronizedList(new ArrayList<>());
     }
 
+
     @Override
-    public void addPoint(float[] dataPoint, int label) {
-        addPoint(dataPoint, label,-1);
+    public void addPoint(Item item) {
+
     }
 
-    private int addPoint(float[] dataPoint, int label, int level) {
+
+    private int addPoint(Item item, int level) {
 
         int curC;
 
@@ -129,7 +131,7 @@ public class HierarchicalNSW<T> implements AlgorithmInterface {
                 throw new IllegalArgumentException("The number of elements exceeds the specified limit.");
             }
 
-            labelLookup.put(label, curElementCount); // expected unique, if not will overwrite
+            idLookup.put(label, curElementCount); // expected unique, if not will overwrite
 
             linkListLocks.add(new Object()); // TODO is this really efficient, if we are creating an object per element anyway why not just create an object with the embedding and id and synchronize on that it will make everything easier, also i guess this collection needs to be synchronized then ?
 
