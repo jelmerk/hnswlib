@@ -80,16 +80,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public int add(TItem item) {
 
-        int internalId;
+        NodeNew newNode;
         synchronized (items) {
-            internalId = items.size();
+            int internalId = items.size();
             items.add(item);
+
+            newNode = this.algorithm.newNode(internalId, randomLayer(random, this.parameters.getLevelLambda()));
+            nodes.add(newNode);
+
         }
 
         lookup.put(item.getId(), item);
-
-        NodeNew newNode = this.algorithm.newNode(internalId, randomLayer(random, this.parameters.getLevelLambda()));
-        nodes.set(internalId, newNode);
 
         globalLock.lock();
 
@@ -271,7 +272,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param layer The layer to perform search at.
      * @param k The number of the nearest neighbours to get from the layer.
      */
-    void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, List<Integer> resultList, int layer, int k) {
+    private void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, List<Integer> resultList, int layer, int k) {
 
         // prepare tools
         Comparator<Integer> closerIsOnTop = targetCosts.reversed();
