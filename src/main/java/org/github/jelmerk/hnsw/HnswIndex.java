@@ -7,7 +7,6 @@ import org.github.jelmerk.SearchResult;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -30,7 +29,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private ReentrantLock globalLock;
 
-    private ArrayBlockingQueue<VisitedBitSet> visitedBitSetPool;
+    private Pool<VisitedBitSet> visitedBitSetPool;
+    private Pool<List<Integer>> expansionBufferPool;
 
     public HnswIndex(Parameters parameters,
                      DistanceFunction<TVector, TDistance> distanceFunction) {
@@ -60,16 +60,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.lookup = new ConcurrentHashMap<>();
 
-
-
-//        // TODO use a pool for this
-//        int visitedBitSetPoolSize = 1;
-//        int maxElements = 1000;
-//        this.visitedBitSetPool = new ArrayBlockingQueue<>(visitedBitSetPoolSize);
-//        for (int i = 0; i < visitedBitSetPoolSize; i++) {
-//            visitedBitSetPool.add(new VisitedBitSet(maxElements));
-//        }
-
+        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItems()), 1);
+        this.expansionBufferPool = new Pool<>(ArrayList::new, 1);
     }
 
     @Override
@@ -82,6 +74,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         NodeNew newNode;
         synchronized (items) {
+
+            if (items.size() >= parameters.getMaxItems()) {
+                throw new IllegalStateException("The number of elements exceeds the specified limit.");
+            }
+
             int internalId = items.size();
             items.add(item);
 
@@ -278,19 +275,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         // prepare collections
 
-        // TODO these where instance variables that originally got reused in searcher and since this visited bitset creates a giant array this is not great
-
-        List<Integer> expansionBuffer = new ArrayList<>();
-        VisitedBitSet visitedSet = new VisitedBitSet(nodes.size());
-
-        // TODO use a pool for this
-
-//        VisitedBitSet visitedSet;
-//        try {
-//            visitedSet = visitedBitSetPool.poll(Long.MAX_VALUE, TimeUnit.DAYS);
-//        } catch (InterruptedException e) {
-//            throw new RuntimeException(e); // TODO any nicer way to handle this ?
-//        }
+        List<Integer> expansionBuffer = expansionBufferPool.borrowObject();
+        VisitedBitSet visitedSet = visitedBitSetPool.borrowObject();
 
         // TODO: Optimize by providing buffers
         BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, targetCosts);
@@ -335,6 +321,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
         }
+
+        visitedSet.clear();
+        visitedBitSetPool.returnObject(visitedSet);
+
+        expansionBuffer.clear();
+        expansionBufferPool.returnObject(expansionBuffer);
     }
 
 
@@ -560,37 +552,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         @Override
         List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
 
-            /*
-             * q ← this
-             * R ← ∅    // result
-             * W ← C    // working queue for the candidates
-             * if expandCandidates  // expand candidates
-             *   for each e ∈ C
-             *     for each eadj ∈ neighbourhood(e) at layer lc
-             *       if eadj ∉ W
-             *         W ← W ⋃ eadj
-             *
-             * Wd ← ∅ // queue for the discarded candidates
-             * while │W│ gt 0 and │R│ lt M
-             *   e ← extract nearest element from W to q
-             *   if e is closer to q compared to any element from R
-             *     R ← R ⋃ e
-             *   else
-             *     Wd ← Wd ⋃ e
-             *
-             * if keepPrunedConnections // add some of the discarded connections from Wd
-             *   while │Wd│ gt 0 and │R│ lt M
-             *   R ← R ⋃ extract nearest element from Wd to q
-             *
-             * return R
-             */
-
-            Comparator<Integer> fartherIsOnTop = travelingCosts;
-            Comparator<Integer> closerIsOnTop = fartherIsOnTop.reversed();
+            Comparator<Integer> closerIsOnTop = travelingCosts.reversed();
 
             int layerM = this.getM(layer);
 
-            BinaryHeap<Integer> resultHeap = new BinaryHeap<>(new ArrayList<>(layerM + 1), fartherIsOnTop);
+            BinaryHeap<Integer> resultHeap = new BinaryHeap<>(new ArrayList<>(layerM + 1), travelingCosts);
             BinaryHeap<Integer> candidatesHeap = new BinaryHeap<>(candidatesIds, closerIsOnTop);
 
             // expand candidates option is enabled

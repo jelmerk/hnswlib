@@ -41,6 +41,8 @@ public class HnswIndexTest {
 
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
+        parameters.setMaxItems(items.size());
+
         HnswIndex<String, float[], TestItem, Float> index = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
 
         for (TestItem item : items) {
@@ -68,6 +70,7 @@ public class HnswIndexTest {
     public void testSerialization() throws Exception {
         DotNetRandom random = new DotNetRandom(42);
         Parameters parameters = new Parameters();
+        parameters.setMaxItems(items.size());
         HnswIndex<String, float[], TestItem, Float> original = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
         for (TestItem item : items) {
             original.add(item);
