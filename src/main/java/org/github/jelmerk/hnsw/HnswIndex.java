@@ -9,7 +9,6 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -393,7 +392,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param toId The identifier of the "to" item.
      * @return The distance between items.
      */
-    TDistance calculateDistance(int fromId, int toId) {
+    private TDistance calculateDistance(int fromId, int toId) {
 
         TItem fromItem = this.items.get(fromId);
         TItem toItem = this.items.get(toId);
@@ -427,7 +426,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         /**
          * Gets the max layer where the node is presented.
          */
-        public int maxLayer() {
+        int maxLayer() {
             return this.connections.size() - 1;
         }
     }
