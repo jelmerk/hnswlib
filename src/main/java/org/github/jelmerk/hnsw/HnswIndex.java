@@ -87,7 +87,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             newNode = this.algorithm.newNode(internalId, randomLayer(random, this.parameters.getLevelLambda()));
             nodes.add(newNode);
-
         }
 
         lookup.put(item.getId(), item);
@@ -601,14 +600,18 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 for (Integer candidateId: candidatesHeap.getBuffer()) {
 
+                    // TODO i guess we need to synhronize on this
 
-                    for(Integer candidateNeighbourId : nodes.get(candidateId).connections.get(layer)) {
+                    NodeNew candidateNode;
+                    synchronized (candidateNode = nodes.get(candidateId)) {
 
-                        if (!visited.contains(candidateNeighbourId)) {
-                            candidatesHeap.push(candidateNeighbourId);
-                            visited.add(candidateNeighbourId);
+                        for (Integer candidateNeighbourId : candidateNode.connections.get(layer)) {
+                            if (!visited.contains(candidateNeighbourId)) {
+                                candidatesHeap.push(candidateNeighbourId);
+                                visited.add(candidateNeighbourId);
+                            }
+
                         }
-
                     }
                 }
             }
