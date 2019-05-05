@@ -5,6 +5,7 @@ import java.io.OutputStream;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInterface<ID, ITEM> {
@@ -63,6 +64,8 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
         this.global = new ReentrantLock();
 
         this.items = Collections.synchronizedList(new ArrayList<>());
+        this.nodes = Collections.synchronizedList(new ArrayList<>());
+        this.idLookup = new ConcurrentHashMap<>();
     }
 
 
@@ -87,28 +90,26 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
         // TODO JK move this to constructor of node?
         List<List<Integer>> connections = new ArrayList<>(curlevel + 1);
         for (int layer = 0; layer <= curlevel; layer++) {
-            // M + 1 neighbours to not realloc in addConnection when the level is full TODO JK: does java do this too ?
-            int layerM = (layer == 0 ? 2 * m : m) + 1;
+
+            int layerM = layer == 0 ? 2 * m : m;
             connections.add(new ArrayList<>(layerM));
         }
-
-        Node node = new Node(curC, connections);
 
         synchronized (items) {
             curC = items.size();
             items.add(item);
             idLookup.put(item.getId(), item); // expected unique, if not will overwrite
 
-            nodes.add(node);
+            nodes.add(new Node(curC, connections));
         }
 
-        synchronized (nodes.get(curC)) {
+        synchronized (nodes.get(curC)) { // TODO i guess this could just immediately sync on the new node without lookup but intellij complains
 
             if (level > 0) {
                 curlevel = level;  // TODO HOW does this even work, wouldnt it always become -1
             }
 
-            global.lock(); // TODO make sure we unlock this
+            global.lock();
 
             int maxLevelCopy = enterpointNode.maxLayer();
 
@@ -120,35 +121,9 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
 
                 Node currObj = enterpointNode;
 
-
-
-
-
-
-
-
-        /*
-            memset(data_level0_memory_ + cur_c * size_data_per_element_ + offsetLevel0_, 0, size_data_per_element_);
-
-            // Initialisation of the data and label
-            memcpy(getExternalLabeLp(cur_c), &label, sizeof(labeltype));
-            memcpy(getDataByInternalId(cur_c), data_point, data_size_);
-        */
-
-
-                // if (c) is the same as if (c != 0). And if (!c) is the same as if (c == 0).
-
-                if (curlevel != 0) {
-//            linkLists_[cur_c] = (char *) malloc(size_links_per_element_ * curlevel + 1);
-//            memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
-                }
-
                 if (currObj != null) {
 
                     if (curlevel < maxLevelCopy) {
-
-                        // TODO JK , the original code passes in spaceInterface.get_dist_func_param as 3rd argument to the distance function
-                        // TODO JK i guess we need to find the item for the id here or something in getDataByInternalId
 
                         float curDist = fstdistfunc.distance(item.getVector(), items.get(currObj.id).getVector());
 
@@ -159,51 +134,43 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
                             while (changed) {
                                 changed = false;
 
-                                synchronized (items.get(currObj)) { // TODO jk : ehm i guess just getting the item from an unsynchronized list is not thread safe.. though if its an array what could go wrong
+                                synchronized (nodes.get(currObj.id)) { // TODO i guess this could just immediately sync on currObj without lookup but intellij complains
 
+                                    for (Integer cand : currObj.connections.get(activeLevel - 1)) {
+                                        float d = fstdistfunc.distance(item.getVector(), items.get(cand).getVector()); // TODO
 
-                                    for (int i = 0; i < size; i++) {
-
-                                        int cand = ???
-                                        if (cand < 0 || cand > maxElements) {
-                                            throw new IllegalStateException("cand error");
-                                        }
-
-                                        TDistance d = fstdistfunc.distance(dataPoint, items.get(cand)); // TODO
-
-                                        if (d.compareTo(curDist) < 0) {
+                                        if (d < curDist) {
                                             curDist = d;
-                                            currObj = cand;
+                                            currObj = nodes.get(cand);
                                             changed = true;
                                         }
                                     }
-
 
                                 }
 
                             }
                         }
 
-                        for (int level = Math.min(curlevel, maxLevelCopy); level >= 0; level--) {
-                            if (level > maxLevelCopy || level < 0) {
+                        for (int activeLevel = Math.min(curlevel, maxLevelCopy); level >= 0; level--) {
+                            if (activeLevel > maxLevelCopy || activeLevel < 0) {
                                 throw new IllegalStateException("Level error");
                             }
 
-                            PriorityQueue<Pair<TDistance, Integer>> topCandidates = searchBaseLayer(currObj, dataPoint, level);
+                            PriorityQueue<Pair<Float, Integer>> topCandidates = searchBaseLayer(currObj, item, level);
 
-                            mutuallyConnectNewElement(dataPoint, curC, topCandidates, level);
+                            mutuallyConnectNewElement(item, curC, topCandidates, level);
                         }
 
                     }
 
                 } else {
                     // Do nothing for the first element
-                    this.enterpointNode = node;
+                    this.enterpointNode = nodes.get(curC); // TODO jk we already have the node, since we create it here no real need for lookup
                 }
 
                 //Releasing lock for the maximum level
                 if (curlevel > maxLevelCopy) {
-                    this.enterpointNode = node; // TODO jk i guess this is the same as above
+                    this.enterpointNode = nodes.get(curC); // TODO jk i guess this is the same as above
                 }
                 return curC;
 
@@ -215,74 +182,98 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
             }
         }
 
+    }
 
 
 
 
+    PriorityQueue<Pair<Float, Integer>> searchBaseLayer(Node enterPoint, float[] datapoint, int layer) {
 
 
-
-
-        /*
-
-            if ((signed)currObj != -1) {
-
-
-                if (curlevel < maxlevelcopy) {
-
-                    dist_t curdist = fstdistfunc_(data_point, getDataByInternalId(currObj), dist_func_param_);
-                    for (int level = maxlevelcopy; level > curlevel; level--) {
-
-
-                        bool changed = true;
-                        while (changed) {
-                            changed = false;
-                            int *data;
-                            std::unique_lock <std::mutex> lock(link_list_locks_[currObj]);
-                            data = (int *) (linkLists_[currObj] + (level - 1) * size_links_per_element_);
-                            int size = *data;
-                            tableint *datal = (tableint *) (data + 1);
-                            for (int i = 0; i < size; i++) {
-                                tableint cand = datal[i];
-                                if (cand < 0 || cand > max_elements_)
-                                    throw std::runtime_error("cand error");
-                                dist_t d = fstdistfunc_(data_point, getDataByInternalId(cand), dist_func_param_);
-                                if (d < curdist) {
-                                    curdist = d;
-                                    currObj = cand;
-                                    changed = true;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                for (int level = std::min(curlevel, maxlevelcopy); level >= 0; level--) {
-                    if (level > maxlevelcopy || level < 0)
-                        throw std::runtime_error("Level error");
-
-                    std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates = searchBaseLayer(
-                            currObj, data_point, level);
-                    mutuallyConnectNewElement(data_point, cur_c, top_candidates, level);
-                }
-
-
-            } else {
-                // Do nothing for the first element
-                enterpoint_node_ = 0;
-                maxlevel_ = curlevel;
-
-            }
-
-            //Releasing lock for the maximum level
-            if (curlevel > maxlevelcopy) {
-                enterpoint_node_ = cur_c;
-                maxlevel_ = curlevel;
-            }
-            return cur_c;
-         */
 
     }
+
+
+
+
+/*
+
+        std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst>
+        searchBaseLayer(tableint enterpoint_id, void *data_point, int layer) {
+            VisitedList *vl = visited_list_pool_->getFreeVisitedList();
+            vl_type *visited_array = vl->mass;
+            vl_type visited_array_tag = vl->curV;
+
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> top_candidates;
+            std::priority_queue<std::pair<dist_t, tableint>, std::vector<std::pair<dist_t, tableint>>, CompareByFirst> candidateSet;
+            dist_t dist = fstdistfunc_(data_point, getDataByInternalId(enterpoint_id), dist_func_param_);
+
+            top_candidates.emplace(dist, enterpoint_id);
+            candidateSet.emplace(-dist, enterpoint_id);
+            visited_array[enterpoint_id] = visited_array_tag;
+            dist_t lowerBound = dist;
+
+            while (!candidateSet.empty()) {
+
+                std::pair<dist_t, tableint> curr_el_pair = candidateSet.top();
+
+                if ((-curr_el_pair.first) > lowerBound) {
+                    break;
+                }
+                candidateSet.pop();
+
+                tableint curNodeNum = curr_el_pair.second;
+
+                std::unique_lock <std::mutex> lock(link_list_locks_[curNodeNum]);
+
+                int *data;// = (int *)(linkList0_ + curNodeNum * size_links_per_element0_);
+                if (layer == 0)
+                    data = (int *) (data_level0_memory_ + curNodeNum * size_data_per_element_ + offsetLevel0_);
+                else
+                    data = (int *) (linkLists_[curNodeNum] + (layer - 1) * size_links_per_element_);
+                int size = *data;
+                tableint *datal = (tableint *) (data + 1);
+        #ifdef USE_SSE
+                _mm_prefetch((char *) (visited_array + *(data + 1)), _MM_HINT_T0);
+                _mm_prefetch((char *) (visited_array + *(data + 1) + 64), _MM_HINT_T0);
+                _mm_prefetch(getDataByInternalId(*datal), _MM_HINT_T0);
+                _mm_prefetch(getDataByInternalId(*(datal + 1)), _MM_HINT_T0);
+        #endif
+
+                for (int j = 0; j < size; j++) {
+                    tableint candidate_id = *(datal + j);
+        #ifdef USE_SSE
+                    _mm_prefetch((char *) (visited_array + *(datal + j + 1)), _MM_HINT_T0);
+                    _mm_prefetch(getDataByInternalId(*(datal + j + 1)), _MM_HINT_T0);
+        #endif
+                    if (visited_array[candidate_id] == visited_array_tag) continue;
+                    visited_array[candidate_id] = visited_array_tag;
+                    char *currObj1 = (getDataByInternalId(candidate_id));
+
+                    dist_t dist1 = fstdistfunc_(data_point, currObj1, dist_func_param_);
+                    if (top_candidates.top().first > dist1 || top_candidates.size() < ef_construction_) {
+                        candidateSet.emplace(-dist1, candidate_id);
+        #ifdef USE_SSE
+                        _mm_prefetch(getDataByInternalId(candidateSet.top().second), _MM_HINT_T0);
+        #endif
+                        top_candidates.emplace(dist1, candidate_id);
+                        if (top_candidates.size() > ef_construction_) {
+                            top_candidates.pop();
+                        }
+                        lowerBound = top_candidates.top().first;
+                    }
+                }
+            }
+            visited_list_pool_->releaseVisitedList(vl);
+
+            return top_candidates;
+        }
+
+
+ */
+
+
+
 
 
 
@@ -555,40 +546,7 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
 //    }
 
 
-    private float[] getDataByInternalId(int internalId) {
-        float[] result = new float[dataSize]; // TODO JK this seems wasteful do we really have to create a new array every time
-        dataLevel0Memory.asFloatBuffer().get(result, internalId, dataSize);
-        return result;
-    }
 
-//    inline char *getDataByInternalId(tableint internal_id) const {
-//        return (data_level0_memory_ + internal_id * size_data_per_element_ + offsetData_);
-//    }
-
-
-
-    getLinkList0(int internalId) {
-
-    }
-
-
-
-    // TODO jk :looks like this is all done with direct memory access..
-    // TODO data_level0_memory_ is defined as data_level0_memory_ = (char *) malloc(max_elements_ * size_data_per_element_);
-    // TODO i guess i could do the same to safe on memory.. and use off heap stuff maybe
-
-
-//    linklistsizeint *get_linklist0(tableint internal_id) {
-//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
-//    };
-//
-//    linklistsizeint *get_linklist0(tableint internal_id, char *data_level0_memory_) {
-//        return (linklistsizeint *) (data_level0_memory_ + internal_id * size_data_per_element_ + offsetLevel0_);
-//    };
-//
-//    linklistsizeint *get_linklist(tableint internal_id, int level) {
-//        return (linklistsizeint *) (linkLists_[internal_id] + (level - 1) * size_links_per_element_);
-//    };
 
 
     @Override
