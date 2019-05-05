@@ -81,21 +81,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public int add(TItem item) {
 
-        NodeNew newNode;
+        int internalId;
         synchronized (items) {
-            int id = items.size();
-
+            internalId = items.size();
             items.add(item);
-
-            newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
-            nodes.add(newNode);
-
-            lookup.put(item.getId(), item);
         }
 
+        lookup.put(item.getId(), item);
 
-        int currentMaxLayer;
-        int bestPeerId;
+        NodeNew newNode = this.algorithm.newNode(internalId, randomLayer(random, this.parameters.getLevelLambda()));
+        nodes.set(internalId, newNode);
 
         globalLock.lock();
 
@@ -103,8 +98,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             this.entryPoint = newNode;
         }
 
-        currentMaxLayer = entryPoint.maxLayer();
-        bestPeerId = this.entryPoint.id;
+        int currentMaxLayer = entryPoint.maxLayer();
+        int bestPeerId = this.entryPoint.id;
 
         if (newNode.maxLayer() <= currentMaxLayer) {
             globalLock.unlock();
@@ -123,7 +118,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
 
                 for (int layer = currentMaxLayer; layer > newNode.maxLayer(); layer--) {
-                    synchronized (items.get(bestPeerId)) {
+                    synchronized (items.get(bestPeerId)) { // TODO do i need to synchronize on this since we also do it at the runKnnAtLayer level ??
                         runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
                         int candidateBestPeerId = neighboursIdsBuffer.get(0);
@@ -145,9 +140,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                     for (int newNeighbourId : bestNeighboursIds) {
 
-                        NodeNew neighbourNode = nodes.get(newNeighbourId);
-
-                        synchronized (neighbourNode) {
+                        NodeNew neighbourNode;
+                        synchronized (neighbourNode = nodes.get(newNeighbourId)) {
                             algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
                             algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
                         }
@@ -279,27 +273,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param k The number of the nearest neighbours to get from the layer.
      */
     void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, List<Integer> resultList, int layer, int k) {
-        /*
-         * v ← ep // set of visited elements
-         * C ← ep // set of candidates
-         * W ← ep // dynamic list of found nearest neighbors
-         * while │C│ > 0
-         *   c ← extract nearest element from C to q
-         *   f ← get furthest element from W to q
-         *   if distance(c, q) > distance(f, q)
-         *     break // all elements in W are evaluated
-         *   for each e ∈ neighbourhood(c) at layer lc // update C and W
-         *     if e ∉ v
-         *       v ← v ⋃ e
-         *       f ← get furthest element from W to q
-         *       if distance(e, q) < distance(f, q) or │W│ < ef
-         *         C ← C ⋃ e
-         *         W ← W ⋃ e
-         *         if │W│ > ef
-         *           remove furthest element from W to q
-         * return W
-         */
-
 
         // prepare tools
         Comparator<Integer> closerIsOnTop = targetCosts.reversed();
@@ -378,11 +351,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int finalLevel = layer;
 
             bfs(this.entryPoint, layer, node -> {
-                synchronized (node) {
-                    String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
-                            .collect(Collectors.joining(","));
-                    buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
-                }
+
+                String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
+                        .collect(Collectors.joining(","));
+                buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
+
             });
             buffer.append(String.format("%n"));
         }
