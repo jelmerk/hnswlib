@@ -7,7 +7,9 @@ import org.github.jelmerk.SearchResult;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -28,6 +30,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private NodeNew entryPoint = null;
 
     private ReentrantLock globalLock;
+
+    private ArrayBlockingQueue<VisitedBitSet> visitedBitSetPool;
 
     public HnswIndex(Parameters parameters,
                      DistanceFunction<TVector, TDistance> distanceFunction) {
@@ -56,6 +60,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.nodes = Collections.synchronizedList(new ArrayList<>());
 
         this.lookup = new ConcurrentHashMap<>();
+
+
+
+//        // TODO use a pool for this
+//        int visitedBitSetPoolSize = 1;
+//        int maxElements = 1000;
+//        this.visitedBitSetPool = new ArrayBlockingQueue<>(visitedBitSetPoolSize);
+//        for (int i = 0; i < visitedBitSetPoolSize; i++) {
+//            visitedBitSetPool.add(new VisitedBitSet(maxElements));
+//        }
+
     }
 
     @Override
@@ -78,19 +93,22 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             lookup.put(item.getId(), item);
         }
 
+        int currentMaxLayer;
+
         globalLock.lock();
 
         if (this.entryPoint == null) {
             this.entryPoint = newNode;
         }
 
-        if (newNode.maxLayer() <= entryPoint.maxLayer()) {
+        currentMaxLayer = entryPoint.maxLayer();
+
+        if (newNode.maxLayer() <= currentMaxLayer) {
             globalLock.unlock();
         }
 
-
         try {
-            synchronized (nodes.get(newNode.id)) {
+            synchronized (newNode) {
 
                 // zoom in and find the best peer on the same level as newNode
                 int bestPeerId = this.entryPoint.id;
@@ -98,37 +116,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
 
-
-//            /*
-//             * W ← ∅ // list for the currently found nearest elements
-//             * ep ← get enter point for hnsw
-//             * L ← level of ep // top layer for hnsw
-//             * l ← ⌊-ln(unif(0..1))∙mL⌋ // new element’s level
-//             * for lc ← L … l+1
-//             *   W ← SEARCH-LAYER(q, ep, ef=1, lc)
-//             *   ep ← get the nearest element from W to q
-//             * for lc ← min(L, l) … 0
-//             *   W ← SEARCH-LAYER(q, ep, efConstruction, lc)
-//             *   neighbors ← SELECT-NEIGHBORS(q, W, M, lc) // alg. 3 or alg. 4
-//             *     for each e ∈ neighbors // shrink connections if needed
-//             *       eConn ← neighbourhood(e) at layer lc
-//             *       if │eConn│ > Mmax // shrink connections of e if lc = 0 then Mmax = Mmax0
-//             *         eNewConn ← SELECT-NEIGHBORS(e, eConn, Mmax, lc) // alg. 3 or alg. 4
-//             *         set neighbourhood(e) at layer lc to eNewConn
-//             *   ep ← W
-//             * if l > L
-//             *   set enter point for hnsw to q
-//             */
-
                 // zoom in and find the best peer on the same level as newNode
                 TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
 
                 // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
-                // TODO JK: should we lock the entire layer ??
 
-                // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
-
-                for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
+                for (int layer = currentMaxLayer; layer > newNode.maxLayer(); layer--) {
                     synchronized (items.get(bestPeerId)) {
                         runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
@@ -153,8 +146,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                         NodeNew neighbourNode = nodes.get(newNeighbourId);
 
-                        algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
-                        algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
+                        synchronized (neighbourNode) {
+                            algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
+                            algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
+                        }
 
                         // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
                         if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
@@ -166,7 +161,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
 
                 // zoom out to the highest level
-                if (newNode.maxLayer() > entryPoint.maxLayer()) {
+                if (newNode.maxLayer() > currentMaxLayer) {
                     // JK: this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
@@ -198,6 +193,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }, -1);
 
         List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
+
+        // TODO JK entryPoint can be changed by another thread so we should synchronize and maxLayer actually accesses the collection so we can get issues if the underlying list is mutated
+
 
         for (int layer = this.entryPoint.maxLayer(); layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
@@ -307,6 +305,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         List<Integer> expansionBuffer = new ArrayList<>();
         VisitedBitSet visitedSet = new VisitedBitSet(nodes.size());
 
+        // TODO use a pool for this
+
+//        VisitedBitSet visitedSet;
+//        try {
+//            visitedSet = visitedBitSetPool.poll(Long.MAX_VALUE, TimeUnit.DAYS);
+//        } catch (InterruptedException e) {
+//            throw new RuntimeException(e); // TODO any nicer way to handle this ?
+//        }
+
         // TODO: Optimize by providing buffers
         BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, targetCosts);
         BinaryHeap<Integer> expansionHeap = new BinaryHeap<>(expansionBuffer, closerIsOnTop);
@@ -316,7 +323,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         visitedSet.add(entryPointId);
 
         // run bfs
-        while (expansionHeap.getBuffer().size() > 0) {
+        while (!expansionHeap.getBuffer().isEmpty()) {
             // get next candidate to check and expand
             Integer toExpandId = expansionHeap.pop();
             Integer farthestResultId = resultHeap.getBuffer().get(0);
@@ -328,23 +335,25 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             // expand candidate
 
             NodeNew node = this.nodes.get(toExpandId);
+            synchronized (node) {
 
-            List<Integer> neighboursIds = node.connections.get(layer);
-            for (Integer neighbourId : neighboursIds) {
-                if (!visitedSet.contains(neighbourId)) {
-                    // enqueue perspective neighbours to expansion list
-                    farthestResultId = resultHeap.getBuffer().get(0);
-                    if (resultHeap.getBuffer().size() < k
-                            || DistanceUtils.lt(targetCosts.from(neighbourId), targetCosts.from(farthestResultId))) {
-                        expansionHeap.push(neighbourId);
-                        resultHeap.push(neighbourId);
-                        if (resultHeap.getBuffer().size() > k) {
-                            resultHeap.pop();
+                List<Integer> neighboursIds = node.connections.get(layer);
+                for (Integer neighbourId : neighboursIds) {
+                    if (!visitedSet.contains(neighbourId)) {
+                        // enqueue perspective neighbours to expansion list
+                        farthestResultId = resultHeap.getBuffer().get(0);
+                        if (resultHeap.getBuffer().size() < k
+                                || DistanceUtils.lt(targetCosts.from(neighbourId), targetCosts.from(farthestResultId))) {
+                            expansionHeap.push(neighbourId);
+                            resultHeap.push(neighbourId);
+                            if (resultHeap.getBuffer().size() > k) {
+                                resultHeap.pop();
+                            }
                         }
-                    }
 
-                    // update visited list
-                    visitedSet.add(neighbourId);
+                        // update visited list
+                        visitedSet.add(neighbourId);
+                    }
                 }
             }
         }
@@ -363,9 +372,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int finalLevel = layer;
 
             bfs(this.entryPoint, layer, node -> {
-                String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
-                        .collect(Collectors.joining(","));
-                buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
+                synchronized (node) {
+                    String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
+                            .collect(Collectors.joining(","));
+                    buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
+                }
             });
             buffer.append(String.format("%n"));
         }
