@@ -93,7 +93,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             lookup.put(item.getId(), item);
         }
 
+
         int currentMaxLayer;
+        int bestPeerId;
 
         globalLock.lock();
 
@@ -102,6 +104,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         currentMaxLayer = entryPoint.maxLayer();
+        bestPeerId = this.entryPoint.id;
 
         if (newNode.maxLayer() <= currentMaxLayer) {
             globalLock.unlock();
@@ -111,8 +114,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             synchronized (newNode) {
 
                 // zoom in and find the best peer on the same level as newNode
-                int bestPeerId = this.entryPoint.id;
-
 
                 List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
 
@@ -138,7 +139,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
 
                 // connecting new node to the small world
-                for (int layer = Math.min(newNode.maxLayer(), entryPoint.maxLayer()); layer >= 0; layer--) {
+                for (int layer = Math.min(newNode.maxLayer(), currentMaxLayer); layer >= 0; layer--) {
                     runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
                     List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
@@ -184,7 +185,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
         };
 
-        int bestPeerId = this.entryPoint.id;
+
         // TODO: hack we know that destination id is -1.
 
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
@@ -194,10 +195,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
 
-        // TODO JK entryPoint can be changed by another thread so we should synchronize and maxLayer actually accesses the collection so we can get issues if the underlying list is mutated
+        int bestPeerId;
+        int maxLayer;
 
+        synchronized (this) {
+            bestPeerId = this.entryPoint.id;
+            maxLayer = this.entryPoint.maxLayer();
+        }
 
-        for (int layer = this.entryPoint.maxLayer(); layer > 0; layer--) {
+        for (int layer = maxLayer; layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
 
             int candidateBestPeerId = resultIds.get(0);
@@ -334,8 +340,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             // expand candidate
 
-            NodeNew node = this.nodes.get(toExpandId);
-            synchronized (node) {
+            NodeNew node;
+            synchronized (node = this.nodes.get(toExpandId)) {
 
                 List<Integer> neighboursIds = node.connections.get(layer);
                 for (Integer neighbourId : neighboursIds) {
