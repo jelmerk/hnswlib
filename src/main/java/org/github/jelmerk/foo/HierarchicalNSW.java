@@ -2,25 +2,12 @@ package org.github.jelmerk.foo;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class HierarchicalNSW<ID> implements AlgorithmInterface {
-
-    private static final int NUM_BYTES_INT = 4;
-    private static final int NUM_BYTES_FLOAT = 4;
-
-
-    private  SpaceInterface spaceInterface;
-
-    private int maxElements;
-
-    private int curElementCount;
-
-    private int sizeDataPerElement;
-    private int sizeLinksPerElement;
-
+public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInterface<ID, ITEM> {
 
     private int m;
     private int maxM;
@@ -29,45 +16,29 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
     private double mult;
     private double revSize;
-    private int maxLevel;
+//    private int maxLevel;
 
 //    VisitedListPool *visited_list_pool_;
-    private final Object currentElementCountGuard = new Object();
 
-    private List<Object> linkListLocks;
-    private int enterpointNode;
+//    private int enterpointNode;
 
-    private int sizeLinksLevel0;
-    private int offsetData;
-    private int offsetLevel0;
-
-    private ByteBuffer dataLevel0Memory;
-    private List<ByteBuffer> linkLists;
-    private List<Integer> elementLevels; // TODO use the elipse collections collection here ?
+    private Node enterpointNode;
 
 
-    private int dataSize;
-    private int labelOffset;
-    private DistanceFunction<T> fstdistfunc;
-    private T distFuncParam;
-    private Map<Integer, Integer> idLookup;
+    private DistanceFunction fstdistfunc;
 
+    private final List<Item<ID>> items;
+    private List<Node> nodes;
+    private Map<ID, ITEM> idLookup;
 
     private Random levelGenerator;
-
 
     private int ef;
     private ReentrantLock global;
 
+    public HierarchicalNSW(DistanceFunction fstdistfunc, int m, int efConstruction, int randomSeed) {
 
-
-    public HierarchicalNSW(SpaceInterface<T> spaceInterface, int maxElements, int m, int efConstruction, int randomSeed) {
-        this.spaceInterface = spaceInterface;
-        this.maxElements = maxElements;
-
-        this.dataSize = spaceInterface.getDataSize();
-        this.fstdistfunc = spaceInterface.getDistanceFunction();
-        this.distFuncParam = spaceInterface.getDistanceFunctionParam();
+        this.fstdistfunc = fstdistfunc;
 
         this.m = m;
         this.maxM = m;
@@ -80,30 +51,9 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
         this.levelGenerator = new Random(randomSeed);
 
 
-        this.sizeLinksLevel0 = this.maxM0 * NUM_BYTES_INT + NUM_BYTES_INT;
-
-        this.sizeDataPerElement = this.sizeLinksLevel0 + this.dataSize + NUM_BYTES_INT; //
-
-        this.offsetData  = sizeLinksLevel0;
-        this.labelOffset = sizeLinksLevel0 + dataSize;
-
-        this.offsetLevel0 = 0;
-
-
-        this.dataLevel0Memory = ByteBuffer.allocateDirect(maxElements * sizeDataPerElement); // use off heap memory
-
-
-        this.curElementCount = 0;
-
-
         //initializations for special treatment of the first node
-        this.enterpointNode = -1;
-        this.maxLevel = -1;
-
-
-        this.linkLists = new ArrayList<>();
-
-//        linkLists = ByteBuffer.allocateDirect(sizeof(void *) * maxElements); // void * = size of an object pointer , function pointers can have different sizes, as can member pointers
+        this.enterpointNode = null;
+//        this.maxLevel = -1;
 
 
         this.mult = 1 / Math.log(1d * m);
@@ -112,46 +62,53 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
         this.global = new ReentrantLock();
 
-        this.linkListLocks = Collections.synchronizedList(new ArrayList<>());
+        this.items = Collections.synchronizedList(new ArrayList<>());
     }
 
 
     @Override
-    public void addPoint(Item item) {
+    public ITEM getById(ID id) {
+        return idLookup.get(id);
+    }
 
+    @Override
+    public void addPoint(ITEM item) {
+        addPoint(item, -1);
     }
 
 
-    private int addPoint(Item item, int level) {
+    private int addPoint(ITEM item, int level) {
 
         int curC;
 
-        synchronized (currentElementCountGuard) {
-            if (curElementCount >= maxElements) {
-                throw new IllegalArgumentException("The number of elements exceeds the specified limit.");
-            }
-
-            idLookup.put(label, curElementCount); // expected unique, if not will overwrite
-
-            linkListLocks.add(new Object()); // TODO is this really efficient, if we are creating an object per element anyway why not just create an object with the embedding and id and synchronize on that it will make everything easier, also i guess this collection needs to be synchronized then ?
-
-            curC = curElementCount;
-            curElementCount++;
+        synchronized (items) {
+            curC = items.size();
+            items.add(item);
+            idLookup.put(item.getId(), item); // expected unique, if not will overwrite
         }
 
-        synchronized (linkListLocks.get(curC)) {
+        synchronized (items.get(curC)) {
 
             int curlevel = getRandomLevel(mult);
 
             if (level > 0) {
-                curlevel = level;
+                curlevel = level;  // TODO HOW does this even work, wouldnt it always become -1
             }
 
-            elementLevels.set(curC, curlevel);
+            List<List<Integer>> connections = new ArrayList<>(curlevel + 1);
+            for (int layer = 0; layer <= curlevel; layer++) {
+                // M + 1 neighbours to not realloc in addConnection when the level is full
+                int layerM = (layer == 0 ? 2 * m : m) + 1;
+                connections.add(new ArrayList<>(layerM));
+            }
+
+            Node node = new Node(curC, connections);
+
+            nodes.add(node);
 
             global.lock(); // TODO make sure we unlock this
 
-            int maxLevelCopy = this.maxLevel;
+            int maxLevelCopy = enterpointNode.maxLayer();
 
             if (curlevel <= maxLevelCopy) {
                 global.unlock();
@@ -159,7 +116,7 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
             try {
 
-                int currObj = enterpointNode;
+                Node currObj = enterpointNode;
 
 
 
@@ -184,14 +141,14 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 //            memset(linkLists_[cur_c], 0, size_links_per_element_ * curlevel + 1);
                 }
 
-                if (currObj != -1) {
+                if (currObj != null) {
 
                     if (curlevel < maxLevelCopy) {
 
                         // TODO JK , the original code passes in spaceInterface.get_dist_func_param as 3rd argument to the distance function
                         // TODO JK i guess we need to find the item for the id here or something in getDataByInternalId
 
-                        TDistance curDist = fstdistfunc.distance(dataPoint, items.get(currObj));
+                        float curDist = fstdistfunc.distance(item.getVector(), items.get(currObj.id).getVector());
 
                         for (int activeLevel = maxLevelCopy; activeLevel > curlevel; activeLevel--) {
 
@@ -357,8 +314,7 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
                 float curdist = fstdistfunc.distance(
                         getDataByInternalId(secondPair.getSecond()),
-                        getDataByInternalId(currentPair.getSecond()),
-                        distFuncParam
+                        getDataByInternalId(currentPair.getSecond())
                 );
 
                 if (curdist < distToQuery) {
@@ -636,8 +592,8 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
 
 
     @Override
-    public PriorityQueue<Pair<Float, Integer>> searchKnn(float[] item, int k) {
-        return null;
+    public PriorityQueue<SearchResult<ITEM>> searchKnn(float[] vector, int k) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -650,5 +606,21 @@ public class HierarchicalNSW<ID> implements AlgorithmInterface {
         return (int) r;
     }
 
+
+    static class Node  {
+
+        private int id;
+
+        private List<List<Integer>> connections;
+
+        public Node(int id, List<List<Integer>> connections) {
+            this.id = id;
+            this.connections = connections;
+        }
+
+        public int maxLayer() {
+            return this.connections.size() - 1;
+        }
+    }
 
 }
