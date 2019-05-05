@@ -81,30 +81,32 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
 
         int curC;
 
+
+        int curlevel = getRandomLevel(mult);
+
+        // TODO JK move this to constructor of node?
+        List<List<Integer>> connections = new ArrayList<>(curlevel + 1);
+        for (int layer = 0; layer <= curlevel; layer++) {
+            // M + 1 neighbours to not realloc in addConnection when the level is full TODO JK: does java do this too ?
+            int layerM = (layer == 0 ? 2 * m : m) + 1;
+            connections.add(new ArrayList<>(layerM));
+        }
+
+        Node node = new Node(curC, connections);
+
         synchronized (items) {
             curC = items.size();
             items.add(item);
             idLookup.put(item.getId(), item); // expected unique, if not will overwrite
+
+            nodes.add(node);
         }
 
-        synchronized (items.get(curC)) {
-
-            int curlevel = getRandomLevel(mult);
+        synchronized (nodes.get(curC)) {
 
             if (level > 0) {
                 curlevel = level;  // TODO HOW does this even work, wouldnt it always become -1
             }
-
-            List<List<Integer>> connections = new ArrayList<>(curlevel + 1);
-            for (int layer = 0; layer <= curlevel; layer++) {
-                // M + 1 neighbours to not realloc in addConnection when the level is full
-                int layerM = (layer == 0 ? 2 * m : m) + 1;
-                connections.add(new ArrayList<>(layerM));
-            }
-
-            Node node = new Node(curC, connections);
-
-            nodes.add(node);
 
             global.lock(); // TODO make sure we unlock this
 
@@ -196,14 +198,12 @@ public class HierarchicalNSW<ID, ITEM extends Item<ID>> implements AlgorithmInte
 
                 } else {
                     // Do nothing for the first element
-                    this.enterpointNode = 0;
-                    this.maxLevel = curlevel;
+                    this.enterpointNode = node;
                 }
 
                 //Releasing lock for the maximum level
                 if (curlevel > maxLevelCopy) {
-                    this.enterpointNode = curC;
-                    this.maxLevel = curlevel;
+                    this.enterpointNode = node; // TODO jk i guess this is the same as above
                 }
                 return curC;
 
