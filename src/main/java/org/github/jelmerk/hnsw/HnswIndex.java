@@ -66,17 +66,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public int add(TItem item) {
 
-        int id;
+        NodeNew newNode;
         synchronized (items) {
-            id = items.size();
+            int id = items.size();
 
             items.add(item);
+
+            newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
+            nodes.add(newNode);
+
+            lookup.put(item.getId(), item);
         }
-
-        lookup.put(item.getId(), item);
-
-        NodeNew newNode = this.algorithm.newNode(id, randomLayer(random, this.parameters.getLevelLambda()));
-        nodes.add(newNode);
 
         globalLock.lock();
 
@@ -88,13 +88,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             globalLock.unlock();
         }
 
+
         try {
+            synchronized (nodes.get(newNode.id)) {
 
-            // zoom in and find the best peer on the same level as newNode
-            int bestPeerId = this.entryPoint.id;
+                // zoom in and find the best peer on the same level as newNode
+                int bestPeerId = this.entryPoint.id;
 
 
-            List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
+                List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
 
 
 //            /*
@@ -118,58 +120,59 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 //             *   set enter point for hnsw to q
 //             */
 
-            // zoom in and find the best peer on the same level as newNode
-            TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
+                // zoom in and find the best peer on the same level as newNode
+                TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
 
-            // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
-            // TODO JK: should we lock the entire layer ??
+                // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
+                // TODO JK: should we lock the entire layer ??
 
-            // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
+                // TODO JK: 5he orginal c++ code synchronizes on newNode when running this
 
-            for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
-                synchronized (items.get(bestPeerId)) {
-                    runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
+                for (int layer = entryPoint.maxLayer(); layer > newNode.maxLayer(); layer--) {
+                    synchronized (items.get(bestPeerId)) {
+                        runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-                    int candidateBestPeerId = neighboursIdsBuffer.get(0);
+                        int candidateBestPeerId = neighboursIdsBuffer.get(0);
+
+                        neighboursIdsBuffer.clear();
+
+                        if (bestPeerId == candidateBestPeerId) {
+                            break;
+                        }
+
+                        bestPeerId = candidateBestPeerId;
+                    }
+                }
+
+                // connecting new node to the small world
+                for (int layer = Math.min(newNode.maxLayer(), entryPoint.maxLayer()); layer >= 0; layer--) {
+                    runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
+                    List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
+
+                    for (int newNeighbourId : bestNeighboursIds) {
+
+                        NodeNew neighbourNode = nodes.get(newNeighbourId);
+
+                        algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
+                        algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
+
+                        // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
+                        if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
+                            bestPeerId = neighbourNode.id;
+                        }
+                    }
 
                     neighboursIdsBuffer.clear();
-
-                    if (bestPeerId == candidateBestPeerId) {
-                        break;
-                    }
-
-                    bestPeerId = candidateBestPeerId;
-                }
-            }
-
-            // connecting new node to the small world
-            for (int layer = Math.min(newNode.maxLayer(), entryPoint.maxLayer()); layer >= 0; layer--) {
-                runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
-                List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
-
-                for (int newNeighbourId : bestNeighboursIds) {
-
-                    NodeNew neighbourNode = nodes.get(newNeighbourId);
-
-                    algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
-                    algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
-
-                    // if distance from newNode to newNeighbour is better than to bestPeer => update bestPeer
-                    if (DistanceUtils.lt(currentNodeTravelingCosts.from(newNeighbourId), currentNodeTravelingCosts.from(bestPeerId))) {
-                        bestPeerId = neighbourNode.id;
-                    }
                 }
 
-                neighboursIdsBuffer.clear();
-            }
+                // zoom out to the highest level
+                if (newNode.maxLayer() > entryPoint.maxLayer()) {
+                    // JK: this is thread safe because we get the global lock when we add a level
+                    this.entryPoint = newNode;
+                }
 
-            // zoom out to the highest level
-            if (newNode.maxLayer() > entryPoint.maxLayer()) {
-                // JK: this is thread safe because we get the global lock when we add a level
-                this.entryPoint = newNode;
+                return newNode.id;
             }
-
-            return newNode.id;
         } finally {
             if (globalLock.isHeldByCurrentThread()) {
                 globalLock.unlock();
