@@ -3,7 +3,6 @@ package org.github.jelmerk.hnsw;
 
 import org.github.jelmerk.Item;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -53,9 +52,7 @@ public class HnswIndexPerfTest {
 //            index.add(item);
 //        }
 
-
-        ParallelFor.parallelFor(0, 100_000, Runtime.getRuntime().availableProcessors(),
-                (i, theadId) -> index.add(items.get(i)));
+        index.addAll(items);
 
         long end = System.currentTimeMillis();
 
