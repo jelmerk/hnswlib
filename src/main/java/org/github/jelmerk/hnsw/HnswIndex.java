@@ -13,6 +13,7 @@ import org.github.jelmerk.SearchResult;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -60,10 +61,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        // TODO JK if i synchronize this it seems to be the major point of contention, is it safe not to make this a synchronized list ?
-
-        this.items = new ArrayList<>(parameters.getMaxItems());
-        this.nodes = new ArrayList<>(parameters.getMaxItems());
+        this.items = new CopyOnWriteArrayList<>();
+        this.nodes = new CopyOnWriteArrayList<>();
 
         this.lookup = new ConcurrentHashMap<>();
 
@@ -481,8 +480,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @return Best nodes selected from the candidates.
          */
         abstract MutableIntList selectBestForConnecting(MutableIntList candidatesIds,
-                                                       TravelingCosts<Integer, TDistance> travelingCosts,
-                                                       int layer);
+                                                        TravelingCosts<Integer, TDistance> travelingCosts,
+                                                        int layer);
         /**
          * Get maximum allowed connections for the given level.
          *
