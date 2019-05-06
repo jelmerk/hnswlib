@@ -10,7 +10,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     TItem get(TId id);
 
-    int add(TItem item);
+    void add(TItem item);
 
     List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k);
 

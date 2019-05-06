@@ -70,7 +70,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     @Override
-    public int add(TItem item) {
+    public void add(TItem item) {
 
         NodeNew newNode;
         synchronized (items) {
@@ -156,8 +156,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     // JK: this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
-
-                return newNode.id;
             }
         } finally {
             if (globalLock.isHeldByCurrentThread()) {
