@@ -1,6 +1,11 @@
 package org.github.jelmerk.hnsw;
 
 
+import org.eclipse.collections.api.list.primitive.IntList;
+import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.set.primitive.MutableIntSet;
+import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.github.jelmerk.Index;
 import org.github.jelmerk.Item;
 import org.github.jelmerk.SearchResult;
@@ -30,7 +35,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private ReentrantLock globalLock;
 
     private Pool<VisitedBitSet> visitedBitSetPool;
-    private Pool<List<Integer>> expansionBufferPool;
+    private Pool<MutableIntList> expansionBufferPool;
 
     public HnswIndex(Parameters parameters,
                      DistanceFunction<TVector, TDistance> distanceFunction) {
@@ -57,13 +62,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         // TODO JK if i synchronize this it seems to be the major point of contention, is it safe not to make this a synchronized list ?
 
-        this.items = new ArrayList<>();
-        this.nodes = new ArrayList<>();
+        this.items = new ArrayList<>(parameters.getMaxItems());
+        this.nodes = new ArrayList<>(parameters.getMaxItems());
 
         this.lookup = new ConcurrentHashMap<>();
 
         this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItems()), 10);
-        this.expansionBufferPool = new Pool<>(ArrayList::new, 10);
+        this.expansionBufferPool = new Pool<>(IntArrayList::new, 10);
     }
 
     @Override
@@ -108,7 +113,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 // zoom in and find the best peer on the same level as newNode
 
-                List<Integer> neighboursIdsBuffer = new ArrayList<>(algorithm.getM(0) + 1);
+                MutableIntList neighboursIdsBuffer = new IntArrayList(algorithm.getM(0) + 1);
 
                 // zoom in and find the best peer on the same level as newNode
                 TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
@@ -119,7 +124,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     synchronized (items.get(bestPeerId)) { // TODO do i need to synchronize on this since we also do it at the runKnnAtLayer level ??
                         runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
-                        int candidateBestPeerId = neighboursIdsBuffer.get(0);
+                        int candidateBestPeerId = neighboursIdsBuffer.getFirst();
 
                         neighboursIdsBuffer.clear();
 
@@ -134,9 +139,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 // connecting new node to the small world
                 for (int layer = Math.min(newNode.maxLayer(), currentMaxLayer); layer >= 0; layer--) {
                     runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
-                    List<Integer> bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
+                    MutableIntList bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
-                    for (int newNeighbourId : bestNeighboursIds) {
+                    for (int i = 0; i < bestNeighboursIds.size(); i++) {
+                        int newNeighbourId = bestNeighboursIds.get(i);
 
                         NodeNew neighbourNode;
                         synchronized (neighbourNode = nodes.get(newNeighbourId)) {
@@ -169,12 +175,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector destination, int k) {
 
-
         DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
             int nodeId = x >= 0 ? x : y;
             return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
         };
-
 
         // TODO: hack we know that destination id is -1.
 
@@ -183,7 +187,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
         }, -1);
 
-        List<Integer> resultIds = new ArrayList<>(k + 1); // TODO JK can this be an array of primitive ints ?
+        MutableIntList resultIds = new IntArrayList(k + 1); // TODO JK can this be an array of primitive ints ?
 
         int bestPeerId;
         int maxLayer;
@@ -196,7 +200,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         for (int layer = maxLayer; layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
 
-            int candidateBestPeerId = resultIds.get(0);
+            int candidateBestPeerId = resultIds.getFirst();
 
             resultIds.clear();
 
@@ -209,13 +213,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
 
-        return resultIds.stream()
-                .map(id -> {
+
+        return resultIds
+                .collect(id -> {
                     TItem item = this.items.get(id);
                     TDistance distance = runtimeDistance.distance(id, -1);
                     return new SearchResult<>(item, distance);
-                })
-                .collect(Collectors.toList());
+                });
     }
 
     @Override
@@ -268,19 +272,19 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param layer The layer to perform search at.
      * @param k The number of the nearest neighbours to get from the layer.
      */
-    private void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, List<Integer> resultList, int layer, int k) {
+    private void runKnnAtLayer(int entryPointId, TravelingCosts<Integer, TDistance> targetCosts, MutableIntList resultList, int layer, int k) {
 
         // prepare tools
         Comparator<Integer> closerIsOnTop = targetCosts.reversed();
 
         // prepare collections
 
-        List<Integer> expansionBuffer = expansionBufferPool.borrowObject();
+        MutableIntList expansionBuffer = expansionBufferPool.borrowObject();
         VisitedBitSet visitedSet = visitedBitSetPool.borrowObject();
 
         // TODO: Optimize by providing buffers
-        BinaryHeap<Integer> resultHeap = new BinaryHeap<>(resultList, targetCosts);
-        BinaryHeap<Integer> expansionHeap = new BinaryHeap<>(expansionBuffer, closerIsOnTop);
+        IntBinaryHeap resultHeap = new IntBinaryHeap(resultList, targetCosts);
+        IntBinaryHeap expansionHeap = new IntBinaryHeap(expansionBuffer, closerIsOnTop);
 
         resultHeap.push(entryPointId);
         expansionHeap.push(entryPointId);
@@ -289,8 +293,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         // run bfs
         while (!expansionHeap.getBuffer().isEmpty()) {
             // get next candidate to check and expand
-            Integer toExpandId = expansionHeap.pop();
-            Integer farthestResultId = resultHeap.getBuffer().get(0);
+            int toExpandId = expansionHeap.pop();
+            int farthestResultId = resultHeap.getBuffer().getFirst();
             if (DistanceUtils.gt(targetCosts.from(toExpandId), targetCosts.from(farthestResultId))) {
                 // the closest candidate is farther than farthest result
                 break;
@@ -301,11 +305,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             NodeNew node;
             synchronized (node = this.nodes.get(toExpandId)) {
 
-                List<Integer> neighboursIds = node.connections.get(layer);
-                for (Integer neighbourId : neighboursIds) {
+                IntList neighboursIds = node.connections[layer];
+
+                for (int i = 0; i < neighboursIds.size(); i++) {
+                    int neighbourId = neighboursIds.get(i);
+
                     if (!visitedSet.contains(neighbourId)) {
                         // enqueue perspective neighbours to expansion list
-                        farthestResultId = resultHeap.getBuffer().get(0);
+                        farthestResultId = resultHeap.getBuffer().getFirst();
                         if (resultHeap.getBuffer().size() < k
                                 || DistanceUtils.lt(targetCosts.from(neighbourId), targetCosts.from(farthestResultId))) {
                             expansionHeap.push(neighbourId);
@@ -343,7 +350,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             bfs(this.entryPoint, layer, node -> {
 
-                String neighbours = node.connections.get(finalLevel).stream().map(String::valueOf)
+                String neighbours = node.connections[finalLevel].collect(String::valueOf).stream().map(String::valueOf)
                         .collect(Collectors.joining(","));
                 buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
 
@@ -363,16 +370,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     private void bfs(NodeNew entryPoint, int layer, Consumer<NodeNew> visitConsumer) {
 
-        Set<Integer> visitedIds = new HashSet<>();
-        Queue<Integer> expansionQueue = new LinkedList<>(Collections.singleton(entryPoint.id));
+        MutableIntSet visitedIds = new IntHashSet();
+        MutableIntList expansionQueue = IntArrayList.newListWith(entryPoint.id);
 
         while (!expansionQueue.isEmpty()) {
-
-            NodeNew currentNode = nodes.get(expansionQueue.remove());
+            NodeNew currentNode = nodes.get(expansionQueue.removeAtIndex(0));
             if (!visitedIds.contains(currentNode.id)) {
                 visitConsumer.accept(currentNode);
                 visitedIds.add(currentNode.id);
-                expansionQueue.addAll(currentNode.connections.get(layer));
+                expansionQueue.addAll(currentNode.connections[layer]);
             }
         }
     }
@@ -413,16 +419,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         private int id;
 
-        private List<List<Integer>> connections; // TODO JK i think this can be changed to an array of primitive int's since this size is pretty fixed
+        private MutableIntList[] connections; // TODO JK i think this can be changed to an array of primitive int's since this size is pretty fixed
 
         /**
          * Gets the max layer where the node is presented.
          */
         int maxLayer() {
-            return this.connections.size() - 1;
+            return this.connections.length - 1;
         }
     }
-
 
     /**
      * The abstract class representing algorithm to control node capacity.
@@ -452,11 +457,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         // TODO JK should this be in algorithm ?? since its the same for both
         NodeNew newNode(int nodeId, int maxLayer) {
-            List<List<Integer>> connections = new ArrayList<>(maxLayer + 1);
+            IntArrayList[] connections = new IntArrayList[maxLayer + 1];
+
             for (int layer = 0; layer <= maxLayer; layer++) {
                 // M + 1 neighbours to not realloc in addConnection when the level is full
                 int layerM = this.getM(layer) + 1;
-                connections.add(new ArrayList<>(layerM));
+                connections[layer] = new IntArrayList(layerM);
             }
 
             NodeNew node = new NodeNew();
@@ -474,7 +480,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param layer The layer of the neighbourhood.
          * @return Best nodes selected from the candidates.
          */
-        abstract List<Integer> selectBestForConnecting(List<Integer> candidatesIds,
+        abstract MutableIntList selectBestForConnecting(MutableIntList candidatesIds,
                                                        TravelingCosts<Integer, TDistance> travelingCosts,
                                                        int layer);
         /**
@@ -505,10 +511,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          */
         // TODO JK: need to see ifg i can move this to the node classs
         void connect(NodeNew node, NodeNew neighbour, int layer) {
-            node.connections.get(layer).add(neighbour.id);
-            if (node.connections.get(layer).size() > this.getM(layer)) {
+
+            node.connections[layer].add(neighbour.id);
+            if (node.connections[layer].size() > this.getM(layer)) {
                 TravelingCosts<Integer, TDistance> travelingCosts = new TravelingCosts<>(this.nodeDistance, node.id);
-                node.connections.set(layer, this.selectBestForConnecting(node.connections.get(layer), travelingCosts, layer));
+                node.connections[layer] = this.selectBestForConnecting(node.connections[layer], travelingCosts, layer);
             }
         }
     }
@@ -523,7 +530,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * {@inheritDoc}
          */
         @Override
-        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
+        MutableIntList selectBestForConnecting(MutableIntList candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
             /*
              * q ← this
              * return M nearest elements from C to q
@@ -531,7 +538,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             // !NO COPY! in-place selection
             int bestN = this.getM(layer);
-            BinaryHeap<Integer> candidatesHeap = new BinaryHeap<>(candidatesIds, travelingCosts);
+            IntBinaryHeap candidatesHeap = new IntBinaryHeap(candidatesIds, travelingCosts);
             while (candidatesHeap.getBuffer().size() > bestN) {
                 candidatesHeap.pop();
             }
@@ -550,46 +557,52 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * {@inheritDoc}
          */
         @Override
-        List<Integer> selectBestForConnecting(List<Integer> candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
+        MutableIntList selectBestForConnecting(MutableIntList candidatesIds, TravelingCosts<Integer, TDistance> travelingCosts, int layer) {
 
             Comparator<Integer> closerIsOnTop = travelingCosts.reversed();
 
             int layerM = this.getM(layer);
 
-            BinaryHeap<Integer> resultHeap = new BinaryHeap<>(new ArrayList<>(layerM + 1), travelingCosts);
-            BinaryHeap<Integer> candidatesHeap = new BinaryHeap<>(candidatesIds, closerIsOnTop);
+            IntBinaryHeap resultHeap = new IntBinaryHeap(new IntArrayList(layerM + 1), travelingCosts);
+            IntBinaryHeap candidatesHeap = new IntBinaryHeap(candidatesIds, closerIsOnTop);
 
             // expand candidates option is enabled
+            MutableIntList candidatesHeapBuffer = candidatesHeap.getBuffer();
             if (parameters.isExpandBestSelection()) {
 
-                Set<Integer> visited = new HashSet<>(candidatesHeap.getBuffer());
+                MutableIntSet visited = IntHashSet.newSet(candidatesHeapBuffer);
 
-                for (Integer candidateId: candidatesHeap.getBuffer()) {
+                for (int i = 0; i < candidatesHeapBuffer.size(); i++) {
 
-                    // TODO i guess we need to synhronize on this
+                    int candidateId = candidatesHeapBuffer.get(i);
 
                     NodeNew candidateNode;
                     synchronized (candidateNode = nodes.get(candidateId)) {
+                        MutableIntList candidateNodeConnections = candidateNode.connections[layer];
 
-                        for (Integer candidateNeighbourId : candidateNode.connections.get(layer)) {
+                        for (int j = 0; j < candidateNodeConnections.size(); j++) {
+                            int candidateNeighbourId = candidateNodeConnections.get(j);
+
                             if (!visited.contains(candidateNeighbourId)) {
                                 candidatesHeap.push(candidateNeighbourId);
                                 visited.add(candidateNeighbourId);
                             }
-
                         }
                     }
                 }
             }
 
             // main stage of moving candidates to result
-            BinaryHeap<Integer> discardedHeap = new BinaryHeap<>(new ArrayList<>(candidatesHeap.getBuffer().size()), closerIsOnTop);
-            while (!candidatesHeap.getBuffer().isEmpty() && resultHeap.getBuffer().size() < layerM) {
-                Integer candidateId = candidatesHeap.pop();
+            IntBinaryHeap discardedHeap = new IntBinaryHeap(new IntArrayList(candidatesHeapBuffer.size()), closerIsOnTop);
 
-                Integer farestResultId = resultHeap.getBuffer().stream().findFirst().orElse(0);
+            MutableIntList resultHeapBuffer = resultHeap.getBuffer();
 
-                if (resultHeap.getBuffer().isEmpty()
+            while (!candidatesHeapBuffer.isEmpty() && resultHeapBuffer.size() < layerM) {
+                int candidateId = candidatesHeap.pop();
+
+                int farestResultId = resultHeapBuffer.isEmpty() ? 0 : resultHeapBuffer.getFirst();
+
+                if (resultHeapBuffer.isEmpty()
                         || DistanceUtils.lt(travelingCosts.from(candidateId), travelingCosts.from(farestResultId))) {
                     resultHeap.push(candidateId);
 
@@ -600,12 +613,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             // keep pruned option is enabled
             if (parameters.isKeepPrunedConnections()) {
-                while (!discardedHeap.getBuffer().isEmpty() && resultHeap.getBuffer().size() < layerM) {
+                while (!discardedHeap.getBuffer().isEmpty() && resultHeapBuffer.size() < layerM) {
                     resultHeap.push(discardedHeap.pop());
                 }
             }
 
-            return resultHeap.getBuffer();
+            return resultHeapBuffer;
         }
     }
 

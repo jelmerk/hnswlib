@@ -1,9 +1,10 @@
 package org.github.jelmerk.hnsw;
 
+import java.io.Serializable;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.function.Supplier;
 
-public class Pool<T> {
+public class Pool<T> implements Serializable {
 
     private final ArrayBlockingQueue<T> items;
 
