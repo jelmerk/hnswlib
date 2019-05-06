@@ -55,13 +55,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        this.items = Collections.synchronizedList(new ArrayList<>());
-        this.nodes = Collections.synchronizedList(new ArrayList<>());
+        // TODO JK if i synchronize this it seems to be the major point of contention, is it safe not to make this a synchronized list ?
+
+        this.items = new ArrayList<>();
+        this.nodes = new ArrayList<>();
 
         this.lookup = new ConcurrentHashMap<>();
 
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItems()), 1);
-        this.expansionBufferPool = new Pool<>(ArrayList::new, 1);
+        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItems()), 10);
+        this.expansionBufferPool = new Pool<>(ArrayList::new, 10);
     }
 
     @Override
