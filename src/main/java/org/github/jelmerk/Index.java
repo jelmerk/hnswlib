@@ -6,10 +6,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -23,32 +25,34 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     void add(TItem item);
 
-    default void addAll(List<TItem> items) {
+    default void addAll(Collection<TItem> items) {
         addAll(items, Runtime.getRuntime().availableProcessors());
     }
 
-    default void addAll(List<TItem> items, int numThreads) {
+    default void addAll(Collection<TItem> items, int numThreads) {
 
-        // TODO: jk maybe push it into a queue, looking up by index wont be pretty for a linked list
+        AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
+
         ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
 
         try {
-            AtomicInteger current = new AtomicInteger(0);
+            Queue<TItem> queue = new LinkedBlockingDeque<>(items);
+
             CountDownLatch latch = new CountDownLatch(numThreads);
 
             for (int threadId = 0; threadId < numThreads; threadId++) {
 
                 executorService.submit(() -> {
-                    while (true) {
-                        int index = current.getAndIncrement();
-
-                        if (index >= items.size()) {
-                            latch.countDown();
-                            break;
+                    TItem item;
+                    while((item = queue.poll()) != null) {
+                        try {
+                            add(item);
+                        } catch (RuntimeException t) {
+                            throwableHolder.set(t);
                         }
-
-                        add(items.get(index));
                     }
+
+                    latch.countDown();
                 });
             }
 
@@ -56,6 +60,12 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 latch.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            }
+
+            RuntimeException throwable = throwableHolder.get();
+
+            if (throwable != null) {
+                throw throwable;
             }
 
         } finally {
