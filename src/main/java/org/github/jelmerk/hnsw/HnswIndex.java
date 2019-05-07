@@ -13,7 +13,7 @@ import org.github.jelmerk.SearchResult;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -25,13 +25,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final Parameters parameters;
     private final DistanceFunction<TVector, TDistance> distanceFunction;
 
+    private final AtomicInteger itemCount;
+    private volatile Object[] items; //  can't create arrays of generic items so just use an object array and cast
+    private volatile NodeNew[] nodes;
 
     private final Map<TId, TItem> lookup;
-    private final List<TItem> items;
-    private final List<NodeNew> nodes;
-    private final AlgorithmNew algorithm;
 
-    private NodeNew entryPoint = null;
+    private AlgorithmNew algorithm;
+
+    private volatile NodeNew entryPoint;
 
     private ReentrantLock globalLock;
 
@@ -61,13 +63,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        this.items = new CopyOnWriteArrayList<>();
-        this.nodes = new CopyOnWriteArrayList<>();
+        this.itemCount = new AtomicInteger();
+        this.items = new Object[parameters.getMaxItemCount()];
+        this.nodes = new NodeNew[parameters.getMaxItemCount()];
 
         this.lookup = new ConcurrentHashMap<>();
 
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItems()), 10);
-        this.expansionBufferPool = new Pool<>(IntArrayList::new, 10);
+        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItemCount()), 12);
+        this.expansionBufferPool = new Pool<>(IntArrayList::new, 12);
     }
 
     @Override
@@ -78,19 +81,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public void add(TItem item) {
 
-        NodeNew newNode;
-        synchronized (items) {
+        int count = itemCount.getAndIncrement(); // TODO JK i guess we don't want this count to increase if there's no space, how ?
 
-            if (items.size() >= parameters.getMaxItems()) {
-                throw new IllegalStateException("The number of elements exceeds the specified limit.");
-            }
-
-            int internalId = items.size();
-            items.add(item);
-
-            newNode = this.algorithm.newNode(internalId, randomLayer(random, this.parameters.getLevelLambda()));
-            nodes.add(newNode);
+        if (count >= parameters.getMaxItemCount()) {
+            throw new IllegalStateException("The number of elements exceeds the specified limit.");
         }
+
+        items[count] = item;
+
+        NodeNew newNode = this.algorithm.newNode(count, randomLayer(random, this.parameters.getLevelLambda()));
+        nodes[count] = newNode;
 
         lookup.put(item.getId(), item);
 
@@ -120,7 +120,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
 
                 for (int layer = currentMaxLayer; layer > newNode.maxLayer(); layer--) {
-                    synchronized (items.get(bestPeerId)) { // TODO do i need to synchronize on this since we also do it at the runKnnAtLayer level ??
+                    synchronized (items[bestPeerId]) { // TODO do i need to synchronize on this since we also do it at the runKnnAtLayer level ??
                         runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
                         int candidateBestPeerId = neighboursIdsBuffer.getFirst();
@@ -144,7 +144,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         int newNeighbourId = bestNeighboursIds.get(i);
 
                         NodeNew neighbourNode;
-                        synchronized (neighbourNode = nodes.get(newNeighbourId)) {
+                        synchronized (neighbourNode = nodes[newNeighbourId]) {
                             algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
                             algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
                         }
@@ -176,25 +176,22 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
             int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
+            return this.distanceFunction.distance(destination, getItem(nodeId).getVector());
         };
 
         // TODO: hack we know that destination id is -1.
 
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
             int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, this.items.get(nodeId).getVector());
+            return this.distanceFunction.distance(destination, getItem(nodeId).getVector());
         }, -1);
 
         MutableIntList resultIds = new IntArrayList(k + 1); // TODO JK can this be an array of primitive ints ?
 
-        int bestPeerId;
-        int maxLayer;
+        NodeNew entrypointCopy = entryPoint;
 
-        synchronized (this) {
-            bestPeerId = this.entryPoint.id;
-            maxLayer = this.entryPoint.maxLayer();
-        }
+        int bestPeerId = entrypointCopy.id;
+        int maxLayer = entrypointCopy.maxLayer();
 
         for (int layer = maxLayer; layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
@@ -215,7 +212,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         return resultIds
                 .collect(id -> {
-                    TItem item = this.items.get(id);
+                    TItem item = getItem(id);
                     TDistance distance = runtimeDistance.distance(id, -1);
                     return new SearchResult<>(item, distance);
                 });
@@ -302,7 +299,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             // expand candidate
 
             NodeNew node;
-            synchronized (node = this.nodes.get(toExpandId)) {
+            synchronized (node = this.nodes[toExpandId]) {
 
                 IntList neighboursIds = node.connections[layer];
 
@@ -373,7 +370,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         MutableIntList expansionQueue = IntArrayList.newListWith(entryPoint.id);
 
         while (!expansionQueue.isEmpty()) {
-            NodeNew currentNode = nodes.get(expansionQueue.removeAtIndex(0));
+            NodeNew currentNode = nodes[expansionQueue.removeAtIndex(0)];
             if (!visitedIds.contains(currentNode.id)) {
                 visitConsumer.accept(currentNode);
                 visitedIds.add(currentNode.id);
@@ -391,8 +388,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     private TDistance calculateDistance(int fromId, int toId) {
 
-        TItem fromItem = this.items.get(fromId);
-        TItem toItem = this.items.get(toId);
+        TItem fromItem = getItem(fromId);
+        TItem toItem = getItem(toId);
 
         return this.distanceFunction.distance(fromItem.getVector(), toItem.getVector());
     }
@@ -546,6 +543,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private TItem getItem(int id) {
+        return (TItem) items[id];
+    }
+
     /**
      * The implementation of the SELECT-NEIGHBORS-HEURISTIC(q, C, M, lc, extendCandidates, keepPrunedConnections) algorithm.
      * Article: Section 4. Algorithm 4.
@@ -576,7 +578,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     int candidateId = candidatesHeapBuffer.get(i);
 
                     NodeNew candidateNode;
-                    synchronized (candidateNode = nodes.get(candidateId)) {
+                    synchronized (candidateNode = nodes[candidateId]) {
                         MutableIntList candidateNodeConnections = candidateNode.connections[layer];
 
                         for (int j = 0; j < candidateNodeConnections.size(); j++) {

@@ -38,7 +38,7 @@ public class HnswIndexPerfTest {
         Parameters parameters = new Parameters();
         parameters.setM(15);
         parameters.setLevelLambda(1 / Math.log(parameters.getM()));
-        parameters.setMaxItems(100_000);
+        parameters.setMaxItemCount(100_000);
 
         List<MyItem> items = generateRandomItems(100_000, 64);
 

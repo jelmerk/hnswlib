@@ -9,7 +9,7 @@ import java.io.Serializable;
 // TODO lets see if we can make this class immutable i dont think it makes sense to have a getter for parameters on algorithm and have it be mutable
 public class Parameters implements Serializable {
 
-    private int maxItems;
+    private int maxItemCount;
     private int m;
     private double levelLambda;
     private NeighbourSelectionHeuristic neighbourHeuristic;
@@ -27,7 +27,7 @@ public class Parameters implements Serializable {
         this.constructionPruning = 200;
         this.expandBestSelection = false;
         this.keepPrunedConnections = true;
-        this.maxItems = -1;
+        this.maxItemCount = -1;
     }
 
     /**
@@ -130,12 +130,12 @@ public class Parameters implements Serializable {
     }
 
 
-    public int getMaxItems() {
-        return maxItems;
+    public int getMaxItemCount() {
+        return maxItemCount;
     }
 
-    public void setMaxItems(int maxItems) {
-        this.maxItems = maxItems;
+    public void setMaxItemCount(int maxItemCount) {
+        this.maxItemCount = maxItemCount;
     }
 
     /**

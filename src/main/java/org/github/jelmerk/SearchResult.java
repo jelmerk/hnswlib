@@ -18,4 +18,13 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>> {
     public TDistance getDistance() {
         return distance;
     }
+
+
+    @Override
+    public String toString() {
+        return "SearchResult{" +
+                "distance=" + distance +
+                ", item=" + item +
+                '}';
+    }
 }
