@@ -73,6 +73,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.expansionBufferPool = new Pool<>(IntArrayList::new, 12);
     }
 
+
+    @Override
+    public int size() {
+        return itemCount.get();
+    }
+
+    @Override
+    public Collection<TItem> items() {
+        return lookup.values();
+    }
+
     @Override
     public TItem get(TId id) {
         return lookup.get(id);
