@@ -35,10 +35,6 @@ public class HnswIndexPerfTest {
 
     public static void main(String[] args) throws Exception {
 
-        Parameters parameters = new Parameters();
-        parameters.setM(15);
-        parameters.setLevelLambda(1 / Math.log(parameters.getM()));
-        parameters.setMaxItemCount(100_000);
 
         List<MyItem> items = generateRandomItems(100_000, 64);
 
@@ -46,7 +42,13 @@ public class HnswIndexPerfTest {
 
         long start = System.currentTimeMillis();
 
-        HnswIndex<Integer, float[], MyItem, Float> index = new HnswIndex<>(parameters, CosineDistance::nonOptimized);
+        int m = 15;
+
+        HnswIndex<Integer, float[], MyItem, Float> index =
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                        .setM(m)
+                        .setLevelLambda(1 / Math.log(m))
+                        .build();
 
 //        for (MyItem item : items) {
 //            index.add(item);

@@ -49,14 +49,23 @@ public class HnswIndexFastText {
         System.out.println("Loaded " + words.size() + " words.");
 
 
-        Parameters parameters = new Parameters();
-        parameters.setMaxItemCount(2000000);
-
 
         long start = System.currentTimeMillis();
 
-        HnswIndex<String, float[], Word, Float> index = new HnswIndex<>(parameters, CosineDistance::nonOptimized);
-        index.addAll(words);
+
+//        HnswIndex<String, float[], Word, Float> index =
+//                new HnswIndex.Builder<String, float[], Word, Float>(CosineDistance::nonOptimized, 2_000_000)
+//                        .build();
+
+
+//        HnswIndex<String, float[], Word, Float> index =
+//                new HnswIndex.Builder<String, float[], Word, Float>(CosineDistance::nonOptimized, 2_000_000)
+//                        .build();
+
+
+        HnswIndex<String, float[], Word, Float> index =
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, 2_000_000)
+                        .build();
 
         long end = System.currentTimeMillis();
 

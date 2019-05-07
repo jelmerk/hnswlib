@@ -22,8 +22,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
     private final DotNetRandom random;
-    private final Parameters parameters;
+
     private final DistanceFunction<TVector, TDistance> distanceFunction;
+
+    private final int maxItemCount;
+    private final int m;
+    private final double levelLambda;
+    private final int constructionPruning;
+    private final boolean expandBestSelection;
+    private final boolean keepPrunedConnections;
 
     private final AtomicInteger itemCount;
     private volatile Object[] items; //  can't create arrays of generic items so just use an object array and cast
@@ -40,36 +47,34 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private Pool<VisitedBitSet> visitedBitSetPool;
     private Pool<MutableIntList> expansionBufferPool;
 
-    public HnswIndex(Parameters parameters,
-                     DistanceFunction<TVector, TDistance> distanceFunction) {
 
-        this(new DotNetRandom(), parameters, distanceFunction);
-    }
+    public HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
-    public HnswIndex(DotNetRandom random,
-                     Parameters parameters,
-                     DistanceFunction<TVector, TDistance> distanceFunction) {
+        this.maxItemCount = builder.maxItemCount;
+        this.distanceFunction = builder.distanceFunction;
+        this.m = builder.m;
+        this.levelLambda = builder.levelLambda;
+        this.constructionPruning = builder.constructionPruning;
+        this.expandBestSelection = builder.expandBestSelection;
+        this.keepPrunedConnections =  builder.keepPrunedConnections;
 
-        this.random = random;
-        this.parameters = parameters;
-        this.distanceFunction = distanceFunction;
-
-
-        if (this.parameters.getNeighbourHeuristic() == NeighbourSelectionHeuristic.SELECT_SIMPLE) {
+        if (builder.neighbourHeuristic == NeighbourSelectionHeuristic.SELECT_SIMPLE) {
             this.algorithm = new Algorithm3New();
         } else {
             this.algorithm = new Algorithm4New();
         }
 
+        this.random = new DotNetRandom(builder.randomSeed);
+
         this.globalLock = new ReentrantLock();
 
         this.itemCount = new AtomicInteger();
-        this.items = new Object[parameters.getMaxItemCount()];
-        this.nodes = new NodeNew[parameters.getMaxItemCount()];
+        this.items = new Object[this.maxItemCount];
+        this.nodes = new NodeNew[this.maxItemCount];
 
         this.lookup = new ConcurrentHashMap<>();
 
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(parameters.getMaxItemCount()), 12);
+        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount), 12);
         this.expansionBufferPool = new Pool<>(IntArrayList::new, 12);
     }
 
@@ -94,13 +99,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         int count = itemCount.getAndIncrement(); // TODO JK i guess we don't want this count to increase if there's no space, how ?
 
-        if (count >= parameters.getMaxItemCount()) {
+        if (count >= this.maxItemCount) {
             throw new IllegalStateException("The number of elements exceeds the specified limit.");
         }
 
         items[count] = item;
 
-        NodeNew newNode = this.algorithm.newNode(count, randomLayer(random, this.parameters.getLevelLambda()));
+        NodeNew newNode = this.algorithm.newNode(count, randomLayer(random, this.levelLambda));
         nodes[count] = newNode;
 
         lookup.put(item.getId(), item);
@@ -148,7 +153,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 // connecting new node to the small world
                 for (int layer = Math.min(newNode.maxLayer(), currentMaxLayer); layer >= 0; layer--) {
-                    runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.parameters.getConstructionPruning());
+                    runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.constructionPruning);
                     MutableIntList bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
                     for (int i = 0; i < bestNeighboursIds.size(); i++) {
@@ -506,7 +511,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @return The maximum number of connections.
          */
         int getM(int layer) {
-            return layer == 0 ? 2 * parameters.getM() : parameters.getM();
+            return layer == 0 ? 2 * HnswIndex.this.m : HnswIndex.this.m;
         }
 
         /**
@@ -580,7 +585,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             // expand candidates option is enabled
             MutableIntList candidatesHeapBuffer = candidatesHeap.getBuffer();
-            if (parameters.isExpandBestSelection()) {
+            if (expandBestSelection) {
 
                 MutableIntSet visited = IntHashSet.newSet(candidatesHeapBuffer);
 
@@ -618,13 +623,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         || DistanceUtils.lt(travelingCosts.from(candidateId), travelingCosts.from(farestResultId))) {
                     resultHeap.push(candidateId);
 
-                }  else if (parameters.isKeepPrunedConnections()) {
+                }  else if (keepPrunedConnections) {
                     discardedHeap.push(candidateId);
                 }
             }
 
             // keep pruned option is enabled
-            if (parameters.isKeepPrunedConnections()) {
+            if (keepPrunedConnections) {
                 while (!discardedHeap.getBuffer().isEmpty() && resultHeapBuffer.size() < layerM) {
                     resultHeap.push(discardedHeap.pop());
                 }
@@ -632,6 +637,66 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             return resultHeapBuffer;
         }
+    }
+
+    public static class Builder <TVector, TDistance extends Comparable<TDistance>> {
+
+        private DistanceFunction<TVector, TDistance> distanceFunction;
+        private int maxItemCount;
+
+        private int m = 10;
+        private double levelLambda = 1 / Math.log(this.m);
+        private NeighbourSelectionHeuristic neighbourHeuristic = NeighbourSelectionHeuristic.SELECT_SIMPLE;
+        private int constructionPruning = 200;
+        private boolean expandBestSelection = false;
+        private boolean keepPrunedConnections = true;
+
+        private int randomSeed = (int) System.currentTimeMillis();
+
+        public Builder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
+            this.distanceFunction = distanceFunction;
+            this.maxItemCount = maxItemCount;
+        }
+
+        public Builder<TVector, TDistance> setM(int m) {
+            this.m = m;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setLevelLambda(double levelLambda) {
+            this.levelLambda = levelLambda;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setNeighbourHeuristic(NeighbourSelectionHeuristic neighbourHeuristic) {
+            this.neighbourHeuristic = neighbourHeuristic;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setConstructionPruning(int constructionPruning) {
+            this.constructionPruning = constructionPruning;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setExpandBestSelection(boolean expandBestSelection) {
+            this.expandBestSelection = expandBestSelection;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setKeepPrunedConnections(boolean keepPrunedConnections) {
+            this.keepPrunedConnections = keepPrunedConnections;
+            return this;
+        }
+
+        public Builder<TVector, TDistance> setRandomSeed(int randomSeed) {
+            this.randomSeed = randomSeed;
+            return this;
+        }
+
+        public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
+            return new HnswIndex<TId, TVector, TItem, TDistance>(this);
+        }
+
     }
 
 }

@@ -39,19 +39,18 @@ public class HnswIndexTest {
     @Test
     public void testKnnSearch() {
 
-        DotNetRandom random = new DotNetRandom(42);
-        Parameters parameters = new Parameters();
-        parameters.setMaxItemCount(items.size());
-
-        HnswIndex<String, float[], TestItem, Float> index = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
+        HnswIndex<String, float[], TestItem, Float> index =
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                        .setRandomSeed(42)
+                        .build();
 
         for (TestItem item : items) {
             index.add(item);
         }
 
-        for (int i = 0; i < this.items.size(); i++) {
+        for (TestItem item : this.items) {
 
-            List<SearchResult<TestItem, Float>> result = index.findNearest(this.items.get(i).getVector(), 20);
+            List<SearchResult<TestItem, Float>> result = index.findNearest(item.getVector(), 20);
             result.sort(Comparator.comparing(SearchResult::getDistance));
 
             SearchResult<TestItem, Float> best = result.get(0);
@@ -68,10 +67,12 @@ public class HnswIndexTest {
 
     @Test
     public void testSerialization() throws Exception {
-        DotNetRandom random = new DotNetRandom(42);
-        Parameters parameters = new Parameters();
-        parameters.setMaxItemCount(items.size());
-        HnswIndex<String, float[], TestItem, Float> original = new HnswIndex<>(random, parameters, CosineDistance::nonOptimized);
+
+        HnswIndex<String, float[], TestItem, Float> original =
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                        .setRandomSeed(42)
+                        .build();
+
         for (TestItem item : items) {
             original.add(item);
         }

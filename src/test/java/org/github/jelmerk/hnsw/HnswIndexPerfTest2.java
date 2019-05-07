@@ -4,6 +4,7 @@ package org.github.jelmerk.hnsw;
 import org.github.jelmerk.Item;
 
 import java.io.File;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -36,18 +37,19 @@ public class HnswIndexPerfTest2 {
 
     public static void main(String[] args) throws Exception {
 
-        Parameters parameters = new Parameters();
-        parameters.setM(15);
-        parameters.setLevelLambda(1 / Math.log(parameters.getM()));
-        parameters.setMaxItemCount(100_000);
-
         List<MyItem> items = generateRandomItems(2_000_000, 90);
 
         System.out.println("Done generating random vectors.");
 
         long start = System.currentTimeMillis();
 
-        HnswIndex<Integer, float[], MyItem, Float> index = new HnswIndex<>(parameters, CosineDistance::nonOptimized);
+        int m = 15;
+
+        HnswIndex<Integer, float[], MyItem, Float> index =
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                        .setM(m)
+                        .setLevelLambda(1 / Math.log(m))
+                        .build();
 
 //        for (MyItem item : items) {
 //            index.add(item);
