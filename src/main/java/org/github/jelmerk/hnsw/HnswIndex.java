@@ -1,6 +1,7 @@
 package org.github.jelmerk.hnsw;
 
 
+import org.eclipse.collections.api.list.MutableList;
 import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
@@ -225,13 +226,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
 
+        MutableList<SearchResult<TItem, TDistance>> results = resultIds.collect(id -> {
+            TItem item = getItem(id);
+            TDistance distance = runtimeDistance.distance(id, -1);
+            return new SearchResult<>(item, distance);
+        });
 
-        return resultIds
-                .collect(id -> {
-                    TItem item = getItem(id);
-                    TDistance distance = runtimeDistance.distance(id, -1);
-                    return new SearchResult<>(item, distance);
-                });
+        Collections.sort(results);
+        return results;
     }
 
     @Override

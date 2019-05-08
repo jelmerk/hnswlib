@@ -1,9 +1,6 @@
 package org.github.jelmerk;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.Collection;
 import java.util.List;
 import java.util.Queue;
@@ -23,11 +20,11 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     void add(TItem item);
 
-    default void addAll(Collection<TItem> items) {
+    default void addAll(Collection<TItem> items) throws InterruptedException {
         addAll(items, Runtime.getRuntime().availableProcessors());
     }
 
-    default void addAll(Collection<TItem> items, int numThreads) {
+    default void addAll(Collection<TItem> items, int numThreads) throws InterruptedException {
 
         AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
 
@@ -54,11 +51,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 });
             }
 
-            try {
-                latch.await();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            latch.await();
 
             RuntimeException throwable = throwableHolder.get();
 
@@ -73,7 +66,11 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k);
 
-    void save(OutputStream out) throws IOException;
+    default void save(OutputStream out) throws IOException {
+        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
+            oos.writeObject(this);
+        }
+    }
 
     default void save(File file) throws IOException {
         save(new FileOutputStream(file));

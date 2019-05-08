@@ -1,15 +1,15 @@
 package org.github.jelmerk.hnsw;
 
+import org.github.jelmerk.Index;
 import org.github.jelmerk.Item;
 import org.github.jelmerk.SearchResult;
+import org.github.jelmerk.bruteforce.BruteForceIndex;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 public class HnswIndexFastText {
@@ -50,37 +50,44 @@ public class HnswIndexFastText {
 
 
 
+
+
+//        Index<String, float[], Word, Float> index =
+//                new HnswIndex.Builder<>(CosineDistance::nonOptimized, words.size())
+//                        .build();
+
+        Index<String, float[], Word, Float> index =
+                new BruteForceIndex.Builder<>(CosineDistance::nonOptimized)
+                        .build();
+
+
         long start = System.currentTimeMillis();
 
-
-//        HnswIndex<String, float[], Word, Float> index =
-//                new HnswIndex.Builder<String, float[], Word, Float>(CosineDistance::nonOptimized, 2_000_000)
-//                        .build();
-
-
-//        HnswIndex<String, float[], Word, Float> index =
-//                new HnswIndex.Builder<String, float[], Word, Float>(CosineDistance::nonOptimized, 2_000_000)
-//                        .build();
-
-
-        HnswIndex<String, float[], Word, Float> index =
-                new HnswIndex.Builder<>(CosineDistance::nonOptimized, 2_000_000)
-                        .build();
+        index.addAll(words);
 
         long end = System.currentTimeMillis();
 
         long duration = end - start;
 
-        System.out.println("Creating index took " + duration + " millis which is" + TimeUnit.MILLISECONDS.toMinutes(duration));
+        System.out.println("Creating index took " + duration + " millis which is " + TimeUnit.MILLISECONDS.toMinutes(duration));
+
+//        Index<String, float[], Word, Float> index = HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+
 
         Word item = index.get("koning");
 
-
         List<SearchResult<Word, Float>> nearest = index.findNearest(item.vector, 10);
 
-        System.out.println(nearest);
+        for (SearchResult<Word, Float> result : nearest) {
+            System.out.println(result.getItem().getId() + " " + result.getDistance());
+        }
 
-        index.save(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+//        for (SearchResult<Word, Float> result : nearest) {
+//
+//            System.out.println(result.getItem().getId() + " " + result.getDistance());
+//        }
+
+//        index.save(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
     }
 
 

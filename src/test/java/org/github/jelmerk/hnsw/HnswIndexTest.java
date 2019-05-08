@@ -5,10 +5,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -51,9 +48,8 @@ public class HnswIndexTest {
         for (TestItem item : this.items) {
 
             List<SearchResult<TestItem, Float>> result = index.findNearest(item.getVector(), 20);
-            result.sort(Comparator.comparing(SearchResult::getDistance));
 
-            SearchResult<TestItem, Float> best = result.get(0);
+            SearchResult<TestItem, Float> best = result.iterator().next();
 
             assertEquals(20, result.size());
 //            assertEquals(i, best.getId());

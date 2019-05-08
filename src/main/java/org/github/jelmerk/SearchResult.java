@@ -1,6 +1,7 @@
 package org.github.jelmerk;
 
-public class SearchResult<TItem, TDistance extends Comparable<TDistance>> {
+public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
+        implements Comparable<SearchResult<TItem, TDistance>> {
 
     private final TDistance distance;
 
@@ -19,6 +20,10 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>> {
         return distance;
     }
 
+    @Override
+    public int compareTo(SearchResult<TItem, TDistance> o) {
+        return this.distance.compareTo(o.distance);
+    }
 
     @Override
     public String toString() {
