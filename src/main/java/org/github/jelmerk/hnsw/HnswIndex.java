@@ -34,8 +34,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final boolean keepPrunedConnections;
 
     private final AtomicInteger itemCount;
-    private volatile Object[] items; //  can't create arrays of generic items so just use an object array and cast
-    private volatile NodeNew[] nodes;
+    private Object[] items; //  can't create arrays of generic items so just use an object array and cast
+    private NodeNew[] nodes;
 
     private final Map<TId, TItem> lookup;
 

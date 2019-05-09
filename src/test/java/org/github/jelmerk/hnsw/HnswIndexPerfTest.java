@@ -7,6 +7,8 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+
+import static org.github.jelmerk.hnsw.NeighbourSelectionHeuristic.SELECT_HEURISTIC;
 //import jdk.incubator.vector.IntVetigctor;
 
 public class HnswIndexPerfTest {
@@ -37,7 +39,7 @@ public class HnswIndexPerfTest {
     public static void main(String[] args) throws Exception {
 
 
-        List<MyItem> items = generateRandomItems(17_000_000, 90);
+        List<MyItem> items = generateRandomItems(100_000, 90);
 
         System.out.println("Done generating random vectors.");
 
@@ -49,6 +51,7 @@ public class HnswIndexPerfTest {
                 new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
                         .setM(m)
                         .setLevelLambda(1 / Math.log(m))
+                        .setNeighbourHeuristic(SELECT_HEURISTIC)
                         .build();
 
 //        for (MyItem item : items) {
