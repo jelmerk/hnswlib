@@ -4,14 +4,13 @@ import org.eclipse.collections.api.list.primitive.MutableIntList;
 
 import java.util.Comparator;
 
-public class IntBinaryHeap {
+class IntBinaryHeap {
 
     private final MutableIntList buffer;
     private final Comparator<Integer> comparator;
 
     /**
-    /**
-     * Initializes a new instance of the {@link BinaryHeap} class.
+     * Initializes a new instance of the {@link IntBinaryHeap} class.
      *
      * @param buffer The buffer to store heap items.
      * @param comparer The comparer which defines order of items.

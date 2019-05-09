@@ -3,7 +3,7 @@ package org.github.jelmerk.hnsw;
 /**
  * Auxiliary tools for working with distance variables.
  */
-public final class DistanceUtils {
+final class DistanceUtils {
 
     private DistanceUtils() {
     }
@@ -16,7 +16,7 @@ public final class DistanceUtils {
      * @param <TDistance> The type of the distance.
      * @return True if x &lt; y.
      */
-    public static <TDistance extends Comparable<TDistance>> boolean lt(TDistance x, TDistance y) {
+    static <TDistance extends Comparable<TDistance>> boolean lt(TDistance x, TDistance y) {
         return x.compareTo(y) < 0;
     }
 
@@ -28,7 +28,7 @@ public final class DistanceUtils {
      * @param <TDistance> The type of the distance.
      * @return True if x &gt; y.
      */
-    public static <TDistance extends Comparable<TDistance>> boolean gt(TDistance x, TDistance y) {
+    static <TDistance extends Comparable<TDistance>> boolean gt(TDistance x, TDistance y) {
         return x.compareTo(y) > 0;
     }
 
@@ -40,7 +40,7 @@ public final class DistanceUtils {
      * @param <TDistance> The type of the distance.
      * @return True if x == y.
      */
-    public static <TDistance extends Comparable<TDistance>> boolean dEq(TDistance x, TDistance y) {
+    static <TDistance extends Comparable<TDistance>> boolean dEq(TDistance x, TDistance y) {
         return x.compareTo(y) == 0;
     }
 

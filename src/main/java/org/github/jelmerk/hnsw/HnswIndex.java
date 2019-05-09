@@ -17,8 +17,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
@@ -36,13 +34,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final AtomicInteger itemCount;
     private AtomicReferenceArray<TItem> items;
-    private AtomicReferenceArray<NodeNew> nodes;
+    private AtomicReferenceArray<Node> nodes;
 
     private final Map<TId, TItem> lookup;
 
-    private AlgorithmNew algorithm;
+    private Algorithm algorithm;
 
-    private volatile NodeNew entryPoint;
+    private volatile Node entryPoint;
 
     private ReentrantLock globalLock;
 
@@ -61,9 +59,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.keepPrunedConnections =  builder.keepPrunedConnections;
 
         if (builder.neighbourHeuristic == NeighbourSelectionHeuristic.SELECT_SIMPLE) {
-            this.algorithm = new Algorithm3New();
+            this.algorithm = new Algorithm3();
         } else {
-            this.algorithm = new Algorithm4New();
+            this.algorithm = new Algorithm4();
         }
 
         this.random = new DotNetRandom(builder.randomSeed);
@@ -107,7 +105,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         items.set(count, item);
 
-        NodeNew newNode = this.algorithm.newNode(count, randomLayer(random, this.levelLambda));
+        Node newNode = this.algorithm.newNode(count, randomLayer(random, this.levelLambda));
         nodes.set(count, newNode);
 
         lookup.put(item.getId(), item);
@@ -159,7 +157,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     for (int i = 0; i < bestNeighboursIds.size(); i++) {
                         int newNeighbourId = bestNeighboursIds.get(i);
 
-                        NodeNew neighbourNode;
+                        Node neighbourNode;
                         synchronized (neighbourNode = nodes.get(newNeighbourId)) {
                             algorithm.connect(newNode, neighbourNode, layer); // JK this can mutate the new node
                             algorithm.connect(neighbourNode, newNode, layer); // JK this can mutat the neighbour node
@@ -190,18 +188,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector destination, int k) {
 
-        TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
-            return this.distanceFunction.distance(destination, items.get(x).getVector());
-        }, -1);
+        TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>(
+                (x, y) -> this.distanceFunction.distance(destination, items.get(x).getVector())
+        , -1);
 
         MutableIntList resultIds = new IntArrayList(k + 1);
 
-        NodeNew entrypointCopy = entryPoint;
+        Node entrypointCopy = entryPoint;
 
         int bestPeerId = entrypointCopy.id;
-        int maxLayer = entrypointCopy.maxLayer();
 
-        for (int layer = maxLayer; layer > 0; layer--) {
+        for (int layer = entrypointCopy.maxLayer(); layer > 0; layer--) {
             runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
 
             int candidateBestPeerId = resultIds.getFirst();
@@ -248,7 +245,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link SmallWorld#save(File)} method.
+     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(File)} method.
      *
      * @param inputStream InputStream to initialize the small world from
      * @param <TItem> The type of items to connect into small world.
@@ -287,7 +284,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         MutableIntList expansionBuffer = expansionBufferPool.borrowObject();
         VisitedBitSet visitedSet = visitedBitSetPool.borrowObject();
 
-        // TODO: Optimize by providing buffers
         IntBinaryHeap resultHeap = new IntBinaryHeap(resultList, targetCosts);
         IntBinaryHeap expansionHeap = new IntBinaryHeap(expansionBuffer, closerIsOnTop);
 
@@ -307,7 +303,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             // expand candidate
 
-            NodeNew node = nodes.get(toExpandId);
+            Node node = nodes.get(toExpandId);
             synchronized (node) {
 
                 IntList neighboursIds = node.connections[layer];
@@ -342,51 +338,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
-    /**
-     * Prints edges of the graph.
-     *
-     * @return String representation of the graph's edges,
-     */
-    String print() {
-        StringBuilder buffer = new StringBuilder();
-        for (int layer = this.entryPoint.maxLayer(); layer >= 0; --layer) {
-            buffer.append(String.format("[LEVEL %s]%n", layer));
-            int finalLevel = layer;
 
-            bfs(this.entryPoint, layer, node -> {
-
-                String neighbours = node.connections[finalLevel].collect(String::valueOf).stream().map(String::valueOf)
-                        .collect(Collectors.joining(","));
-                buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
-
-            });
-            buffer.append(String.format("%n"));
-        }
-
-        return buffer.toString();
-    }
-
-    /**
-     * Runs breadth first search.
-     *
-     * @param entryPoint The entry point.
-     * @param layer The layer of the graph where to run BFS.
-     * @param visitConsumer The action to perform on each node.
-     */
-    private void bfs(NodeNew entryPoint, int layer, Consumer<NodeNew> visitConsumer) {
-
-        MutableIntSet visitedIds = new IntHashSet();
-        MutableIntList expansionQueue = IntArrayList.newListWith(entryPoint.id);
-
-        while (!expansionQueue.isEmpty()) {
-            NodeNew currentNode = nodes.get(expansionQueue.removeAtIndex(0));
-            if (!visitedIds.contains(currentNode.id)) {
-                visitConsumer.accept(currentNode);
-                visitedIds.add(currentNode.id);
-                expansionQueue.addAll(currentNode.connections[layer]);
-            }
-        }
-    }
 
     /**
      * Gets the distance between 2 items.
@@ -420,7 +372,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * The implementation of the node in hnsw graph.
      */
-    static class NodeNew implements Serializable {
+    static class Node implements Serializable {
 
         private int id;
 
@@ -437,9 +389,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * The abstract class representing algorithm to control node capacity.
      */
-    abstract class AlgorithmNew implements Serializable {
-
-        // TODO JK i think we should try and change this class to a strategy, eg NodeSelectionStrategy
+    abstract class Algorithm implements Serializable {
 
         /**
          * Creates a new instance of the {@link Node} struct. Controls the exact type of connection lists.
@@ -448,9 +398,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param maxLayer The max layer where the node is presented.
          * @return The new instance.
          */
-
-        // TODO JK should this be in algorithm ?? since its the same for both
-        NodeNew newNode(int nodeId, int maxLayer) {
+        Node newNode(int nodeId, int maxLayer) {
             IntArrayList[] connections = new IntArrayList[maxLayer + 1];
 
             for (int layer = 0; layer <= maxLayer; layer++) {
@@ -459,7 +407,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 connections[layer] = new IntArrayList(layerM);
             }
 
-            NodeNew node = new NodeNew();
+            Node node = new Node();
             node.id = nodeId;
             node.connections = connections;
 
@@ -503,8 +451,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param neighbour The new neighbour.
          * @param layer The layer to add neighbour to.
          */
-        // TODO JK: need to see ifg i can move this to the node classs
-        void connect(NodeNew node, NodeNew neighbour, int layer) {
+        void connect(Node node, Node neighbour, int layer) {
 
             node.connections[layer].add(neighbour.id);
             if (node.connections[layer].size() > this.getM(layer)) {
@@ -518,7 +465,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * The implementation of the SELECT-NEIGHBORS-SIMPLE(q, C, M) algorithm.
      * Article: Section 4. Algorithm 3.
      */
-    class Algorithm3New extends AlgorithmNew {
+    class Algorithm3 extends Algorithm {
 
         /**
          * {@inheritDoc}
@@ -545,7 +492,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * The implementation of the SELECT-NEIGHBORS-HEURISTIC(q, C, M, lc, extendCandidates, keepPrunedConnections) algorithm.
      * Article: Section 4. Algorithm 4.
      */
-    class Algorithm4New extends AlgorithmNew {
+    class Algorithm4 extends Algorithm {
 
         /**
          * {@inheritDoc}
@@ -570,7 +517,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                     int candidateId = candidatesHeapBuffer.get(i);
 
-                    NodeNew candidateNode = nodes.get(candidateId);
+                    Node candidateNode = nodes.get(candidateId);
                     synchronized (candidateNode) {
                         MutableIntList candidateNodeConnections = candidateNode.connections[layer];
 
@@ -671,7 +618,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
-            return new HnswIndex<TId, TVector, TItem, TDistance>(this);
+            return new HnswIndex<>(this);
         }
 
     }

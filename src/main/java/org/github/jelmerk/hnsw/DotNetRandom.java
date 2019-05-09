@@ -2,18 +2,14 @@ package org.github.jelmerk.hnsw;
 
 import java.io.Serializable;
 
-public class DotNetRandom implements Serializable {
+class DotNetRandom implements Serializable {
     private static final int MBIG = Integer.MAX_VALUE;
     private static final int MSEED = 161803398;
 
     private int inext, inextp;
     private int[] seedArray = new int[56];
 
-    public DotNetRandom() {
-        this((int) System.currentTimeMillis());
-    }
-
-    public DotNetRandom(int seed) {
+    DotNetRandom(int seed) {
         int ii;
         int mj, mk;
 
@@ -46,7 +42,7 @@ public class DotNetRandom implements Serializable {
     }
 
 
-    public double nextDouble() {
+    double nextDouble() {
         int retVal;
         int locINext = inext;
         int locINextp = inextp;

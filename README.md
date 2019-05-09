@@ -6,7 +6,7 @@ Work in progress pure Java implementation of the [the Hierarchical Navigable Sma
 
 The index is thread safe and supports adding items to the index incrementally. 
 
-It's flexible interface makes it easy to apply it to any kind and associated distance metric  
+It's flexible interface makes it easy to apply it to use it with any type of data and distance metric  
 
 It started life as a port of [HNSW.Net](https://github.com/Microsoft/HNSW.Net) but has since been altered significantly
 
