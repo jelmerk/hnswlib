@@ -49,7 +49,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private Pool<MutableIntList> expansionBufferPool;
 
 
-    public HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
+    private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
@@ -137,7 +137,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
 
                 for (int layer = currentMaxLayer; layer > newNode.maxLayer(); layer--) {
-                    synchronized (items[bestPeerId]) { // TODO do i need to synchronize on this since we also do it at the runKnnAtLayer level ??
                         runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
 
                         int candidateBestPeerId = neighboursIdsBuffer.getFirst();
@@ -149,7 +148,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         }
 
                         bestPeerId = candidateBestPeerId;
-                    }
                 }
 
                 // connecting new node to the small world
@@ -191,19 +189,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector destination, int k) {
 
-        DistanceFunction<Integer, TDistance>  runtimeDistance = (x, y) -> {
-            int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, getItem(nodeId).getVector());
-        };
-
-        // TODO: hack we know that destination id is -1.
-
         TravelingCosts<Integer, TDistance> destinationTravelingCosts = new TravelingCosts<>((x, y) -> {
-            int nodeId = x >= 0 ? x : y;
-            return this.distanceFunction.distance(destination, getItem(nodeId).getVector());
+            return this.distanceFunction.distance(destination, getItem(x).getVector());
         }, -1);
 
-        MutableIntList resultIds = new IntArrayList(k + 1); // TODO JK can this be an array of primitive ints ?
+        MutableIntList resultIds = new IntArrayList(k + 1);
 
         NodeNew entrypointCopy = entryPoint;
 
@@ -228,7 +218,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         MutableList<SearchResult<TItem, TDistance>> results = resultIds.collect(id -> {
             TItem item = getItem(id);
-            TDistance distance = runtimeDistance.distance(id, -1);
+            TDistance distance = this.distanceFunction.distance(destination, getItem(id).getVector());
             return new SearchResult<>(item, distance);
         });
 
@@ -356,7 +346,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      *
      * @return String representation of the graph's edges,
      */
-    public String print() {
+    String print() {
         StringBuilder buffer = new StringBuilder();
         for (int layer = this.entryPoint.maxLayer(); layer >= 0; --layer) {
             buffer.append(String.format("[LEVEL %s]%n", layer));
@@ -433,7 +423,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         private int id;
 
-        private MutableIntList[] connections; // TODO JK i think this can be changed to an array of primitive int's since this size is pretty fixed
+        private MutableIntList[] connections;
 
         /**
          * Gets the max layer where the node is presented.
@@ -449,17 +439,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     abstract class AlgorithmNew implements Serializable {
 
         // TODO JK i think we should try and change this class to a strategy, eg NodeSelectionStrategy
-
-        /// Cache of the distance function between the nodes.
-        DistanceFunction<Integer, TDistance> nodeDistance;
-
-        /**
-         * Initializes a new instance of the {@link AlgorithmNew} class
-         *
-         */
-        AlgorithmNew() {
-            this.nodeDistance = HnswIndex.this::calculateDistance; // TODO do i really want to reference this method in algorithm like this here ?
-        }
 
         /**
          * Creates a new instance of the {@link Node} struct. Controls the exact type of connection lists.
@@ -528,7 +507,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             node.connections[layer].add(neighbour.id);
             if (node.connections[layer].size() > this.getM(layer)) {
-                TravelingCosts<Integer, TDistance> travelingCosts = new TravelingCosts<>(this.nodeDistance, node.id);
+                TravelingCosts<Integer, TDistance> travelingCosts = new TravelingCosts<>(HnswIndex.this::calculateDistance, node.id);
                 node.connections[layer] = this.selectBestForConnecting(node.connections[layer], travelingCosts, layer);
             }
         }

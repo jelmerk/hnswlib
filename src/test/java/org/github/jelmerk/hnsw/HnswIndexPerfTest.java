@@ -3,6 +3,7 @@ package org.github.jelmerk.hnsw;
 
 import org.github.jelmerk.Item;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -36,13 +37,13 @@ public class HnswIndexPerfTest {
     public static void main(String[] args) throws Exception {
 
 
-        List<MyItem> items = generateRandomItems(100_000, 64);
+        List<MyItem> items = generateRandomItems(17_000_000, 90);
 
         System.out.println("Done generating random vectors.");
 
         long start = System.currentTimeMillis();
 
-        int m = 15;
+        int m = 10;
 
         HnswIndex<Integer, float[], MyItem, Float> index =
                 new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
@@ -63,7 +64,7 @@ public class HnswIndexPerfTest {
 
         System.out.println("Done creating small world. took : " + duration + "ms");
 
-//        index.save(new File("/Users/jkuperus/graph.ser"));
+        index.save(new File("/Users/jkuperus/17_million_90.ser"));
     }
 
     private static List<MyItem> generateRandomItems(int numItems, int vectorSize) {
