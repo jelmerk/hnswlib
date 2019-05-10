@@ -78,7 +78,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.expansionBufferPool = new Pool<>(IntArrayList::new, 12);
     }
 
-
     @Override
     public int size() {
         return itemCount.get();
@@ -116,10 +115,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             this.entryPoint = newNode;
         }
 
-        int currentMaxLayer = entryPoint.maxLayer();
-        int bestPeerId = this.entryPoint.id;
+        Node entrypointCopy = entryPoint;
 
-        if (newNode.maxLayer() <= currentMaxLayer) {
+        if (newNode.maxLayer() <= entryPoint.maxLayer()) {
             globalLock.unlock();
         }
 
@@ -127,30 +125,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             synchronized (newNode) {
 
                 // zoom in and find the best peer on the same level as newNode
+                TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
+
+                int bestPeerId = findBestPeer(entrypointCopy.id, entrypointCopy.maxLayer(), newNode.maxLayer(), currentNodeTravelingCosts);
+
 
                 MutableIntList neighboursIdsBuffer = new IntArrayList(algorithm.getM(0) + 1);
 
-                // zoom in and find the best peer on the same level as newNode
-                TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
-
-                // TODO: JK: this is essentially the same code as the code in the search function.. eg traverse all the layers and find the closest node so i guess we can move this to a common function
-
-                for (int layer = currentMaxLayer; layer > newNode.maxLayer(); layer--) {
-                        runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, 1);
-
-                        int candidateBestPeerId = neighboursIdsBuffer.getFirst();
-
-                        neighboursIdsBuffer.clear();
-
-                        if (bestPeerId == candidateBestPeerId) {
-                            break;
-                        }
-
-                        bestPeerId = candidateBestPeerId;
-                }
-
                 // connecting new node to the small world
-                for (int layer = Math.min(newNode.maxLayer(), currentMaxLayer); layer >= 0; layer--) {
+                for (int layer = Math.min(newNode.maxLayer(), entrypointCopy.maxLayer()); layer >= 0; layer--) {
                     runKnnAtLayer(bestPeerId, currentNodeTravelingCosts, neighboursIdsBuffer, layer, this.constructionPruning);
                     MutableIntList bestNeighboursIds = algorithm.selectBestForConnecting(neighboursIdsBuffer, currentNodeTravelingCosts, layer);
 
@@ -173,7 +156,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
 
                 // zoom out to the highest level
-                if (newNode.maxLayer() > currentMaxLayer) {
+                if (newNode.maxLayer() > entrypointCopy.maxLayer()) {
                     // JK: this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
@@ -196,21 +179,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         Node entrypointCopy = entryPoint;
 
-        int bestPeerId = entrypointCopy.id;
-
-        for (int layer = entrypointCopy.maxLayer(); layer > 0; layer--) {
-            runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, layer, 1);
-
-            int candidateBestPeerId = resultIds.getFirst();
-
-            resultIds.clear();
-
-            if (bestPeerId == candidateBestPeerId) {
-                break;
-            }
-
-            bestPeerId = candidateBestPeerId;
-        }
+        int bestPeerId = findBestPeer(entrypointCopy.id, entrypointCopy.maxLayer(), 0, destinationTravelingCosts);
 
         runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
 
@@ -263,6 +232,30 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    private int findBestPeer(int entrypointId,
+                             int fromLayer,
+                             int toLayer,
+                             TravelingCosts<Integer, TDistance> destinationTravelingCost) {
+
+        int bestPeerId = entrypointId;
+
+        MutableIntList neighboursIdsBuffer = new IntArrayList(1);
+
+        for (int layer = fromLayer; layer > toLayer; layer--) {
+            runKnnAtLayer(bestPeerId, destinationTravelingCost, neighboursIdsBuffer, layer, 1);
+
+            int candidateBestPeerId = neighboursIdsBuffer.getFirst();
+
+            neighboursIdsBuffer.clear();
+
+            if (bestPeerId == candidateBestPeerId) {
+                break;
+            }
+
+            bestPeerId = candidateBestPeerId;
+        }
+        return bestPeerId;
+    }
 
     /**
      * The implementaiton of SEARCH-LAYER(q, ep, ef, lc) algorithm.
@@ -337,9 +330,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         expansionBufferPool.returnObject(expansionBuffer);
     }
 
-
-
-
     /**
      * Gets the distance between 2 items.
      *
@@ -355,7 +345,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return this.distanceFunction.distance(fromItem.getVector(), toItem.getVector());
     }
 
-
     /**
      * Gets the random layer.
      *
@@ -367,7 +356,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         double r = -Math.log(generator.nextDouble()) * lambda;
         return (int)r;
     }
-
 
     /**
      * The implementation of the node in hnsw graph.
@@ -618,7 +606,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
-            return new HnswIndex<>(this);
+            return new HnswIndex<TId, TVector, TItem, TDistance>(this);
         }
 
     }
