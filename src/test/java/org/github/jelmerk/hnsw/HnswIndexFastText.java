@@ -17,7 +17,6 @@ public class HnswIndexFastText {
 
     public static void main(String[] args) throws Exception{
 
-
         List<Word> words = new ArrayList<>();
 
         boolean first = true;
@@ -51,19 +50,23 @@ public class HnswIndexFastText {
 
 
 
-
-//        Index<String, float[], Word, Float> index =
-//                new HnswIndex.Builder<>(CosineDistance::nonOptimized, words.size())
-//                        .build();
+        int m = 16;
+        double levelLambda = 1 / Math.log(m);
 
         Index<String, float[], Word, Float> index =
-                new BruteForceIndex.Builder<>(CosineDistance::nonOptimized)
+                new HnswIndex.Builder<>(CosineDistance::nonOptimized, words.size())
+                        .setM(m)
+                        .setLevelLambda(levelLambda)
                         .build();
+
+//        Index<String, float[], Word, Float> index =
+//                new BruteForceIndex.Builder<>(CosineDistance::nonOptimized)
+//                        .build();
 
 
         long start = System.currentTimeMillis();
 
-        index.addAll(words);
+        index.addAll(words, (workDone, max) -> System.out.printf("%d - Added %d out of %d records%n", System.currentTimeMillis(), workDone, max));
 
         long end = System.currentTimeMillis();
 
@@ -87,7 +90,7 @@ public class HnswIndexFastText {
 //            System.out.println(result.getItem().getId() + " " + result.getDistance());
 //        }
 
-//        index.save(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+        index.save(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
     }
 
 
@@ -122,4 +125,11 @@ public class HnswIndexFastText {
                     '}';
         }
     }
+
+
+    private static int randomLayer(DotNetRandom generator, double lambda) {
+        double r = -Math.log(generator.nextDouble()) * lambda;
+        return (int)r;
+    }
+
 }

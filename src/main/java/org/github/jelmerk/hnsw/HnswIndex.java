@@ -36,7 +36,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private AtomicReferenceArray<TItem> items;
     private AtomicReferenceArray<Node> nodes;
 
-    private final Map<TId, TItem> lookup;
+    private final Map<TId, Integer> lookup;
 
     private Algorithm algorithm;
 
@@ -64,7 +64,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             this.algorithm = new Algorithm4();
         }
 
-        this.random = new DotNetRandom(builder.randomSeed);
+        this.random = new DotNetRandom(builder.randomSeed); // TODO JK: get rid of this dot net random and use a ThreadLocalRandom so we don't have to synchronize access
 
         this.globalLock = new ReentrantLock();
 
@@ -84,13 +84,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     @Override
-    public Collection<TItem> items() {
-        return lookup.values();
-    }
-
-    @Override
     public TItem get(TId id) {
-        return lookup.get(id);
+        return items.get(lookup.get(id));
     }
 
     @Override
@@ -107,7 +102,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         Node newNode = this.algorithm.newNode(count, randomLayer(random, this.levelLambda));
         nodes.set(count, newNode);
 
-        lookup.put(item.getId(), item);
+        lookup.put(item.getId(), count);
 
         globalLock.lock();
 
@@ -175,12 +170,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 (x, y) -> this.distanceFunction.distance(destination, items.get(x).getVector())
         , -1);
 
-        MutableIntList resultIds = new IntArrayList(k + 1);
-
         Node entrypointCopy = entryPoint;
 
         int bestPeerId = findBestPeer(entrypointCopy.id, entrypointCopy.maxLayer(), 0, destinationTravelingCosts);
 
+        MutableIntList resultIds = new IntArrayList(k + 1);
         runKnnAtLayer(bestPeerId, destinationTravelingCosts, resultIds, 0, k);
 
         MutableList<SearchResult<TItem, TDistance>> results = resultIds.collect(id -> {
@@ -191,6 +185,50 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         Collections.sort(results);
         return results;
+    }
+
+
+    @Override
+    public TItem remove(TId tId) {
+
+        // TODO problem seems to be
+
+
+        // what if it is the entry point
+
+        Integer index = lookup.get(tId); // TODO make this a ObjectIntHashMap ?
+
+        Node node = nodes.get(index);
+
+        synchronized (node) {
+
+            for (int layer = node.maxLayer(); layer >= 0; layer--) {
+
+
+                final int finalLayer = layer;
+
+                MutableIntList connections = node.connections[finalLayer];
+
+                connections.forEach(connectedNodeId -> {
+                    Node connectedNode = nodes.get(connectedNodeId);
+
+                    synchronized (connectedNode) {
+
+                        // remove the node from the connections
+                        // find the node that should take its place
+
+                        connectedNode.connections[finalLayer].remove(node.id);
+
+
+                    }
+
+                });
+
+            }
+
+            return items.get(index);
+        }
+
     }
 
     @Override

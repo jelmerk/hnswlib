@@ -26,11 +26,6 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     }
 
     @Override
-    public Collection<TItem> items() {
-        return items.values();
-    }
-
-    @Override
     public TItem get(TId id) {
         return items.get(id);
     }
@@ -38,6 +33,11 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     @Override
     public void add(TItem item) {
         items.putIfAbsent(item.getId(), item);
+    }
+
+    @Override
+    public TItem remove(TId tId) {
+        return items.remove(tId);
     }
 
     @Override

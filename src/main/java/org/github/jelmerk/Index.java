@@ -8,27 +8,37 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>> {
 
-    int size();
+    int DEFAULT_PROGRESS_UPDATE_INTERVAL = 100_000;
 
-    Collection<TItem> items();
+    int size();
 
     TItem get(TId id);
 
     void add(TItem item);
 
+    TItem remove(TId id);
+
     default void addAll(Collection<TItem> items) throws InterruptedException {
-        addAll(items, Runtime.getRuntime().availableProcessors());
+        addAll(items, NullProgressListener.INSTANCE);
     }
 
-    default void addAll(Collection<TItem> items, int numThreads) throws InterruptedException {
+    default void addAll(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
+        addAll(items, Runtime.getRuntime().availableProcessors(), listener, DEFAULT_PROGRESS_UPDATE_INTERVAL);
+    }
+
+    default void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval)
+            throws InterruptedException {
 
         AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
 
         ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+
+        AtomicInteger workDone = new AtomicInteger();
 
         try {
             Queue<TItem> queue = new LinkedBlockingDeque<>(items);
@@ -42,6 +52,13 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     while((item = queue.poll()) != null) {
                         try {
                             add(item);
+
+                            int done = workDone.incrementAndGet();
+
+                            if (done % progressUpdateInterval == 0) {
+                                listener.updateProgress(done, items.size());
+                            }
+
                         } catch (RuntimeException t) {
                             throwableHolder.set(t);
                         }
