@@ -42,7 +42,7 @@ class DotNetRandom implements Serializable {
     }
 
 
-    double nextDouble() {
+    synchronized double nextDouble() {
         int retVal;
         int locINext = inext;
         int locINextp = inextp;
