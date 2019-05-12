@@ -45,9 +45,25 @@ public class HnswIndexTest {
             index.add(item);
         }
 
+//        TestItem item = items.get(1);
+////        TestItem item = items.get(1);
+//        List<SearchResult<TestItem, Float>> result = index.findNearest2(item.getVector(), 20);
+////        List<SearchResult<TestItem, Float>> result = index.findNearest(item.getVector(), 20);
+//        SearchResult<TestItem, Float> best = result.iterator().next();
+//
+//
+////        assertEquals(20, result.size()); // TODO i think this may be a bug , node 0 has 2 relations to itself which makes no sense
+//
+//        assertEquals(0, best.getDistance(), floatError);
+
         for (TestItem item : this.items) {
 
+            CosineDistance.counter.set(0);
+
             List<SearchResult<TestItem, Float>> result = index.findNearest(item.getVector(), 20);
+//            List<SearchResult<TestItem, Float>> result = index.findNearest2(item.getVector(), 20);
+
+            System.out.println(CosineDistance.counter.get());
 
             SearchResult<TestItem, Float> best = result.iterator().next();
 
@@ -57,6 +73,9 @@ public class HnswIndexTest {
         }
 
 //        System.out.println(index.print());
+
+
+
 
 
     }

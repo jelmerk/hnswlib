@@ -1,5 +1,7 @@
 package org.github.jelmerk.hnsw;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Calculates cosine similarity.
  *
@@ -15,6 +17,8 @@ package org.github.jelmerk.hnsw;
  */
 public class CosineDistance {
 
+    public static AtomicLong counter = new AtomicLong();
+
     /**
      * Calculates cosine distance without making any optimizations.
      *
@@ -23,6 +27,9 @@ public class CosineDistance {
      * @return Cosine distance between u and v.
      */
     public static float nonOptimized(float[] u, float[] v)  {
+
+        counter.incrementAndGet();
+
         if (u.length != v.length) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
         }

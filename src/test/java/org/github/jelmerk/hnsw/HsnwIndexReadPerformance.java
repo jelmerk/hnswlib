@@ -1,6 +1,9 @@
 package org.github.jelmerk.hnsw;
 
+import org.github.jelmerk.SearchResult;
+
 import java.io.File;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -16,7 +19,16 @@ public class HsnwIndexReadPerformance {
         HnswIndex<String, float[], HnswIndexFastText.Word, Float> index =
                 HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
 
-        System.out.println("loaded index");
+        System.out.println("done loading index");
+
+        HnswIndexFastText.Word word = index.get("koning");
+
+        List<SearchResult<HnswIndexFastText.Word, Float>> nearest = index.findNearest2(word.getVector(), 10);
+
+        for (SearchResult<HnswIndexFastText.Word, Float> result : nearest) {
+            System.out.println(result.getItem().getId() + " " + result.getDistance());
+        }
+
 
         int numProcessors = Runtime.getRuntime().availableProcessors();
 
@@ -31,6 +43,8 @@ public class HsnwIndexReadPerformance {
             values[i] = generateRandomVector(300);
         }
 
+        CosineDistance.counter.set(0);
+
         CountDownLatch latch = new CountDownLatch(numProcessors);
         AtomicInteger counter = new AtomicInteger();
 
@@ -41,7 +55,8 @@ public class HsnwIndexReadPerformance {
 
                     int count;
                     while ((count = counter.getAndIncrement()) < numSearches) {
-                        index.findNearest(values[count % numRandomVectors], numResults);
+                        index.findNearest2(values[count % numRandomVectors], numResults);
+//                        index.findNearest(values[count % numRandomVectors], numResults);
                     }
 
                     latch.countDown();
@@ -58,6 +73,7 @@ public class HsnwIndexReadPerformance {
 
             System.out.println("took " + duration + " milli seconds");
 
+            System.out.println("cosine distances : " + CosineDistance.counter.get());
         } finally {
             executorService.shutdown();
         }

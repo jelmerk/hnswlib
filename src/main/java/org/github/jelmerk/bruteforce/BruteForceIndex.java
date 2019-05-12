@@ -64,9 +64,9 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
 
         SearchResult<TItem, TDistance> result;
         while((result = queue.poll()) != null) { // if you iterate over a priority queue the order is not guaranteed
-            results.add(result);
+            results.add(0, result);
         }
-        Collections.reverse(results);
+
         return results;
     }
 

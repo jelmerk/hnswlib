@@ -1,7 +1,7 @@
 package org.github.jelmerk.hnsw;
 
 /**
- * Type of heuristic to select best neighbours for a node.
+ * Type of heuristic to select best neighbours for a nodeId.
  */
 public enum NeighbourSelectionHeuristic {
     /**
