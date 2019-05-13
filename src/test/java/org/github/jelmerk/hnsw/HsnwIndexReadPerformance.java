@@ -17,18 +17,21 @@ public class HsnwIndexReadPerformance {
 
 
         HnswIndex<String, float[], HnswIndexFastText.Word, Float> index =
-                HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+//                HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+                    HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
 
         System.out.println("done loading index");
 
         HnswIndexFastText.Word word = index.get("koning");
 
-        List<SearchResult<HnswIndexFastText.Word, Float>> nearest = index.findNearest2(word.getVector(), 10);
+//        List<SearchResult<HnswIndexFastText.Word, Float>> nearest = index.findNearest(word.getVector(), 10);
+        List<SearchResult<HnswIndexFastText.Word, Float>> nearest = index.findNearest2(word.getVector(), 50);
 
         for (SearchResult<HnswIndexFastText.Word, Float> result : nearest) {
             System.out.println(result.getItem().getId() + " " + result.getDistance());
         }
 
+        System.exit(0);
 
         int numProcessors = Runtime.getRuntime().availableProcessors();
 

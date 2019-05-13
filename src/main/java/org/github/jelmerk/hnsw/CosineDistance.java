@@ -1,5 +1,6 @@
 package org.github.jelmerk.hnsw;
 
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -18,6 +19,10 @@ import java.util.concurrent.atomic.AtomicLong;
 public class CosineDistance {
 
     public static AtomicLong counter = new AtomicLong();
+
+
+    // run with  -XX:+UseSuperWord -XX:+UnlockDiagnosticVMOptions -XX:CompileCommand=print,*CosineDistance.nonOptimized to see if simd is being used
+    // see https://cr.openjdk.java.net/~vlivanov/talks/2017_Vectorization_in_HotSpot_JVM.pdf
 
     /**
      * Calculates cosine distance without making any optimizations.
@@ -67,4 +72,26 @@ public class CosineDistance {
         return 1 - dot;
     }
 
+
+    public static void main(String[] args) {
+
+        float[] u = generateRandomVector(300);
+        float[] v = generateRandomVector(300);
+
+        int times = 100_000_000;
+
+        for (int i = 0; i < times; i++) {
+            CosineDistance.nonOptimized(u, v);
+        }
+
+    }
+
+
+    private static float[] generateRandomVector(int size) {
+        float[] result = new float[size];
+        for (int i = 0; i < size; i++) {
+            result[i] = ThreadLocalRandom.current().nextFloat();
+        }
+        return result;
+    }
 }

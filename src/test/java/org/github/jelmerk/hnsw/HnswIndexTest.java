@@ -36,14 +36,26 @@ public class HnswIndexTest {
     @Test
     public void testKnnSearch() {
 
+        // TODO JK 75 is not in 37 in the new ported algo
+
         HnswIndex<String, float[], TestItem, Float> index =
                 new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+//                        .setNeighbourHeuristic(NeighbourSelectionHeuristic.SELECT_HEURISTIC)
                         .setRandomSeed(42)
                         .build();
 
         for (TestItem item : items) {
-            index.add(item);
+//            index.add(item);
+            index.add2(item);
         }
+
+        // select heuristic old : (37) -> {61,43,17,75,79,96,125,53,76,176}
+
+        // simple heuristic old : (37) -> {61,43,125,79,75,96,53,17,76,176}
+        // new                  : (37) -> {43,61,96}
+
+        System.out.println(index.print());
+
 
 //        TestItem item = items.get(1);
 ////        TestItem item = items.get(1);

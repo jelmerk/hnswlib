@@ -1,9 +1,7 @@
 package org.github.jelmerk.hnsw;
 
-import org.github.jelmerk.Index;
 import org.github.jelmerk.Item;
 import org.github.jelmerk.SearchResult;
-import org.github.jelmerk.bruteforce.BruteForceIndex;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -53,7 +51,7 @@ public class HnswIndexFastText {
         int m = 16;
         double levelLambda = 1 / Math.log(m);
 
-        Index<String, float[], Word, Float> index =
+        HnswIndex<String, float[], Word, Float> index =
                 new HnswIndex.Builder<>(CosineDistance::nonOptimized, words.size())
                         .setM(m)
                         .setLevelLambda(levelLambda)
@@ -66,7 +64,7 @@ public class HnswIndexFastText {
 
         long start = System.currentTimeMillis();
 
-        index.addAll(words, (workDone, max) -> System.out.printf("%d - Added %d out of %d records%n", System.currentTimeMillis(), workDone, max));
+        index.addAll2(words, (workDone, max) -> System.out.printf("%d - Added %d out of %d records%n", System.currentTimeMillis(), workDone, max));
 
         long end = System.currentTimeMillis();
 
@@ -90,10 +88,8 @@ public class HnswIndexFastText {
 //            System.out.println(result.getItem().getId() + " " + result.getDistance());
 //        }
 
-        index.save(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
+        index.save(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
     }
-
-
 
     static class Word implements Item<String, float[]> {
 

@@ -7,16 +7,17 @@ import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.set.primitive.MutableIntSet;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
-import org.github.jelmerk.Index;
-import org.github.jelmerk.Item;
-import org.github.jelmerk.SearchResult;
+import org.github.jelmerk.*;
 
 import java.io.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
@@ -56,7 +57,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.distanceFunction = builder.distanceFunction;
         this.m = builder.m;
         this.levelLambda = builder.levelLambda;
-        this.constructionPruning = builder.constructionPruning;
+        this.constructionPruning = Math.max(builder.constructionPruning, m);
         this.expandBestSelection = builder.expandBestSelection;
         this.keepPrunedConnections =  builder.keepPrunedConnections;
 
@@ -121,11 +122,54 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         try {
             synchronized (newNode) {
 
+
+
+
+
+                Node currObj = entrypointCopy;
+
+                if (currObj != null) {
+
+                    if (newNode.maxLayer() < entrypointCopy.maxLayer()) {
+
+                        TDistance curDist = distanceFunction.distance(item.getVector(), items.get(currObj.id).getVector());
+
+                        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > newNode.maxLayer(); activeLevel--) {
+
+                            boolean changed = true;
+
+                            while (changed) {
+                                changed = false;
+
+                                synchronized (currObj) {
+
+                                    MutableIntList candidateConnections = currObj.connections[activeLevel];
+
+                                    for (int i = 0; i < candidateConnections.size(); i++) {
+
+                                        int candidateId = candidateConnections.get(i);
+
+                                        TDistance candidateDistance = distanceFunction.distance(item.getVector(), items.get(candidateId).getVector());
+                                        if (DistanceUtils.lt(candidateDistance, curDist)) {
+                                            curDist = candidateDistance;
+                                            currObj = nodes.get(candidateId);
+                                            changed = true;
+                                        }
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+                }
+
+                int bestPeerId = currObj.id;
+
+
                 // zoom in and find the best peer on the same level as newNode
                 TravelingCosts<Integer, TDistance> currentNodeTravelingCosts = new TravelingCosts<>(this::calculateDistance, newNode.id);
 
-                int bestPeerId = findBestPeer(entrypointCopy.id, entrypointCopy.maxLayer(), newNode.maxLayer(), currentNodeTravelingCosts);
-
+//                int bestPeerId = findBestPeer(entrypointCopy.id, entrypointCopy.maxLayer(), newNode.maxLayer(), currentNodeTravelingCosts);
 
                 MutableIntList neighboursIdsBuffer = new IntArrayList(algorithm.getM(0) + 1);
 
@@ -167,6 +211,285 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
 
 
+
+    void addAll2(Collection<TItem> items) throws InterruptedException {
+        addAll2(items, NullProgressListener.INSTANCE);
+    }
+
+    void addAll2(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
+        addAll2(items, Runtime.getRuntime().availableProcessors(), listener, DEFAULT_PROGRESS_UPDATE_INTERVAL);
+    }
+
+    void addAll2(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval)
+            throws InterruptedException {
+
+        AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+
+        AtomicInteger workDone = new AtomicInteger();
+
+        try {
+            Queue<TItem> queue = new LinkedBlockingDeque<>(items);
+
+            CountDownLatch latch = new CountDownLatch(numThreads);
+
+            for (int threadId = 0; threadId < numThreads; threadId++) {
+
+                executorService.submit(() -> {
+                    TItem item;
+                    while((item = queue.poll()) != null) {
+                        try {
+                            add2(item);
+
+                            int done = workDone.incrementAndGet();
+
+                            if (done % progressUpdateInterval == 0) {
+                                listener.updateProgress(done, items.size());
+                            }
+
+                        } catch (RuntimeException t) {
+                            throwableHolder.set(t);
+                        }
+                    }
+
+                    latch.countDown();
+                });
+            }
+
+            latch.await();
+
+            RuntimeException throwable = throwableHolder.get();
+
+            if (throwable != null) {
+                throw throwable;
+            }
+
+        } finally {
+            executorService.shutdown();
+        }
+    }
+
+    public void add2(TItem item) {
+
+        int newNodeId = itemCount.getAndIncrement(); // TODO JK i guess we don't want this count to increase if there's no space, how ?
+
+        if (newNodeId >= this.maxItemCount) {
+            throw new IllegalStateException("The number of elements exceeds the specified limit.");
+        }
+
+        items.set(newNodeId, item);
+
+        int randomLayer = randomLayer(random, this.levelLambda);
+
+        IntArrayList[] connections = new IntArrayList[randomLayer + 1];
+
+        for (int layer = 0; layer <= randomLayer; layer++) {
+            int layerM = randomLayer == 0 ? 2 * this.m : this.m;
+            connections[layer] = new IntArrayList(layerM);
+        }
+
+        Node newNode = new Node();
+        newNode.id = newNodeId;
+        newNode.connections = connections;
+
+
+        nodes.set(newNodeId, newNode);
+
+        lookup.put(item.getId(), newNodeId);
+
+        globalLock.lock();
+
+        Node entrypointCopy = entryPoint;
+
+        if (entryPoint != null && newNode.maxLayer() <= entryPoint.maxLayer()) {
+            globalLock.unlock();
+        }
+
+        try {
+            synchronized (newNode) {
+
+                Node currObj = entrypointCopy;
+
+                if (currObj != null) {
+
+                    if (newNode.maxLayer() < entrypointCopy.maxLayer()) {
+
+                        TDistance curDist = distanceFunction.distance(item.getVector(), items.get(currObj.id).getVector());
+
+                        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > newNode.maxLayer(); activeLevel--) {
+
+                            boolean changed = true;
+
+                            while (changed) {
+                                changed = false;
+
+                                synchronized (currObj) {
+
+//                                    MutableIntList candidateConnections = currObj.connections[activeLevel - 1]; // TODO JK why minus one again ?
+                                    MutableIntList candidateConnections = currObj.connections[activeLevel];
+
+                                    for (int i = 0; i < candidateConnections.size(); i++) {
+
+                                        int candidateId = candidateConnections.get(i);
+
+                                        TDistance candidateDistance = distanceFunction.distance(item.getVector(), items.get(candidateId).getVector());
+                                        if (DistanceUtils.lt(candidateDistance, curDist)) {
+                                            curDist = candidateDistance;
+                                            currObj = nodes.get(candidateId);
+                                            changed = true;
+                                        }
+                                    }
+                                }
+
+                            }
+                        }
+                    }
+
+
+                    for (int level = Math.min(randomLayer, entrypointCopy.maxLayer()); level >= 0; level--) {
+
+//                        // TODO does using construction pruning make sense here why not just pass in bestN
+                        PriorityQueue<DistanceNodePair<TDistance>> topCandidates =
+                                searchBaseLayer(currObj.id, item.getVector(), constructionPruning, level);
+                        mutuallyConnectNewElement(item.getVector(), newNodeId, topCandidates, level);
+                    }
+
+                }
+
+                // zoom out to the highest level
+                if (entryPoint == null || newNode.maxLayer() > entrypointCopy.maxLayer()) {
+                    // JK: this is thread safe because we get the global lock when we add a level
+                    this.entryPoint = newNode;
+                }
+            }
+        } finally {
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
+        }
+    }
+
+
+    private void mutuallyConnectNewElement(TVector dataPoint,
+                                           int nodeId,
+                                           PriorityQueue<DistanceNodePair<TDistance>> topCandidates,
+                                           int level) {
+
+        int bestN = level == 0 ? 2 * this.m : this.m;
+
+        MutableIntList nodeConnections = nodes.get(nodeId).connections[level];
+
+        getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
+//        getNeighborsByHeuristic1(topCandidates, m); // this modifies the topCandidates queue TODO jk: back to 2
+
+        while (!topCandidates.isEmpty()) {
+            int selectedNeighbourId = topCandidates.poll().nodeId;
+
+            nodeConnections.add(selectedNeighbourId);
+
+            Node neighbourNode = nodes.get(selectedNeighbourId);
+            synchronized (neighbourNode) {
+
+                MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
+
+                if (neighbourConnectionsAtLevel.size() < bestN) {
+                    neighbourConnectionsAtLevel.add(nodeId);
+                } else {
+                    // finding the "weakest" element to replace it with the new one
+
+                    TDistance dMax = distanceFunction.distance(dataPoint, items.get(selectedNeighbourId).getVector());
+
+                    Comparator<DistanceNodePair<TDistance>> comparator = Comparator.<DistanceNodePair<TDistance>>naturalOrder().reversed();
+
+                    PriorityQueue<DistanceNodePair<TDistance>> candidates = new PriorityQueue<>(comparator);
+                    candidates.add(new DistanceNodePair<>(dMax, nodeId));
+
+                    neighbourConnectionsAtLevel.forEach(id -> {
+                        TDistance dist = distanceFunction.distance(items.get(selectedNeighbourId).getVector(), items.get(id).getVector());
+                        candidates.add(new DistanceNodePair<>(dist, id));
+                    });
+
+                    getNeighborsByHeuristic2(candidates, bestN);
+//                    getNeighborsByHeuristic1(candidates, bestN); // TODO jk, back to 2
+
+                    // TODO more efficient than allocating a new array i guess but need to verify this
+                    neighbourConnectionsAtLevel.clear();
+
+                    while(!candidates.isEmpty()) {
+                        neighbourConnectionsAtLevel.add(candidates.poll().nodeId);
+                    }
+                }
+            }
+        }
+    }
+
+    // TODO JK: not in the original hnsw impl but i think this is what it should be if you look at the algorithm3 class from the .net impl
+    private void getNeighborsByHeuristic1(PriorityQueue<DistanceNodePair<TDistance>> topCandidates, int m) {
+
+        if (topCandidates.size() < m) {
+            return;
+        }
+
+        PriorityQueue<DistanceNodePair<TDistance>> queueClosest = new PriorityQueue<>();
+
+        while(!topCandidates.isEmpty()) {
+            queueClosest.add(topCandidates.poll());
+        }
+
+        while(!queueClosest.isEmpty()) {
+            if (topCandidates.size() >= m) {
+                break;
+            }
+            topCandidates.add(queueClosest.poll());
+        }
+
+    }
+
+    private void getNeighborsByHeuristic2(PriorityQueue<DistanceNodePair<TDistance>> topCandidates, int m) {
+
+        if (topCandidates.size() < m) {
+            return;
+        }
+
+        PriorityQueue<DistanceNodePair<TDistance>> queueClosest = new PriorityQueue<>();
+        List<DistanceNodePair<TDistance>> returnList = new ArrayList<>();
+
+        while(!topCandidates.isEmpty()) {
+            queueClosest.add(topCandidates.poll());
+        }
+
+        while(!queueClosest.isEmpty()) {
+            if (returnList.size() >= m) {
+                break;
+            }
+
+            DistanceNodePair<TDistance> currentPair = queueClosest.poll();
+
+            TDistance distToQuery = currentPair.distance;
+
+            boolean good = true;
+            for (DistanceNodePair<TDistance> secondPair : returnList) {
+
+                TDistance curdist = distanceFunction.distance(
+                    items.get(secondPair.nodeId).getVector(),
+                    items.get(currentPair.nodeId).getVector()
+                );
+
+                if (DistanceUtils.lt(curdist, distToQuery)) {
+                    good = false;
+                    break;
+                }
+
+            }
+            if (good) {
+                returnList.add(currentPair);
+            }
+        }
+
+        topCandidates.addAll(returnList);
+    }
+
     public List<SearchResult<TItem, TDistance>>findNearest2(TVector destination, int k) {
 
         Node entrypointCopy = entryPoint;
@@ -184,7 +507,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 synchronized (currObj) {
 
-                    MutableIntList candidateConnections = currObj.connections[activeLevel - 1];
+//                    MutableIntList candidateConnections = currObj.connections[activeLevel - 1];
+                    MutableIntList candidateConnections = currObj.connections[activeLevel];
 
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
@@ -202,10 +526,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        // TODO in hnswlib they have a parameter called ef thats hardcoded to be 10 and then they do Math.max(ef, k) why ?
+        // TODO JK  The quality of the search is controlled by the ef parameter (corresponding to efConstruction in the construction algorithm).
 
-        PriorityQueue<DistanceNodePair<TDistance>> topCandidates = searchBaseLayerST(
-                currObj.id, destination, k);
+        // TODO JK in hnswlib they have a parameter called ef thats hardcoded to be 10 and then they do Math.max(ef, k) why ?
+
+        PriorityQueue<DistanceNodePair<TDistance>> topCandidates = searchBaseLayer(
+                currObj.id, destination, k, 0);
+
+
+        // TODO JK this code makes no sense if we have no ef value because the priority queue will never be bigger than k, delete it ? or work out what ef is for
 
         while(topCandidates.size() > k) {
             topCandidates.poll();
@@ -220,8 +549,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return results;
     }
 
-    private PriorityQueue<DistanceNodePair<TDistance>> searchBaseLayerST(
-            int entryPointId, TVector destination, int constructionPruning) {
+    private PriorityQueue<DistanceNodePair<TDistance>> searchBaseLayer(
+            int entryPointId, TVector destination, int k, int layer) {
 
         VisitedBitSet visitedBitSet = visitedBitSetPool.borrowObject();
 
@@ -253,7 +582,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             synchronized (node) {
 
-                MutableIntList candidates = node.connections[0];
+                MutableIntList candidates = node.connections[layer];
 
                 for (int i = 0; i < candidates.size(); i++) {
 
@@ -267,14 +596,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                         TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
 
-                        if (DistanceUtils.gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < constructionPruning) {
+                        if (DistanceUtils.gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
 
                             DistanceNodePair<TDistance> candidatePair = new DistanceNodePair<>(candidateDistance, candidateId);
 
                             candidateSet.add(candidatePair);
                             topCandidates.add(candidatePair);
 
-                            if (topCandidates.size() > constructionPruning) {
+                            if (topCandidates.size() > k) {
                                 topCandidates.poll();
                             }
 
@@ -393,6 +722,55 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return items.get(index);
         }
 
+    }
+
+
+
+
+    /**
+     * Prints edges of the graph.
+     *
+     * @return String representation of the graph's edges,
+     */
+    String print() {
+        StringBuilder buffer = new StringBuilder();
+        for (int layer = this.entryPoint.maxLayer(); layer >= 0; --layer) {
+            buffer.append(String.format("[LEVEL %s]%n", layer));
+            int finalLevel = layer;
+
+            bfs(this.entryPoint, layer, node -> {
+
+                String neighbours = node.connections[finalLevel].collect(String::valueOf).stream().map(String::valueOf)
+                        .collect(Collectors.joining(","));
+                buffer.append(String.format("(%d) -> {%s}%n", node.id, neighbours));
+
+            });
+            buffer.append(String.format("%n"));
+        }
+
+        return buffer.toString();
+    }
+
+    /**
+     * Runs breadth first search.
+     *
+     * @param entryPoint The entry point.
+     * @param layer The layer of the graph where to run BFS.
+     * @param visitConsumer The action to perform on each node.
+     */
+    private void bfs(Node entryPoint, int layer, Consumer<Node> visitConsumer) {
+
+        MutableIntSet visitedIds = new IntHashSet();
+        MutableIntList expansionQueue = IntArrayList.newListWith(entryPoint.id);
+
+        while (!expansionQueue.isEmpty()) {
+            Node currentNode = nodes.get(expansionQueue.removeAtIndex(0));
+            if (!visitedIds.contains(currentNode.id)) {
+                visitConsumer.accept(currentNode);
+                visitedIds.add(currentNode.id);
+                expansionQueue.addAll(currentNode.connections[layer]);
+            }
+        }
     }
 
     @Override
