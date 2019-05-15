@@ -3,6 +3,9 @@ package org.github.jelmerk.hnsw;
 import java.io.Serializable;
 
 class DotNetRandom implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
     private static final int MBIG = Integer.MAX_VALUE;
     private static final int MSEED = 161803398;
 

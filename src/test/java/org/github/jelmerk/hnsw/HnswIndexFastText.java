@@ -64,7 +64,7 @@ public class HnswIndexFastText {
 
         long start = System.currentTimeMillis();
 
-        index.addAll2(words, (workDone, max) -> System.out.printf("%d - Added %d out of %d records%n", System.currentTimeMillis(), workDone, max));
+        index.addAll(words, (workDone, max) -> System.out.printf("%d - Added %d out of %d records%n", System.currentTimeMillis(), workDone, max));
 
         long end = System.currentTimeMillis();
 

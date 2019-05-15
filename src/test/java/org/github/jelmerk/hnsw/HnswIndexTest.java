@@ -45,16 +45,11 @@ public class HnswIndexTest {
                         .build();
 
         for (TestItem item : items) {
-//            index.add(item);
-            index.add2(item);
+            index.add(item);
         }
 
-        // select heuristic old : (37) -> {61,43,17,75,79,96,125,53,76,176}
 
-        // simple heuristic old : (37) -> {61,43,125,79,75,96,53,17,76,176}
-        // new                  : (37) -> {43,61,96}
-
-        System.out.println(index.print());
+//        System.out.println(index.print());
 
 
 //        TestItem item = items.get(1);
@@ -70,12 +65,8 @@ public class HnswIndexTest {
 
         for (TestItem item : this.items) {
 
-            CosineDistance.counter.set(0);
-
             List<SearchResult<TestItem, Float>> result = index.findNearest(item.getVector(), 20);
 //            List<SearchResult<TestItem, Float>> result = index.findNearest2(item.getVector(), 20);
-
-            System.out.println(CosineDistance.counter.get());
 
             SearchResult<TestItem, Float> best = result.iterator().next();
 

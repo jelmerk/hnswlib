@@ -32,16 +32,4 @@ final class DistanceUtils {
         return x.compareTo(y) > 0;
     }
 
-    /**
-     * Distances are Equal.
-     *
-     * @param x Left argument.
-     * @param y Right argument.
-     * @param <TDistance> The type of the distance.
-     * @return True if x == y.
-     */
-    static <TDistance extends Comparable<TDistance>> boolean dEq(TDistance x, TDistance y) {
-        return x.compareTo(y) == 0;
-    }
-
 }

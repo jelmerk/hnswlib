@@ -6,6 +6,8 @@ import java.util.function.Supplier;
 
 class Pool<T> implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private final ArrayBlockingQueue<T> items;
 
     Pool(Supplier<T> supplier, int maxPoolSize) {

@@ -21,8 +21,6 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     void add(TItem item);
 
-    TItem remove(TId id);
-
     default void addAll(Collection<TItem> items) throws InterruptedException {
         addAll(items, NullProgressListener.INSTANCE);
     }
