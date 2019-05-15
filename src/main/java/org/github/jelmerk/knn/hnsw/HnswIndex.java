@@ -74,7 +74,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public void add(TItem item) {
 
-        int newNodeId = itemCount.getAndIncrement(); // TODO JK i guess we don't want this count to increase if there's no space, how ?
+        int newNodeId = itemCount.updateAndGet(value -> value == maxItemCount ? maxItemCount :  value + 1);
 
         if (newNodeId >= this.maxItemCount) {
             throw new IllegalStateException("The number of elements exceeds the specified limit.");

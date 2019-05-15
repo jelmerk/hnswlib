@@ -21,12 +21,6 @@
     <dependencies>
 
         <dependency>
-            <groupId>com.github.haifengl</groupId>
-            <artifactId>smile-core</artifactId>
-            <version>1.5.2</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections-api</artifactId>
             <version>9.2.0</version>
