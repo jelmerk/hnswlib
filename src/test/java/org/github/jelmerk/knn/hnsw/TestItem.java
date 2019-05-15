@@ -1,6 +1,6 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
-import org.github.jelmerk.Item;
+import org.github.jelmerk.knn.Item;
 
 import java.io.Serializable;
 

@@ -1,9 +1,9 @@
-package org.github.jelmerk.bruteforce;
+package org.github.jelmerk.knn.bruteforce;
 
-import org.github.jelmerk.Index;
-import org.github.jelmerk.Item;
-import org.github.jelmerk.SearchResult;
-import org.github.jelmerk.hnsw.DistanceFunction;
+import org.github.jelmerk.knn.Index;
+import org.github.jelmerk.knn.Item;
+import org.github.jelmerk.knn.SearchResult;
+import org.github.jelmerk.knn.DistanceFunction;
 
 import java.io.Serializable;
 import java.util.*;

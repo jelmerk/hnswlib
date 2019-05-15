@@ -1,4 +1,4 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
 /**
  * Auxiliary tools for working with distance variables.

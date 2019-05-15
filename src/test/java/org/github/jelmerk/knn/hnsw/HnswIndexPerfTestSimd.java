@@ -1,4 +1,4 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
 //import jdk.incubator.vector.FloatVector;
 //import jdk.incubator.vector.VectorSpecies;

@@ -1,4 +1,4 @@
-package org.github.jelmerk;
+package org.github.jelmerk.knn;
 
 public class NullProgressListener implements ProgressListener {
 

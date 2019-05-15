@@ -1,4 +1,4 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
 /**
  * Type of heuristic to select best neighbours for a nodeId.

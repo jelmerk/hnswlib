@@ -1,7 +1,8 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
-import org.github.jelmerk.Item;
-import org.github.jelmerk.SearchResult;
+import org.github.jelmerk.knn.DistanceFunctions;
+import org.github.jelmerk.knn.Item;
+import org.github.jelmerk.knn.SearchResult;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -52,13 +53,13 @@ public class HnswIndexFastText {
         double levelLambda = 1 / Math.log(m);
 
         HnswIndex<String, float[], Word, Float> index =
-                new HnswIndex.Builder<>(CosineDistance::nonOptimized, words.size())
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
                         .setM(m)
                         .setLevelLambda(levelLambda)
                         .build();
 
 //        Index<String, float[], Word, Float> index =
-//                new BruteForceIndex.Builder<>(CosineDistance::nonOptimized)
+//                new BruteForceIndex.Builder<>(CosineDistance::cosineDistance)
 //                        .build();
 
 

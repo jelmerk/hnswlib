@@ -1,6 +1,6 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
-import org.github.jelmerk.SearchResult;
+import org.github.jelmerk.knn.SearchResult;
 
 import java.io.File;
 import java.util.List;

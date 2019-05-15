@@ -1,4 +1,4 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
 import java.io.Serializable;
 import java.util.Arrays;

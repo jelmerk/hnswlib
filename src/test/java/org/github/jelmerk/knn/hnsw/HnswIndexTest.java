@@ -1,6 +1,7 @@
-package org.github.jelmerk.hnsw;
+package org.github.jelmerk.knn.hnsw;
 
-import org.github.jelmerk.SearchResult;
+import org.github.jelmerk.knn.DistanceFunctions;
+import org.github.jelmerk.knn.SearchResult;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -34,12 +35,54 @@ public class HnswIndexTest {
     }
 
     @Test
+    public void bla() {
+
+        DotNetRandom dotNetRandom = new DotNetRandom(42);
+
+        double lambda = 1 / Math.log(10);
+
+        List<Integer> expected = new ArrayList<>();
+        for (int i = 0; i < 225; i++) {
+            expected.add(randomLayer(dotNetRandom, lambda));
+        }
+
+        List<Integer> result = new ArrayList<>();
+
+        long seed = 0;
+
+        do {
+            result.clear();
+
+            Random random = new Random(++seed);
+
+            for (int i = 0; i < 225; i++) {
+                result.add(randomLayer(random, lambda));
+            }
+
+        } while(!expected.equals(result));
+
+        System.out.println(seed);
+    }
+
+
+
+    int randomLayer(DotNetRandom generator, double lambda) {
+        double r = -Math.log(generator.nextDouble()) * lambda;
+        return (int)r;
+    }
+
+    int randomLayer(Random generator, double lambda) {
+        double r = -Math.log(generator.nextDouble()) * lambda;
+        return (int)r;
+    }
+
+    @Test
     public void testKnnSearch() {
 
         // TODO JK 75 is not in 37 in the new ported algo
 
         HnswIndex<String, float[], TestItem, Float> index =
-                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
 //                        .setNeighbourHeuristic(NeighbourSelectionHeuristic.SELECT_HEURISTIC)
                         .setRandomSeed(42)
                         .build();
@@ -87,7 +130,7 @@ public class HnswIndexTest {
     public void testSerialization() throws Exception {
 
         HnswIndex<String, float[], TestItem, Float> original =
-                new HnswIndex.Builder<>(CosineDistance::nonOptimized, items.size())
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
                         .setRandomSeed(42)
                         .build();
 

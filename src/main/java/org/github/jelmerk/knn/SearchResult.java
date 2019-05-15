@@ -1,7 +1,11 @@
-package org.github.jelmerk;
+package org.github.jelmerk.knn;
+
+import java.io.Serializable;
 
 public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
-        implements Comparable<SearchResult<TItem, TDistance>> {
+        implements Comparable<SearchResult<TItem, TDistance>>, Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private final TDistance distance;
 

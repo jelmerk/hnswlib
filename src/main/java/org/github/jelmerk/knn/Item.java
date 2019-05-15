@@ -1,4 +1,4 @@
-package org.github.jelmerk;
+package org.github.jelmerk.knn;
 
 import java.io.Serializable;
 
