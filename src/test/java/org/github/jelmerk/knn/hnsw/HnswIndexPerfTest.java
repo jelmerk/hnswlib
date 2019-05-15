@@ -9,9 +9,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import static org.github.jelmerk.knn.hnsw.NeighbourSelectionHeuristic.SELECT_HEURISTIC;
-//import jdk.incubator.vector.IntVetigctor;
-
 public class HnswIndexPerfTest {
 
     static class MyItem implements Item<Integer, float[]> {
@@ -52,7 +49,6 @@ public class HnswIndexPerfTest {
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
                         .setM(m)
                         .setLevelLambda(1 / Math.log(m))
-                        .setNeighbourHeuristic(SELECT_HEURISTIC)
                         .build();
 
 //        for (MyItem item : items) {

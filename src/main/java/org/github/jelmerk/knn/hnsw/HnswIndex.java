@@ -24,7 +24,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final int maxItemCount;
     private final int m;
     private final double levelLambda;
-    private final int constructionPruning;
+    private final int ef;
+    private final int efConstruction;
 
     private final AtomicInteger itemCount;
     private AtomicReferenceArray<TItem> items;
@@ -38,23 +39,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private Pool<VisitedBitSet> visitedBitSetPool;
 
-
     private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
         this.m = builder.m;
         this.levelLambda = builder.levelLambda;
-        this.constructionPruning = Math.max(builder.constructionPruning, m);
-
-
-        // TODO JK: do i want to keep supporting heuristic 1 ?
-
-//        if (builder.neighbourHeuristic == NeighbourSelectionHeuristic.SELECT_SIMPLE) {
-//            this.algorithm = new Algorithm3();
-//        } else {
-//            this.algorithm = new Algorithm4();
-//        }
+        this.efConstruction = Math.max(builder.efConstruction, m);
+        this.ef = builder.ef;
 
         this.random = new DotNetRandom(builder.randomSeed); // TODO JK: get rid of this dot net random and use a ThreadLocalRandom so we don't have to synchronize access
 
@@ -90,7 +82,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         items.set(newNodeId, item);
 
-        int randomLayer = randomLayer(random, this.levelLambda);
+        int randomLayer = getRandomLevel(random, this.levelLambda);
 
         IntArrayList[] connections = new IntArrayList[randomLayer + 1];
 
@@ -102,7 +94,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         Node newNode = new Node();
         newNode.id = newNodeId;
         newNode.connections = connections;
-
 
         nodes.set(newNodeId, newNode);
 
@@ -135,8 +126,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                 changed = false;
 
                                 synchronized (currObj) {
-
-//                                    MutableIntList candidateConnections = currObj.connections[activeLevel - 1]; // TODO JK why minus one again ?
                                     MutableIntList candidateConnections = currObj.connections[activeLevel];
 
                                     for (int i = 0; i < candidateConnections.size(); i++) {
@@ -156,18 +145,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         }
                     }
 
-
                     for (int level = Math.min(randomLayer, entrypointCopy.maxLayer()); level >= 0; level--) {
                         PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj.id, item.getVector(), constructionPruning, level);
+                                searchBaseLayer(currObj.id, item.getVector(), efConstruction, level);
                         mutuallyConnectNewElement(item.getVector(), newNodeId, topCandidates, level);
                     }
-
                 }
 
                 // zoom out to the highest level
                 if (entryPoint == null || newNode.maxLayer() > entrypointCopy.maxLayer()) {
-                    // JK: this is thread safe because we get the global lock when we add a level
+                    // this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
             }
@@ -189,7 +176,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         MutableIntList nodeConnections = nodes.get(nodeId).connections[level];
 
         getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
-//        getNeighborsByHeuristic1(topCandidates, m); // this modifies the topCandidates queue TODO jk: back to 2
 
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
@@ -219,7 +205,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     });
 
                     getNeighborsByHeuristic2(candidates, bestN);
-//                    getNeighborsByHeuristic1(candidates, bestN); // TODO jk, back to 2
 
                     neighbourConnectionsAtLevel.clear();
 
@@ -229,28 +214,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
         }
-    }
-
-    // TODO JK: not in the original hnsw impl but i think this is what it should be if you look at the algorithm3 class from the .net impl
-    private void getNeighborsByHeuristic1(PriorityQueue<NodeAndDistance<TDistance>> topCandidates, int m) {
-
-        if (topCandidates.size() < m) {
-            return;
-        }
-
-        PriorityQueue<NodeAndDistance<TDistance>> queueClosest = new PriorityQueue<>();
-
-        while(!topCandidates.isEmpty()) {
-            queueClosest.add(topCandidates.poll());
-        }
-
-        while(!queueClosest.isEmpty()) {
-            if (topCandidates.size() >= m) {
-                break;
-            }
-            topCandidates.add(queueClosest.poll());
-        }
-
     }
 
     private void getNeighborsByHeuristic2(PriorityQueue<NodeAndDistance<TDistance>> topCandidates, int m) {
@@ -314,8 +277,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 changed = false;
 
                 synchronized (currObj) {
-
-//                    MutableIntList candidateConnections = currObj.connections[activeLevel - 1];
                     MutableIntList candidateConnections = currObj.connections[activeLevel];
 
                     for (int i = 0; i < candidateConnections.size(); i++) {
@@ -334,15 +295,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        // TODO JK  The quality of the search is controlled by the ef parameter (corresponding to efConstruction in the construction algorithm).
-
-        // TODO JK in hnswlib they have a parameter called ef thats hardcoded to be 10 and then they do Math.max(ef, k) why ?
-
         PriorityQueue<NodeAndDistance<TDistance>> topCandidates = searchBaseLayer(
-                currObj.id, destination, k, 0);
-
-
-        // TODO JK this code makes no sense if we have no ef value because the priority queue will never be bigger than k, delete it ? or work out what ef is for
+                currObj.id, destination, Math.max(ef, k), 0);
 
         while(topCandidates.size() > k) {
             topCandidates.poll();
@@ -361,73 +315,73 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int entryPointId, TVector destination, int k, int layer) {
 
         VisitedBitSet visitedBitSet = visitedBitSetPool.borrowObject();
+        try {
+            PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
+                    new PriorityQueue<>(Comparator.<NodeAndDistance<TDistance>>naturalOrder().reversed());
+            PriorityQueue<NodeAndDistance<TDistance>> candidateSet = new PriorityQueue<>();
 
-        PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
-                new PriorityQueue<>(Comparator.<NodeAndDistance<TDistance>>naturalOrder().reversed());
-        PriorityQueue<NodeAndDistance<TDistance>> candidateSet = new PriorityQueue<>();
+            TDistance distance = distanceFunction.distance(destination, items.get(entryPointId).getVector());
 
-        TDistance distance = distanceFunction.distance(destination, items.get(entryPointId).getVector());
+            NodeAndDistance<TDistance> pair = new NodeAndDistance<>(entryPointId, distance);
 
-        NodeAndDistance<TDistance> pair = new NodeAndDistance<>(entryPointId, distance);
+            topCandidates.add(pair);
+            candidateSet.add(pair);
+            visitedBitSet.add(entryPointId);
 
-        topCandidates.add(pair);
-        candidateSet.add(pair);
-        visitedBitSet.add(entryPointId);
+            TDistance lowerBound = distance;
 
-        TDistance lowerBound = distance;
+            while (!candidateSet.isEmpty()) {
 
-        while(!candidateSet.isEmpty()) {
+                NodeAndDistance<TDistance> currentPair = candidateSet.peek();
 
-            NodeAndDistance<TDistance> currentPair = candidateSet.peek();
-
-            if (DistanceUtils.gt(currentPair.distance, lowerBound)) {
-                break;
-            }
-
-            candidateSet.poll();
-
-            Node node = nodes.get(currentPair.nodeId);
-
-            synchronized (node) {
-
-                MutableIntList candidates = node.connections[layer];
-
-                for (int i = 0; i < candidates.size(); i++) {
-
-                    int candidateId = candidates.get(i);
-
-                    if (!visitedBitSet.contains(candidateId)) {
-
-                        visitedBitSet.add(candidateId);
-
-                        TItem candidate = items.get(candidateId);
-
-                        TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
-
-                        if (DistanceUtils.gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
-
-                            NodeAndDistance<TDistance> candidatePair = new NodeAndDistance<>(candidateId, candidateDistance);
-
-                            candidateSet.add(candidatePair);
-                            topCandidates.add(candidatePair);
-
-                            if (topCandidates.size() > k) {
-                                topCandidates.poll();
-                            }
-
-                            lowerBound = topCandidates.peek().distance;
-                        }
-                    }
+                if (DistanceUtils.gt(currentPair.distance, lowerBound)) {
+                    break;
                 }
 
+                candidateSet.poll();
+
+                Node node = nodes.get(currentPair.nodeId);
+
+                synchronized (node) {
+
+                    MutableIntList candidates = node.connections[layer];
+
+                    for (int i = 0; i < candidates.size(); i++) {
+
+                        int candidateId = candidates.get(i);
+
+                        if (!visitedBitSet.contains(candidateId)) {
+
+                            visitedBitSet.add(candidateId);
+
+                            TItem candidate = items.get(candidateId);
+
+                            TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
+
+                            if (DistanceUtils.gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
+
+                                NodeAndDistance<TDistance> candidatePair = new NodeAndDistance<>(candidateId, candidateDistance);
+
+                                candidateSet.add(candidatePair);
+                                topCandidates.add(candidatePair);
+
+                                if (topCandidates.size() > k) {
+                                    topCandidates.poll();
+                                }
+
+                                lowerBound = topCandidates.peek().distance;
+                            }
+                        }
+                    }
+
+                }
             }
+
+            return topCandidates;
+        } finally {
+            visitedBitSet.clear();
+            visitedBitSetPool.returnObject(visitedBitSet);
         }
-
-        visitedBitSet.clear();
-        visitedBitSetPool.returnObject(visitedBitSet);
-
-        return topCandidates;
-
     }
 
     @Override
@@ -470,13 +424,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Gets the random layer.
+     * Gets the random level.
      *
      * @param generator The random numbers generator.
      * @param lambda Poisson lambda.
-     * @return The layer value.
+     * @return The level value.
      */
-    private int randomLayer(DotNetRandom generator, double lambda) {
+    private int getRandomLevel(DotNetRandom generator, double lambda) {
         double r = -Math.log(generator.nextDouble()) * lambda;
         return (int)r;
     }
@@ -524,8 +478,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         private int m = 10;
         private double levelLambda = 1 / Math.log(this.m);
-        private NeighbourSelectionHeuristic neighbourHeuristic = NeighbourSelectionHeuristic.SELECT_SIMPLE;
-        private int constructionPruning = 200;
+        private int efConstruction = 200;
+        private int ef = 10;
 
         private int randomSeed = (int) System.currentTimeMillis();
 
@@ -544,13 +498,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return this;
         }
 
-        public Builder<TVector, TDistance> setNeighbourHeuristic(NeighbourSelectionHeuristic neighbourHeuristic) {
-            this.neighbourHeuristic = neighbourHeuristic;
+        public Builder<TVector, TDistance> setEfConstruction(int efConstruction) {
+            this.efConstruction = efConstruction;
             return this;
         }
 
-        public Builder<TVector, TDistance> setConstructionPruning(int constructionPruning) {
-            this.constructionPruning = constructionPruning;
+        public Builder<TVector, TDistance> setEf(int ef) {
+            this.ef = ef;
             return this;
         }
 
@@ -562,7 +516,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
             return new HnswIndex<>(this);
         }
-
     }
 
 }
