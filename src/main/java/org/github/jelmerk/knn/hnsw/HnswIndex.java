@@ -133,7 +133,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                         int candidateId = candidateConnections.get(i);
 
                                         TDistance candidateDistance = distanceFunction.distance(item.getVector(), items.get(candidateId).getVector());
-                                        if (DistanceUtils.lt(candidateDistance, curDist)) {
+                                        if (lt(candidateDistance, curDist)) {
                                             curDist = candidateDistance;
                                             currObj = nodes.get(candidateId);
                                             changed = true;
@@ -246,7 +246,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     items.get(currentPair.nodeId).getVector()
                 );
 
-                if (DistanceUtils.lt(curdist, distToQuery)) {
+                if (lt(curdist, distToQuery)) {
                     good = false;
                     break;
                 }
@@ -284,7 +284,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         int candidateId = candidateConnections.get(i);
 
                         TDistance candidateDistance = distanceFunction.distance(destination, items.get(candidateId).getVector());
-                        if (DistanceUtils.lt(candidateDistance, curDist)) {
+                        if (lt(candidateDistance, curDist)) {
                             curDist = candidateDistance;
                             currObj = nodes.get(candidateId);
                             changed = true;
@@ -334,7 +334,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 NodeAndDistance<TDistance> currentPair = candidateSet.peek();
 
-                if (DistanceUtils.gt(currentPair.distance, lowerBound)) {
+                if (gt(currentPair.distance, lowerBound)) {
                     break;
                 }
 
@@ -358,7 +358,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                             TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
 
-                            if (DistanceUtils.gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
+                            if (gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
 
                                 NodeAndDistance<TDistance> candidatePair = new NodeAndDistance<>(candidateId, candidateDistance);
 
@@ -434,6 +434,29 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         double r = -Math.log(generator.nextDouble()) * lambda;
         return (int)r;
     }
+
+    /**
+     * Distance is Lower Than.
+     *
+     * @param x Left argument.
+     * @param y Right argument.
+     * @return True if x &lt; y.
+     */
+    private boolean lt(TDistance x, TDistance y) {
+        return x.compareTo(y) < 0;
+    }
+
+    /**
+     * Distance is Greater Than.
+     *
+     * @param x Left argument.
+     * @param y Right argument.
+     * @return True if x &gt; y.
+     */
+    private  boolean gt(TDistance x, TDistance y) {
+        return x.compareTo(y) > 0;
+    }
+
 
     /**
      * The implementation of the nodeId in hnsw graph.
