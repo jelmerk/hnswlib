@@ -4,10 +4,7 @@ import org.github.jelmerk.knn.SearchResult;
 
 import java.io.File;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class HsnwIndexReadPerformance {
@@ -17,7 +14,6 @@ public class HsnwIndexReadPerformance {
 
 
         HnswIndex<String, float[], HnswIndexFastText.Word, Float> index =
-//                HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec.ser"));
                     HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
 
         System.out.println("done loading index");
@@ -30,7 +26,7 @@ public class HsnwIndexReadPerformance {
             System.out.println(result.getItem().getId() + " " + result.getDistance());
         }
 
-        System.exit(0);
+//        System.exit(0);
 
         int numProcessors = Runtime.getRuntime().availableProcessors();
 
@@ -70,7 +66,7 @@ public class HsnwIndexReadPerformance {
 
             long duration = end - start;
 
-            System.out.println("took " + duration + " milli seconds");
+            System.out.println("took " + duration + " milli seconds to do " + numSearches + " searches which is " + TimeUnit.MILLISECONDS.toSeconds(duration) + " seconds");
 
         } finally {
             executorService.shutdown();

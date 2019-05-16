@@ -92,10 +92,10 @@ public class HnswIndexFastText {
 
     static class Word implements Item<String, float[]> {
 
-        private String id;
+        private static final long serialVersionUID = 6845177627057649549L;
 
-        private float[] vector;
-
+        private final String id;
+        private final float[] vector;
 
         public Word(String id, float[] vector) {
             this.id = id;
@@ -110,6 +110,22 @@ public class HnswIndexFastText {
         @Override
         public float[] getVector() {
             return vector;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Word word = (Word) o;
+            return Objects.equals(id, word.id) &&
+                    Arrays.equals(vector, word.vector);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(id);
+            result = 31 * result + Arrays.hashCode(vector);
+            return result;
         }
 
         @Override
