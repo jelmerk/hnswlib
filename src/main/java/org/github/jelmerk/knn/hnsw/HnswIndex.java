@@ -24,27 +24,31 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final int maxItemCount;
     private final int m;
+    private final int maxM;
+    private final int maxM0;
     private final double levelLambda;
     private final int ef;
     private final int efConstruction;
 
     private final AtomicInteger itemCount;
-    private AtomicReferenceArray<TItem> items;
-    private AtomicReferenceArray<Node> nodes;
+    private final AtomicReferenceArray<TItem> items;
+    private final AtomicReferenceArray<Node> nodes;
 
     private final Map<TId, Integer> lookup;
 
     private volatile Node entryPoint;
 
-    private ReentrantLock globalLock;
+    private final ReentrantLock globalLock;
 
-    private Pool<VisitedBitSet> visitedBitSetPool;
+    private final Pool<VisitedBitSet> visitedBitSetPool;
 
     private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
         this.m = builder.m;
+        this.maxM = builder.m;
+        this.maxM0 = builder.m * 2;
         this.levelLambda = 1 / Math.log(this.m);
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
@@ -84,13 +88,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         items.set(newNodeId, item);
 
-        int randomLayer = getRandomLevel(random, this.levelLambda);
+        int randomLevel = getRandomLevel(random, this.levelLambda);
 
-        IntArrayList[] connections = new IntArrayList[randomLayer + 1];
+        IntArrayList[] connections = new IntArrayList[randomLevel + 1];
 
-        for (int layer = 0; layer <= randomLayer; layer++) {
-            int layerM = randomLayer == 0 ? 2 * this.m : this.m;
-            connections[layer] = new IntArrayList(layerM);
+        for (int level = 0; level <= randomLevel; level++) {
+            int levelM = randomLevel == 0 ? maxM0 : maxM;
+            connections[level] = new IntArrayList(levelM);
         }
 
         Node newNode = new Node(newNodeId, connections);
@@ -145,7 +149,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         }
                     }
 
-                    for (int level = Math.min(randomLayer, entrypointCopy.maxLayer()); level >= 0; level--) {
+                    for (int level = Math.min(randomLevel, entrypointCopy.maxLayer()); level >= 0; level--) {
                         PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
                                 searchBaseLayer(currObj.id, item.getVector(), efConstruction, level);
                         mutuallyConnectNewElement(item.getVector(), newNodeId, topCandidates, level);
@@ -171,7 +175,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                            PriorityQueue<NodeAndDistance<TDistance>> topCandidates,
                                            int level) {
 
-        int bestN = level == 0 ? 2 * this.m : this.m;
+        int bestN = level == 0 ? this.maxM0 : this.maxM;
 
         MutableIntList nodeConnections = nodes.get(nodeId).connections[level];
 
@@ -454,7 +458,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param y Right argument.
      * @return True if x &gt; y.
      */
-    private  boolean gt(TDistance x, TDistance y) {
+    private boolean gt(TDistance x, TDistance y) {
         return x.compareTo(y) > 0;
     }
 
