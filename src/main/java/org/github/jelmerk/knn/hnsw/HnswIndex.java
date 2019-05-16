@@ -17,7 +17,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private static final long serialVersionUID = 1L;
 
-    private final DotNetRandom random;
+    private final Random random;
 
     private final DistanceFunction<TVector, TDistance> distanceFunction;
 
@@ -48,7 +48,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
 
-        this.random = new DotNetRandom(builder.randomSeed); // TODO JK: get rid of this dot net random and use a ThreadLocalRandom so we don't have to synchronize access
+//        this.random = new DotNetRandom(builder.randomSeed); // TODO JK: get rid of this dot net random and use a ThreadLocalRandom so we don't have to synchronize access
+
+
+        this.random = new Random(builder.randomSeed);
 
         this.globalLock = new ReentrantLock();
 
@@ -74,9 +77,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public void add(TItem item) {
 
-        int newNodeId = itemCount.updateAndGet(value -> value == maxItemCount ? maxItemCount :  value + 1);
+        int newNodeId = itemCount.getAndUpdate(value -> value == maxItemCount ? maxItemCount :  value + 1);
 
-        if (newNodeId >= this.maxItemCount) {
+        if (newNodeId > this.maxItemCount) {
             throw new IllegalStateException("The number of elements exceeds the specified limit.");
         }
 
@@ -430,7 +433,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param lambda Poisson lambda.
      * @return The level value.
      */
-    private int getRandomLevel(DotNetRandom generator, double lambda) {
+    private int getRandomLevel(Random generator, double lambda) {
         double r = -Math.log(generator.nextDouble()) * lambda;
         return (int)r;
     }

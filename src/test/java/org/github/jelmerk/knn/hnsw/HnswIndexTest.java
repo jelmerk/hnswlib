@@ -7,6 +7,10 @@ import org.junit.Test;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -35,33 +39,51 @@ public class HnswIndexTest {
     }
 
     @Test
-    public void bla() {
+    public void findJavaSeedWhichWorksIdenticallyForTest() throws Exception {
 
         DotNetRandom dotNetRandom = new DotNetRandom(42);
 
         double lambda = 1 / Math.log(10);
 
-        List<Integer> expected = new ArrayList<>();
+        final List<Integer> expected = new ArrayList<>();
         for (int i = 0; i < 225; i++) {
             expected.add(randomLayer(dotNetRandom, lambda));
         }
 
-        List<Integer> result = new ArrayList<>();
+        int numProcessors = Runtime.getRuntime().availableProcessors();
 
-        long seed = 0;
+        AtomicLong seed = new AtomicLong();
 
-        do {
-            result.clear();
+        ExecutorService executorService = Executors.newFixedThreadPool(numProcessors);
 
-            Random random = new Random(++seed);
 
-            for (int i = 0; i < 225; i++) {
-                result.add(randomLayer(random, lambda));
-            }
+        for (int i = 0; i < numProcessors; i++) {
+            executorService.submit(() -> {
+                List<Integer> result = new ArrayList<>();
 
-        } while(!expected.equals(result));
+                long seedValue;
 
-        System.out.println(seed);
+                do {
+
+                    result.clear();
+
+                    seedValue = seed.getAndIncrement();
+
+                    Random random = new Random(seedValue);
+
+                    for (int j = 0; j < 225; j++) {
+                        result.add(randomLayer(random, lambda));
+                    }
+                } while(!expected.equals(result));
+
+                System.out.println("Got one : " + seedValue);
+
+            });
+        }
+
+        executorService.shutdown();
+        executorService.awaitTermination(10, TimeUnit.DAYS);
+
     }
 
 
@@ -78,8 +100,6 @@ public class HnswIndexTest {
 
     @Test
     public void testKnnSearch() {
-
-        // TODO JK 75 is not in 37 in the new ported algo
 
         HnswIndex<String, float[], TestItem, Float> index =
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
