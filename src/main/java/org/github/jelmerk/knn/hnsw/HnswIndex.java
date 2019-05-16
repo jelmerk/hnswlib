@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
+    // TODO implement Externalizable and store these Nodes more efficiently so the graph loads faster on deserialization
 
     private static final long serialVersionUID = 1L;
 
@@ -44,13 +45,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
         this.m = builder.m;
-        this.levelLambda = builder.levelLambda;
+        this.levelLambda = 1 / Math.log(this.m);
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
-
-//        this.random = new DotNetRandom(builder.randomSeed); // TODO JK: get rid of this dot net random and use a ThreadLocalRandom so we don't have to synchronize access
-
-
         this.random = new Random(builder.randomSeed);
 
         this.globalLock = new ReentrantLock();
@@ -61,7 +58,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.lookup = new ConcurrentHashMap<>();
 
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount), 12);
+        // TODO jk: how do we determine the pool size just use num processors or what ?
+        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
+                Runtime.getRuntime().availableProcessors());
     }
 
     @Override
@@ -79,7 +78,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         int newNodeId = itemCount.getAndUpdate(value -> value == maxItemCount ? maxItemCount :  value + 1);
 
-        if (newNodeId > this.maxItemCount) {
+        if (newNodeId >= this.maxItemCount) {
             throw new IllegalStateException("The number of elements exceeds the specified limit.");
         }
 
@@ -94,9 +93,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             connections[layer] = new IntArrayList(layerM);
         }
 
-        Node newNode = new Node();
-        newNode.id = newNodeId;
-        newNode.connections = connections;
+        Node newNode = new Node(newNodeId, connections);
 
         nodes.set(newNodeId, newNode);
 
@@ -318,6 +315,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int entryPointId, TVector destination, int k, int layer) {
 
         VisitedBitSet visitedBitSet = visitedBitSetPool.borrowObject();
+
         try {
             PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
                     new PriorityQueue<>(Comparator.<NodeAndDistance<TDistance>>naturalOrder().reversed());
@@ -468,9 +466,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         private static final long serialVersionUID = 1L;
 
-        private int id;
+        final int id;
 
-        private MutableIntList[] connections;
+        final MutableIntList[] connections;
+
+        Node(int id, MutableIntList[] connections) {
+            this.id = id;
+            this.connections = connections;
+        }
 
         /**
          * Gets the max layer where the nodeId is presented.
@@ -482,8 +485,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     static class NodeAndDistance<TDistance extends Comparable<TDistance>> implements Comparable<NodeAndDistance<TDistance>> {
 
-        final TDistance distance;
         final int nodeId;
+        final TDistance distance;
 
         NodeAndDistance(int nodeId, TDistance distance) {
             this.nodeId = nodeId;
@@ -503,7 +506,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private int maxItemCount;
 
         private int m = 10;
-        private double levelLambda = 1 / Math.log(this.m);
         private int efConstruction = 200;
         private int ef = 10;
 
@@ -516,11 +518,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         public Builder<TVector, TDistance> setM(int m) {
             this.m = m;
-            return this;
-        }
-
-        public Builder<TVector, TDistance> setLevelLambda(double levelLambda) {
-            this.levelLambda = levelLambda;
             return this;
         }
 

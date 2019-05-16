@@ -48,7 +48,6 @@ public class HnswIndexPerfTest2 {
         HnswIndex<Integer, float[], MyItem, Float> index =
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
                         .setM(m)
-                        .setLevelLambda(1 / Math.log(m))
                         .build();
 
 //        for (MyItem item : items) {

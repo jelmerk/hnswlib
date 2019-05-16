@@ -50,12 +50,10 @@ public class HnswIndexFastText {
 
 
         int m = 16;
-        double levelLambda = 1 / Math.log(m);
 
         HnswIndex<String, float[], Word, Float> index =
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
                         .setM(m)
-                        .setLevelLambda(levelLambda)
                         .build();
 
 //        Index<String, float[], Word, Float> index =
@@ -121,12 +119,6 @@ public class HnswIndexFastText {
                     ", vector=" + Arrays.toString(vector) +
                     '}';
         }
-    }
-
-
-    private static int randomLayer(DotNetRandom generator, double lambda) {
-        double r = -Math.log(generator.nextDouble()) * lambda;
-        return (int)r;
     }
 
 }
