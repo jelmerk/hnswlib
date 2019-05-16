@@ -14,17 +14,23 @@ public class HsnwIndexAccuracy {
 
     public static void main(String[] args) throws Exception {
 
-        Random random = new Random(1000);
-
-        int numTests = 100;
+//        Random random = new Random(1000);
+//
+//        int numTests = 100;
         int numResults = 10;
         int numDimensions = 300;
+//
+//        float[][] tests  = new float[numTests][numDimensions];
+//
+//        for (int i = 0; i < numTests; i++) {
+//            tests[i] = generateRandomVector(random, numDimensions);
+//        }
 
-        float[][] tests  = new float[numTests][numDimensions];
+        String[] words = new String[] {
+            "fiets", "appel", "trein", "computer", "schoen", "trui", "rood", "lopen", "werken", "eten",
+            "kast", "keuken", "huis", "hamer", "tas", "kat", "koe", "data", "koning"
+        };
 
-        for (int i = 0; i < numTests; i++) {
-            tests[i] = generateRandomVector(random, numDimensions);
-        }
 
         System.out.println("Finished generating test vectors.");
 
@@ -32,6 +38,15 @@ public class HsnwIndexAccuracy {
                 BruteForceIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-bruteforce-index.ser"));
 
         System.out.println("Finished loading brute force index");
+
+        float[][] tests  = new float[words.length][numDimensions];
+
+        for (int i = 0; i < words.length; i++) {
+            tests[i] = bruteForceIndex.get(words[i]).getVector();
+        }
+
+        System.out.println("Done picking some random words from the index to use as entrypoints.");
+
 
         List<List<SearchResult<HnswIndexFastText.Word, Float>>> bruteForceResults = performQueries(bruteForceIndex, tests, numResults);
 
@@ -54,15 +69,14 @@ public class HsnwIndexAccuracy {
 
         double sumPrecision = 0;
 
-        for (int i = 0; i < numTests; i++) {
+        for (int i = 0; i < tests.length; i++) {
             List<SearchResult<HnswIndexFastText.Word, Float>> bruteForceResult = bruteForceResults.get(i);
             List<SearchResult<HnswIndexFastText.Word, Float>> hnswResult = hnswResults.get(i);
-
 
             sumPrecision += calculatePrecision(bruteForceResult, hnswResult);
         }
 
-        System.out.println("Precision at " + numResults + " : " + sumPrecision / (double) numTests);
+        System.out.println("Precision at " + numResults + " : " + sumPrecision / (double) tests.length);
 
     }
 
