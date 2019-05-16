@@ -3,6 +3,12 @@ package org.github.jelmerk.knn;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * Result of a nearest neighbour search.
+ *
+ * @param <TItem> type of the item returned
+ * @param <TDistance> type of the distance returned by the configured distance function
+ */
 public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
         implements Comparable<SearchResult<TItem, TDistance>>, Serializable {
 
@@ -12,24 +18,46 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
 
     private final TItem item;
 
+    /**
+     * Constructs a new SearchResult instance.
+     *
+     * @param item the item
+     * @param distance the distance from the search query
+     */
     public SearchResult( TItem item, TDistance distance) {
         this.item = item;
         this.distance = distance;
     }
 
+    /**
+     * Returns the item.
+     *
+     * @return the item
+     */
     public TItem getItem() {
         return item;
     }
 
+    /**
+     * Returns the distance from the search query.
+     *
+     * @return the distance from the search query
+     */
     public TDistance getDistance() {
         return distance;
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int compareTo(SearchResult<TItem, TDistance> o) {
         return this.distance.compareTo(o.distance);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -39,11 +67,17 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
                 Objects.equals(item, that.item);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int hashCode() {
         return Objects.hash(distance, item);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public String toString() {
         return "SearchResult{" +

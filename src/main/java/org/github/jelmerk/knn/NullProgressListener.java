@@ -1,12 +1,21 @@
 package org.github.jelmerk.knn;
 
-public class NullProgressListener implements ProgressListener {
+/**
+ * Implementation of {@link ProgressListener} that does nothing.
+ */
+class NullProgressListener implements ProgressListener {
 
-    public static final NullProgressListener INSTANCE = new NullProgressListener();
+    /**
+     * Singleton instance of {@link NullProgressListener}.
+     */
+    static final NullProgressListener INSTANCE = new NullProgressListener();
 
     private NullProgressListener() {
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void updateProgress(int workDone, int max) {
 

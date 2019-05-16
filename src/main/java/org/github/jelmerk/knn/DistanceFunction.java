@@ -5,8 +5,8 @@ import java.io.Serializable;
 /**
  * Calculates distance between 2 items.
  *
- * @param <TVector>
- * @param <TDistance>
+ * @param <TVector> The type of the vector to perform distance calculation on
+ * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
  */
 @FunctionalInterface
 public interface DistanceFunction<TVector, TDistance extends Comparable<TDistance>> extends Serializable {

@@ -12,6 +12,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
 
+/**
+ * Implementation of {@link Index} that implements the hnsw algorithm
+ *
+ * @param <TId> type of the external identifier of an item
+ * @param <TVector> The type of the vector to perform distance calculation on
+ * @param <TItem> The type of items to connect into small world.
+ * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+ *
+ * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
+ */
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
     // TODO implement Externalizable and store these Nodes more efficiently so the graph loads faster on deserialization
@@ -67,16 +77,25 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 Runtime.getRuntime().availableProcessors());
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int size() {
         return itemCount.get();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public TItem get(TId id) {
         return items.get(lookup.get(id));
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void add(TItem item) {
 
@@ -264,6 +283,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         topCandidates.addAll(returnList);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<SearchResult<TItem, TDistance>>findNearest(TVector destination, int k) {
 
@@ -389,6 +411,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void save(OutputStream out) throws IOException {
         try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
@@ -401,7 +426,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      *
      * @param file file to initialize the small world from
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
@@ -428,44 +453,20 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    /**
-     * Gets the random level.
-     *
-     * @param generator The random numbers generator.
-     * @param lambda Poisson lambda.
-     * @return The level value.
-     */
     private int getRandomLevel(Random generator, double lambda) {
         double r = -Math.log(generator.nextDouble()) * lambda;
         return (int)r;
     }
 
-    /**
-     * Distance is Lower Than.
-     *
-     * @param x Left argument.
-     * @param y Right argument.
-     * @return True if x &lt; y.
-     */
     private boolean lt(TDistance x, TDistance y) {
         return x.compareTo(y) < 0;
     }
 
-    /**
-     * Distance is Greater Than.
-     *
-     * @param x Left argument.
-     * @param y Right argument.
-     * @return True if x &gt; y.
-     */
     private boolean gt(TDistance x, TDistance y) {
         return x.compareTo(y) > 0;
     }
 
 
-    /**
-     * The implementation of the nodeId in hnsw graph.
-     */
     static class Node implements Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -479,9 +480,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             this.connections = connections;
         }
 
-        /**
-         * Gets the max layer where the nodeId is presented.
-         */
         int maxLayer() {
             return this.connections.length - 1;
         }
@@ -504,6 +502,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     }
 
+
+    /**
+     * Builder for initializing an {@link HnswIndex} instance.
+     *
+     * @param <TVector> The type of the vector to perform distance calculation on
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     */
     public static class Builder <TVector, TDistance extends Comparable<TDistance>> {
 
         private DistanceFunction<TVector, TDistance> distanceFunction;
@@ -515,31 +520,82 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         private int randomSeed = (int) System.currentTimeMillis();
 
+        /**
+         * Constructs a new {@link Builder} instance.
+         *
+         * @param distanceFunction the distance function
+         * @param maxItemCount the maximum number of elements in the index
+         */
         public Builder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
             this.distanceFunction = distanceFunction;
             this.maxItemCount = maxItemCount;
         }
 
+        /**
+         * Sets the number of bi-directional links created for every new element during construction. Reasonable range
+         * for m is 2-100. Higher m work better on datasets with high intrinsic dimensionality and/or high recall,
+         * while low m work better for datasets with low intrinsic dimensionality and/or low recalls. The parameter
+         * also determines the algorithm's memory consumption.
+         * As an example for d = 4 random vectors optimal m for search is somewhere around 6, while for high dimensional
+         * datasets (word embeddings, good face descriptors), higher M are required (e.g. m = 48, 64) for optimal
+         * performance at high recall. The range mM = 12-48 is ok for the most of the use cases. When m is changed one
+         * has to update the other parameters. Nonetheless, ef and efConstruction parameters can be roughly estimated by
+         * assuming that m * efConstruction is a constant.
+         *
+         * @param m the number of bi-directional links created for every new element during construction
+         * @return the builder.
+         */
         public Builder<TVector, TDistance> setM(int m) {
             this.m = m;
             return this;
         }
 
+        /**
+         * The parameter has the same meaning as ef, but controls the index time / index accuracy. Bigger efConstruction
+         * leads to longer construction, but better index quality. At some point, increasing efConstruction does not
+         * improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure
+         * a recall for M nearest neighbor search when ef = efConstruction: if the recall is lower than 0.9, then
+         * there is room for improvement.
+         *
+         * @param efConstruction controls the index time / index accuracy
+         * @return the builder
+         */
         public Builder<TVector, TDistance> setEfConstruction(int efConstruction) {
             this.efConstruction = efConstruction;
             return this;
         }
 
+        /**
+         * The size of the dynamic list for the nearest neighbors (used during the search). Higher ef leads to more
+         * accurate but slower search. The value ef of can be anything between k and the size of the dataset.
+         *
+         * @param ef size of the dynamic list for the nearest neighbors
+         * @return the builder
+         */
         public Builder<TVector, TDistance> setEf(int ef) {
             this.ef = ef;
             return this;
         }
 
+        /**
+         * The seed value used to initialize the pseudo random number generator. This is only useful during for testing
+         * when indexing on a single thread.
+         *
+         * @param randomSeed the initial seed
+         * @return the builder
+         */
         public Builder<TVector, TDistance> setRandomSeed(int randomSeed) {
             this.randomSeed = randomSeed;
             return this;
         }
 
+        /**
+         * Build the index.
+         *
+         * @param <TId> type of the external identifier of an item
+         * @param <TItem> implementation of the Item interface
+         * @return the hnsw index instance
+         */
         public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
             return new HnswIndex<>(this);
         }
