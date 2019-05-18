@@ -222,7 +222,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
 
                 if (neighbourConnectionsAtLevel.size() < bestN) {
-                    neighbourConnectionsAtLevel.add(newItem.id);
+                    neighbourConnectionsAtLevel.add(newItem.id); // TODO: JK should i keep this ? as it means i can't rely on the order to be in closest
                 } else {
                     // finding the "weakest" element to replace it with the new one
 
@@ -505,26 +505,43 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public void run() {
             IntSet nodesToDelete = collectDeletedNodes();
 
+            if (nodesToDelete.isEmpty()) {
+                return;
+            }
+
             for (int i = 0; i < nodes.length(); i++) {
-                Node node = nodes.get(i);
+                Node<TItem> node = nodes.get(i);
 
                 if (node != null) {
-
                     synchronized (node) {
 
                         for (int level = node.maxLevel(); level >= 0; level--) {
-                            MutableIntIterator connectionsIter = node.connections[level].intIterator();
 
-                            while (connectionsIter.hasNext()) {
-                                int nodeId = connectionsIter.next();
-                                if (nodesToDelete.contains(nodeId)) {
-                                    connectionsIter.remove();
+                            MutableIntList connectionsAtLevel = node.connections[level];
+
+                            if (connectionsAtLevel.anySatisfy(nodesToDelete::contains)) {
+                                // TODO can we simply take the closest neighbour here and do we know the first element is always the closes is this always the case ?
+
+                                Node<TItem> closestNeighbour = nodes.get(connectionsAtLevel.get(0));
+
+                                PriorityQueue<NodeIdAndDistance<TDistance>> candidates =
+                                        searchBaseLayer(closestNeighbour, node.item.getVector(), efConstruction, level);
+
+                                getNeighborsByHeuristic2(candidates, m); // this modifies the topCandidates queue
+
+                                connectionsAtLevel.clear();
+
+                                while(!candidates.isEmpty()) {
+                                    connectionsAtLevel.add(candidates.poll().nodeId);
                                 }
                             }
                         }
                     }
                 }
             }
+
+
+
         }
 
         private IntSet collectDeletedNodes() {
@@ -545,21 +562,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return nodesToDelete;
         }
 
-        private boolean referencesDeletedNode(Node node, IntSet deletedNodes) {
-            for (int level = node.maxLevel(); level >= 0; level--) {
-                MutableIntList connectionsAtLevel = node.connections[level];
-
-                for (int i = 0; i < connectionsAtLevel.size(); i++) {
-
-                    int neighbourId = connectionsAtLevel.get(i);
-
-                    if (deletedNodes.contains(neighbourId)) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
     }
 
 
