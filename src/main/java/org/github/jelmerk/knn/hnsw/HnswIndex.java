@@ -2,7 +2,9 @@ package org.github.jelmerk.knn.hnsw;
 
 
 import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.set.primitive.IntSet;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
@@ -52,6 +54,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final Pool<VisitedBitSet> visitedBitSetPool;
 
+    private final Timer timer;
+
     private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
@@ -75,14 +79,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         // TODO jk: how do we determine the pool size just use num processors or what ?
         this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
-    }
 
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public int size() {
-        return itemCount.get();
+
+        this.timer = new Timer("node-cleanup",true);
+        this.timer.schedule(new CleanupTask(), TimeUnit.SECONDS.toMillis(1));
     }
 
     /**
@@ -90,7 +90,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public TItem get(TId id) {
-        return items.get(lookup.get(id));
+        Integer internalId = lookup.get(id);
+
+        Node node = nodes.get(internalId);
+
+        synchronized (node) {
+            if (!node.deleted) {
+                return items.get(internalId);
+            }
+        }
+        return null;
     }
 
     /**
@@ -126,7 +135,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         Node entrypointCopy = entryPoint;
 
-        if (entryPoint != null && newNode.maxLayer() <= entryPoint.maxLayer()) {
+        if (entryPoint != null && newNode.maxLevel() <= entryPoint.maxLevel()) {
             globalLock.unlock();
         }
 
@@ -137,11 +146,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 if (currObj != null) {
 
-                    if (newNode.maxLayer() < entrypointCopy.maxLayer()) {
+                    if (newNode.maxLevel() < entrypointCopy.maxLevel()) {
 
                         TDistance curDist = distanceFunction.distance(item.getVector(), items.get(currObj.id).getVector());
 
-                        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > newNode.maxLayer(); activeLevel--) {
+                        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
                             boolean changed = true;
 
@@ -168,7 +177,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         }
                     }
 
-                    for (int level = Math.min(randomLevel, entrypointCopy.maxLayer()); level >= 0; level--) {
+                    for (int level = Math.min(randomLevel, entrypointCopy.maxLevel()); level >= 0; level--) {
                         PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
                                 searchBaseLayer(currObj.id, item.getVector(), efConstruction, level);
                         mutuallyConnectNewElement(item.getVector(), newNodeId, topCandidates, level);
@@ -176,7 +185,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
 
                 // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLayer() > entrypointCopy.maxLayer()) {
+                if (entryPoint == null || newNode.maxLevel() > entrypointCopy.maxLevel()) {
                     // this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
@@ -188,6 +197,18 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    @Override
+    public void remove(TId tId) {
+        int internalId = lookup.get(tId);
+
+        Node node = nodes.get(internalId);
+
+        synchronized (node) {
+
+            node.deleted = true;
+        }
+
+    }
 
     private void mutuallyConnectNewElement(TVector dataPoint,
                                            int nodeId,
@@ -295,7 +316,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         TDistance curDist = distanceFunction.distance(destination, items.get(currObj.id).getVector());
 
-        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > 0; activeLevel--) {
+        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > 0; activeLevel--) {
 
             boolean changed = true;
 
@@ -467,6 +488,66 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
+    class CleanupTask extends TimerTask {
+
+        @Override
+        public void run() {
+
+            IntSet nodesToDelete = collectDeletedNodes();
+
+            for (int i = 0; i < nodes.length(); i++) {
+                Node node = nodes.get(i);
+
+                if (node != null) {
+
+                    synchronized (node) {
+
+                        if (referencesDeletedNode(node, nodesToDelete)) {
+
+                        }
+                    }
+                }
+            }
+
+
+        }
+
+        private IntSet collectDeletedNodes() {
+            IntHashSet nodesToDelete = new IntHashSet();
+
+            for (int i = 0; i < nodes.length(); i++) {
+                Node node = nodes.get(i);
+
+                if (node != null) {
+                    synchronized (node) {
+                        if (node.deleted) {
+                            nodesToDelete.add(node.id);
+                        }
+
+                    }
+                }
+            }
+            return nodesToDelete;
+        }
+
+        private boolean referencesDeletedNode(Node node, IntSet deletedNodes) {
+            for (int level = node.maxLevel(); level >= 0; level--) {
+                MutableIntList connectionsAtLevel = node.connections[level];
+
+                for (int i = 0; i < connectionsAtLevel.size(); i++) {
+
+                    int neighbourId = connectionsAtLevel.get(i);
+
+                    if (deletedNodes.contains(neighbourId)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+
     static class Node implements Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -475,12 +556,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         final MutableIntList[] connections;
 
+        boolean deleted;
+
         Node(int id, MutableIntList[] connections) {
             this.id = id;
             this.connections = connections;
         }
 
-        int maxLayer() {
+        int maxLevel() {
             return this.connections.length - 1;
         }
     }

@@ -29,13 +29,6 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     int DEFAULT_PROGRESS_UPDATE_INTERVAL = 100_000;
 
     /**
-     * Returns the size of the index.
-     *
-     * @return size of the index
-     */
-    int size();
-
-    /**
      * Returns an item by its identifier.
      *
      * @param id unique identifier or the item to return
@@ -49,6 +42,13 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param item the item to add to the index
      */
     void add(TItem item);
+
+    /**
+     * Removes an item from the index.
+     *
+     * @param id unique identifier or the item to remove
+     */
+    void remove(TId id);
 
     /**
      * Add multiple items to the index

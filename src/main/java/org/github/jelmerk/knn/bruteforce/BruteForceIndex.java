@@ -35,14 +35,6 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
-    public int size() {
-        return items.size();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public TItem get(TId id) {
         return items.get(id);
     }
@@ -53,6 +45,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     @Override
     public void add(TItem item) {
         items.putIfAbsent(item.getId(), item);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void remove(TId tId) {
+        items.remove(tId);
     }
 
     /**
