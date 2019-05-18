@@ -51,6 +51,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
+    public void remove(TId tId) {
+        items.remove(tId);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
 
         Comparator<SearchResult<TItem, TDistance>> comparator = Comparator

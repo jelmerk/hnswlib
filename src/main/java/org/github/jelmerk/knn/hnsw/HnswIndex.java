@@ -1,8 +1,11 @@
 package org.github.jelmerk.knn.hnsw;
 
 
+import org.eclipse.collections.api.iterator.MutableIntIterator;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.set.primitive.IntSet;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
@@ -52,6 +55,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final Pool<VisitedBitSet> visitedBitSetPool;
 
+    private final Timer timer;
+
     private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
@@ -74,6 +79,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         // TODO jk: how do we determine the pool size just use num processors or what ?
         this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
+
+
+        this.timer = new Timer("node-cleanup",true);
+        this.timer.schedule(new CleanupTask(), TimeUnit.SECONDS.toMillis(1));
     }
 
     /**
@@ -183,6 +192,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+
+    @Override
+    public void remove(TId id) {
+        Node<TItem> node = nodes.get(lookup.get(id));
+        synchronized (node) {
+            node.deleted = true;
+        }
+    }
 
     private void mutuallyConnectNewElement(Node<TItem> newItem,
                                            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
@@ -482,6 +499,70 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
+    class CleanupTask extends TimerTask {
+
+        @Override
+        public void run() {
+            IntSet nodesToDelete = collectDeletedNodes();
+
+            for (int i = 0; i < nodes.length(); i++) {
+                Node node = nodes.get(i);
+
+                if (node != null) {
+
+                    synchronized (node) {
+
+                        for (int level = node.maxLevel(); level >= 0; level--) {
+                            MutableIntIterator connectionsIter = node.connections[level].intIterator();
+
+                            while (connectionsIter.hasNext()) {
+                                int nodeId = connectionsIter.next();
+                                if (nodesToDelete.contains(nodeId)) {
+                                    connectionsIter.remove();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private IntSet collectDeletedNodes() {
+            IntHashSet nodesToDelete = new IntHashSet();
+
+            for (int i = 0; i < nodes.length(); i++) {
+                Node node = nodes.get(i);
+
+                if (node != null) {
+                    synchronized (node) {
+                        if (node.deleted) {
+                            nodesToDelete.add(node.id);
+                        }
+
+                    }
+                }
+            }
+            return nodesToDelete;
+        }
+
+        private boolean referencesDeletedNode(Node node, IntSet deletedNodes) {
+            for (int level = node.maxLevel(); level >= 0; level--) {
+                MutableIntList connectionsAtLevel = node.connections[level];
+
+                for (int i = 0; i < connectionsAtLevel.size(); i++) {
+
+                    int neighbourId = connectionsAtLevel.get(i);
+
+                    if (deletedNodes.contains(neighbourId)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+
     static class Node<TItem> implements Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -491,6 +572,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         final MutableIntList[] connections;
 
         final TItem item;
+
+        boolean deleted;
 
         Node(int id, MutableIntList[] connections, TItem item) {
             this.id = id;
