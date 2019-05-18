@@ -20,7 +20,8 @@ import java.util.concurrent.locks.ReentrantLock;
  * @param <TItem> The type of items to connect into small world.
  * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
  *
- * @see <a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
+ * @see <a href="https://arxiv.org/abs/1603.09320">
+ *     Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
@@ -41,12 +42,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final int efConstruction;
 
     private final AtomicInteger itemCount;
-    private final AtomicReferenceArray<TItem> items;
-    private final AtomicReferenceArray<Node> nodes;
+    private final AtomicReferenceArray<Node<TItem>> nodes;
 
     private final Map<TId, Integer> lookup;
 
-    private volatile Node entryPoint;
+    private volatile Node<TItem> entryPoint;
 
     private final ReentrantLock globalLock;
 
@@ -67,7 +67,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.globalLock = new ReentrantLock();
 
         this.itemCount = new AtomicInteger();
-        this.items = new AtomicReferenceArray<>(this.maxItemCount);
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
         this.lookup = new ConcurrentHashMap<>();
@@ -81,16 +80,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * {@inheritDoc}
      */
     @Override
-    public int size() {
-        return itemCount.get();
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public TItem get(TId id) {
-        return items.get(lookup.get(id));
+        return nodes.get(lookup.get(id)).item;
     }
 
     /**
@@ -105,8 +96,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             throw new IllegalStateException("The number of elements exceeds the specified limit.");
         }
 
-        items.set(newNodeId, item);
-
         int randomLevel = getRandomLevel(random, this.levelLambda);
 
         IntArrayList[] connections = new IntArrayList[randomLevel + 1];
@@ -116,7 +105,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             connections[level] = new IntArrayList(levelM);
         }
 
-        Node newNode = new Node(newNodeId, connections);
+        Node<TItem> newNode = new Node<>(newNodeId, connections, item);
 
         nodes.set(newNodeId, newNode);
 
@@ -124,24 +113,24 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         globalLock.lock();
 
-        Node entrypointCopy = entryPoint;
+        Node<TItem> entrypointCopy = entryPoint;
 
-        if (entryPoint != null && newNode.maxLayer() <= entryPoint.maxLayer()) {
+        if (entryPoint != null && newNode.maxLevel() <= entryPoint.maxLevel()) {
             globalLock.unlock();
         }
 
         try {
             synchronized (newNode) {
 
-                Node currObj = entrypointCopy;
+                Node<TItem> currObj = entrypointCopy;
 
                 if (currObj != null) {
 
-                    if (newNode.maxLayer() < entrypointCopy.maxLayer()) {
+                    if (newNode.maxLevel() < entrypointCopy.maxLevel()) {
 
-                        TDistance curDist = distanceFunction.distance(item.getVector(), items.get(currObj.id).getVector());
+                        TDistance curDist = distanceFunction.distance(item.getVector(), currObj.item.getVector());
 
-                        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > newNode.maxLayer(); activeLevel--) {
+                        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
                             boolean changed = true;
 
@@ -155,10 +144,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                                         int candidateId = candidateConnections.get(i);
 
-                                        TDistance candidateDistance = distanceFunction.distance(item.getVector(), items.get(candidateId).getVector());
+                                        Node<TItem> candidateNode = nodes.get(candidateId);
+
+                                        TDistance candidateDistance = distanceFunction.distance(
+                                                item.getVector(),
+                                                candidateNode.item.getVector()
+                                        );
+
                                         if (lt(candidateDistance, curDist)) {
                                             curDist = candidateDistance;
-                                            currObj = nodes.get(candidateId);
+                                            currObj = candidateNode;
                                             changed = true;
                                         }
                                     }
@@ -168,15 +163,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         }
                     }
 
-                    for (int level = Math.min(randomLevel, entrypointCopy.maxLayer()); level >= 0; level--) {
-                        PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj.id, item.getVector(), efConstruction, level);
-                        mutuallyConnectNewElement(item.getVector(), newNodeId, topCandidates, level);
+                    for (int level = Math.min(randomLevel, entrypointCopy.maxLevel()); level >= 0; level--) {
+                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                searchBaseLayer(currObj, item.getVector(), efConstruction, level);
+                        mutuallyConnectNewElement(newNode, topCandidates, level);
                     }
                 }
 
                 // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLayer() > entrypointCopy.maxLayer()) {
+                if (entryPoint == null || newNode.maxLevel() > entrypointCopy.maxLevel()) {
                     // this is thread safe because we get the global lock when we add a level
                     this.entryPoint = newNode;
                 }
@@ -189,14 +184,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
-    private void mutuallyConnectNewElement(TVector dataPoint,
-                                           int nodeId,
-                                           PriorityQueue<NodeAndDistance<TDistance>> topCandidates,
+    private void mutuallyConnectNewElement(Node<TItem> newItem,
+                                           PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
                                            int level) {
 
         int bestN = level == 0 ? this.maxM0 : this.maxM;
 
-        MutableIntList nodeConnections = nodes.get(nodeId).connections[level];
+        MutableIntList nodeConnections = newItem.connections[level];
 
         getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
 
@@ -205,26 +199,36 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             nodeConnections.add(selectedNeighbourId);
 
-            Node neighbourNode = nodes.get(selectedNeighbourId);
+            Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
             synchronized (neighbourNode) {
 
                 MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
 
                 if (neighbourConnectionsAtLevel.size() < bestN) {
-                    neighbourConnectionsAtLevel.add(nodeId);
+                    neighbourConnectionsAtLevel.add(newItem.id);
                 } else {
                     // finding the "weakest" element to replace it with the new one
 
-                    TDistance dMax = distanceFunction.distance(dataPoint, items.get(selectedNeighbourId).getVector());
+                    TDistance dMax = distanceFunction.distance(
+                            newItem.item.getVector(),
+                            neighbourNode.item.getVector()
+                    );
 
-                    Comparator<NodeAndDistance<TDistance>> comparator = Comparator.<NodeAndDistance<TDistance>>naturalOrder().reversed();
+                    Comparator<NodeIdAndDistance<TDistance>> comparator = Comparator
+                            .<NodeIdAndDistance<TDistance>>naturalOrder().reversed();
 
-                    PriorityQueue<NodeAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
-                    candidates.add(new NodeAndDistance<>(nodeId, dMax));
+                    PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
+                    candidates.add(new NodeIdAndDistance<>(newItem.id, dMax));
 
                     neighbourConnectionsAtLevel.forEach(id -> {
-                        TDistance dist = distanceFunction.distance(items.get(selectedNeighbourId).getVector(), items.get(id).getVector());
-                        candidates.add(new NodeAndDistance<>(id, dist));
+                        Node<TItem> neighbourAtLevelNode = nodes.get(id);
+
+                        TDistance dist = distanceFunction.distance(
+                                neighbourNode.item.getVector(),
+                                neighbourAtLevelNode.item.getVector()
+                        );
+
+                        candidates.add(new NodeIdAndDistance<>(id, dist));
                     });
 
                     getNeighborsByHeuristic2(candidates, bestN);
@@ -239,14 +243,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    private void getNeighborsByHeuristic2(PriorityQueue<NodeAndDistance<TDistance>> topCandidates, int m) {
+    private void getNeighborsByHeuristic2(PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates, int m) {
 
         if (topCandidates.size() < m) {
             return;
         }
 
-        PriorityQueue<NodeAndDistance<TDistance>> queueClosest = new PriorityQueue<>();
-        List<NodeAndDistance<TDistance>> returnList = new ArrayList<>();
+        PriorityQueue<NodeIdAndDistance<TDistance>> queueClosest = new PriorityQueue<>();
+        List<NodeIdAndDistance<TDistance>> returnList = new ArrayList<>();
 
         while(!topCandidates.isEmpty()) {
             queueClosest.add(topCandidates.poll());
@@ -257,16 +261,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 break;
             }
 
-            NodeAndDistance<TDistance> currentPair = queueClosest.poll();
+            NodeIdAndDistance<TDistance> currentPair = queueClosest.poll();
 
             TDistance distToQuery = currentPair.distance;
 
             boolean good = true;
-            for (NodeAndDistance<TDistance> secondPair : returnList) {
+            for (NodeIdAndDistance<TDistance> secondPair : returnList) {
 
                 TDistance curdist = distanceFunction.distance(
-                    items.get(secondPair.nodeId).getVector(),
-                    items.get(currentPair.nodeId).getVector()
+                    nodes.get(secondPair.nodeId).item.getVector(),
+                    nodes.get(currentPair.nodeId).item.getVector()
                 );
 
                 if (lt(curdist, distToQuery)) {
@@ -289,13 +293,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public List<SearchResult<TItem, TDistance>>findNearest(TVector destination, int k) {
 
-        Node entrypointCopy = entryPoint;
+        Node<TItem> entrypointCopy = entryPoint;
 
-        Node currObj = entrypointCopy;
+        Node<TItem> currObj = entrypointCopy;
 
-        TDistance curDist = distanceFunction.distance(destination, items.get(currObj.id).getVector());
+        TDistance curDist = distanceFunction.distance(destination, currObj.item.getVector());
 
-        for (int activeLevel = entrypointCopy.maxLayer(); activeLevel > 0; activeLevel--) {
+        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > 0; activeLevel--) {
 
             boolean changed = true;
 
@@ -308,11 +312,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
                         int candidateId = candidateConnections.get(i);
+                        Node<TItem> candidateNode = nodes.get(candidateId);
 
-                        TDistance candidateDistance = distanceFunction.distance(destination, items.get(candidateId).getVector());
+                        TDistance candidateDistance = distanceFunction.distance(
+                                destination,
+                                candidateNode.item.getVector()
+                        );
                         if (lt(candidateDistance, curDist)) {
                             curDist = candidateDistance;
-                            currObj = nodes.get(candidateId);
+                            currObj = candidateNode;
                             changed = true;
                         }
                     }
@@ -321,8 +329,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        PriorityQueue<NodeAndDistance<TDistance>> topCandidates = searchBaseLayer(
-                currObj.id, destination, Math.max(ef, k), 0);
+        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates = searchBaseLayer(
+                currObj, destination, Math.max(ef, k), 0);
 
         while(topCandidates.size() > k) {
             topCandidates.poll();
@@ -330,36 +338,38 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         List<SearchResult<TItem, TDistance>> results = new ArrayList<>(topCandidates.size());
         while (!topCandidates.isEmpty()) {
-            NodeAndDistance<TDistance> pair = topCandidates.poll();
-            results.add(0, new SearchResult<>(items.get(pair.nodeId), pair.distance));
+            NodeIdAndDistance<TDistance> pair = topCandidates.poll();
+
+            Node<TItem> node = nodes.get(pair.nodeId);
+            results.add(0, new SearchResult<>(node.item, pair.distance));
         }
 
         return results;
     }
 
-    private PriorityQueue<NodeAndDistance<TDistance>> searchBaseLayer(
-            int entryPointId, TVector destination, int k, int layer) {
+    private PriorityQueue<NodeIdAndDistance<TDistance>> searchBaseLayer(
+            Node<TItem> entryPointNode, TVector destination, int k, int layer) {
 
         VisitedBitSet visitedBitSet = visitedBitSetPool.borrowObject();
 
         try {
-            PriorityQueue<NodeAndDistance<TDistance>> topCandidates =
-                    new PriorityQueue<>(Comparator.<NodeAndDistance<TDistance>>naturalOrder().reversed());
-            PriorityQueue<NodeAndDistance<TDistance>> candidateSet = new PriorityQueue<>();
+            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                    new PriorityQueue<>(Comparator.<NodeIdAndDistance<TDistance>>naturalOrder().reversed());
+            PriorityQueue<NodeIdAndDistance<TDistance>> candidateSet = new PriorityQueue<>();
 
-            TDistance distance = distanceFunction.distance(destination, items.get(entryPointId).getVector());
+            TDistance distance = distanceFunction.distance(destination, entryPointNode.item.getVector());
 
-            NodeAndDistance<TDistance> pair = new NodeAndDistance<>(entryPointId, distance);
+            NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance);
 
             topCandidates.add(pair);
             candidateSet.add(pair);
-            visitedBitSet.add(entryPointId);
+            visitedBitSet.add(entryPointNode.id);
 
             TDistance lowerBound = distance;
 
             while (!candidateSet.isEmpty()) {
 
-                NodeAndDistance<TDistance> currentPair = candidateSet.peek();
+                NodeIdAndDistance<TDistance> currentPair = candidateSet.peek();
 
                 if (gt(currentPair.distance, lowerBound)) {
                     break;
@@ -367,7 +377,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 candidateSet.poll();
 
-                Node node = nodes.get(currentPair.nodeId);
+                Node<TItem> node = nodes.get(currentPair.nodeId);
 
                 synchronized (node) {
 
@@ -381,13 +391,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                             visitedBitSet.add(candidateId);
 
-                            TItem candidate = items.get(candidateId);
+                            TItem candidate = nodes.get(candidateId).item;
 
                             TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
 
                             if (gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
 
-                                NodeAndDistance<TDistance> candidatePair = new NodeAndDistance<>(candidateId, candidateDistance);
+                                NodeIdAndDistance<TDistance> candidatePair =
+                                        new NodeIdAndDistance<>(candidateId, candidateDistance);
 
                                 candidateSet.add(candidatePair);
                                 topCandidates.add(candidatePair);
@@ -430,7 +441,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(File file) throws IOException {
+    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance
+            extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
@@ -445,7 +457,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(InputStream inputStream) throws IOException {
+    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance
+            extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(InputStream inputStream)
+            throws IOException {
+
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
             return (HnswIndex<ID, VECTOR, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
@@ -467,7 +482,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
-    static class Node implements Serializable {
+    static class Node<TItem> implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
@@ -475,28 +490,32 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         final MutableIntList[] connections;
 
-        Node(int id, MutableIntList[] connections) {
+        final TItem item;
+
+        Node(int id, MutableIntList[] connections, TItem item) {
             this.id = id;
             this.connections = connections;
+            this.item = item;
         }
 
-        int maxLayer() {
+        int maxLevel() {
             return this.connections.length - 1;
         }
     }
 
-    static class NodeAndDistance<TDistance extends Comparable<TDistance>> implements Comparable<NodeAndDistance<TDistance>> {
+    static class NodeIdAndDistance<TDistance extends Comparable<TDistance>>
+            implements Comparable<NodeIdAndDistance<TDistance>> {
 
         final int nodeId;
         final TDistance distance;
 
-        NodeAndDistance(int nodeId, TDistance distance) {
+        NodeIdAndDistance(int nodeId, TDistance distance) {
             this.nodeId = nodeId;
             this.distance = distance;
         }
 
         @Override
-        public int compareTo(NodeAndDistance<TDistance> o) {
+        public int compareTo(NodeIdAndDistance<TDistance> o) {
             return distance.compareTo(o.distance);
         }
 

@@ -34,7 +34,7 @@ public class HsnwIndexAccuracy {
 
         System.out.println("Finished generating test vectors.");
 
-        Index<String, float[], HnswIndexFastText.Word, Float> bruteForceIndex =
+        Index<String, float[], Word, Float> bruteForceIndex =
                 BruteForceIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-bruteforce-index.ser"));
 
         System.out.println("Finished loading brute force index");
@@ -48,18 +48,18 @@ public class HsnwIndexAccuracy {
         System.out.println("Done picking some random words from the index to use as entrypoints.");
 
 
-        List<List<SearchResult<HnswIndexFastText.Word, Float>>> bruteForceResults = performQueries(bruteForceIndex, tests, numResults);
+        List<List<SearchResult<Word, Float>>> bruteForceResults = performQueries(bruteForceIndex, tests, numResults);
 
         System.out.println("Finished testing brute force index.");
 
         bruteForceIndex = null;
 
-        Index<String, float[], HnswIndexFastText.Word, Float> hnswIndex =
+        Index<String, float[], Word, Float> hnswIndex =
                     HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
 
         System.out.println("Finished loading hnsw index");
 
-        List<List<SearchResult<HnswIndexFastText.Word, Float>>> hnswResults = performQueries(hnswIndex, tests, numResults);
+        List<List<SearchResult<Word, Float>>> hnswResults = performQueries(hnswIndex, tests, numResults);
 
         System.out.println("Finished testing hnsw index.");
 
@@ -70,8 +70,8 @@ public class HsnwIndexAccuracy {
         double sumPrecision = 0;
 
         for (int i = 0; i < tests.length; i++) {
-            List<SearchResult<HnswIndexFastText.Word, Float>> bruteForceResult = bruteForceResults.get(i);
-            List<SearchResult<HnswIndexFastText.Word, Float>> hnswResult = hnswResults.get(i);
+            List<SearchResult<Word, Float>> bruteForceResult = bruteForceResults.get(i);
+            List<SearchResult<Word, Float>> hnswResult = hnswResults.get(i);
 
             sumPrecision += calculatePrecision(bruteForceResult, hnswResult);
         }
@@ -81,12 +81,12 @@ public class HsnwIndexAccuracy {
     }
 
     private static double calculatePrecision(
-            List<SearchResult<HnswIndexFastText.Word, Float>> expectedResults,
-            List<SearchResult<HnswIndexFastText.Word, Float>> actualResults) {
+            List<SearchResult<Word, Float>> expectedResults,
+            List<SearchResult<Word, Float>> actualResults) {
 
         int correct = 0;
 
-        for (SearchResult<HnswIndexFastText.Word, Float> expectedResult : expectedResults) {
+        for (SearchResult<Word, Float> expectedResult : expectedResults) {
             if (actualResults.contains(expectedResult)) {
                 correct++;
             }
@@ -95,11 +95,11 @@ public class HsnwIndexAccuracy {
         return (double) correct / (double) expectedResults.size();
     }
 
-    private static List<List<SearchResult<HnswIndexFastText.Word, Float>>> performQueries(
-            Index<String, float[], HnswIndexFastText.Word, Float> index,
+    private static List<List<SearchResult<Word, Float>>> performQueries(
+            Index<String, float[], Word, Float> index,
             float[][] tests,
             int numResults) {
-        List<List<SearchResult<HnswIndexFastText.Word, Float>>> results = new ArrayList<>(tests.length);
+        List<List<SearchResult<Word, Float>>> results = new ArrayList<>(tests.length);
 
         System.out.print("Performing queries ");
         for (float[] vector : tests) {

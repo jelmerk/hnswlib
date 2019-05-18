@@ -17,7 +17,7 @@ public class BruteForceIndexFastText {
     public static void main(String[] args) throws Exception {
 
 
-        List<HnswIndexFastText.Word> words = new ArrayList<>();
+        List<Word> words = new ArrayList<>();
 
         boolean first = true;
         try(BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream("/Users/jkuperus/Downloads/cc.nl.300.vec")))) {
@@ -40,14 +40,14 @@ public class BruteForceIndexFastText {
                     vector[i] = Float.valueOf(tokens[i]);
                 }
 
-                words.add(new HnswIndexFastText.Word(word, vector));
+                words.add(new Word(word, vector));
             }
 
         }
 
         System.out.println("Loaded " + words.size() + " words.");
 
-        Index<String, float[], HnswIndexFastText.Word, Float> index =
+        Index<String, float[], Word, Float> index =
                 new BruteForceIndex.Builder<>(DistanceFunctions::cosineDistance)
                         .build();
 

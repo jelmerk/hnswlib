@@ -13,16 +13,16 @@ public class HsnwIndexReadPerformance {
     public static void main(String[] args) throws Exception {
 
 
-        HnswIndex<String, float[], HnswIndexFastText.Word, Float> index =
+        HnswIndex<String, float[], Word, Float> index =
                     HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
 
         System.out.println("done loading index");
 
-        HnswIndexFastText.Word word = index.get("koning");
+        Word word = index.get("koning");
 
-        List<SearchResult<HnswIndexFastText.Word, Float>> nearest = index.findNearest(word.getVector(), 10);
+        List<SearchResult<Word, Float>> nearest = index.findNearest(word.getVector(), 10);
 
-        for (SearchResult<HnswIndexFastText.Word, Float> result : nearest) {
+        for (SearchResult<Word, Float> result : nearest) {
             System.out.println(result.getItem().getId() + " " + result.getDistance());
         }
 
