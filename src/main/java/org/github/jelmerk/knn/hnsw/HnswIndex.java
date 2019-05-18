@@ -184,33 +184,37 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
-    private void mutuallyConnectNewElement(Node<TItem> newItem,
+    private void mutuallyConnectNewElement(Node<TItem> newNode,
                                            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
                                            int level) {
 
         int bestN = level == 0 ? this.maxM0 : this.maxM;
 
-        MutableIntList nodeConnections = newItem.connections[level];
+        int newNodeId = newNode.id;
+        TVector newItemVector = newNode.item.getVector();
+        MutableIntList newItemConnections = newNode.connections[level];
 
         getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
 
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
 
-            nodeConnections.add(selectedNeighbourId);
+            newItemConnections.add(selectedNeighbourId);
 
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
             synchronized (neighbourNode) {
 
+                TVector neighbourVector = neighbourNode.item.getVector();
+
                 MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
 
                 if (neighbourConnectionsAtLevel.size() < bestN) {
-                    neighbourConnectionsAtLevel.add(newItem.id);
+                    neighbourConnectionsAtLevel.add(newNodeId);
                 } else {
                     // finding the "weakest" element to replace it with the new one
 
                     TDistance dMax = distanceFunction.distance(
-                            newItem.item.getVector(),
+                            newItemVector,
                             neighbourNode.item.getVector()
                     );
 
@@ -218,14 +222,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                             .<NodeIdAndDistance<TDistance>>naturalOrder().reversed();
 
                     PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
-                    candidates.add(new NodeIdAndDistance<>(newItem.id, dMax));
+                    candidates.add(new NodeIdAndDistance<>(newNodeId, dMax));
 
                     neighbourConnectionsAtLevel.forEach(id -> {
-                        Node<TItem> neighbourAtLevelNode = nodes.get(id);
-
                         TDistance dist = distanceFunction.distance(
-                                neighbourNode.item.getVector(),
-                                neighbourAtLevelNode.item.getVector()
+                                neighbourVector,
+                                nodes.get(id).item.getVector()
                         );
 
                         candidates.add(new NodeIdAndDistance<>(id, dist));
@@ -269,8 +271,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             for (NodeIdAndDistance<TDistance> secondPair : returnList) {
 
                 TDistance curdist = distanceFunction.distance(
-                    nodes.get(secondPair.nodeId).item.getVector(),
-                    nodes.get(currentPair.nodeId).item.getVector()
+                        nodes.get(secondPair.nodeId).item.getVector(),
+                        nodes.get(currentPair.nodeId).item.getVector()
                 );
 
                 if (lt(curdist, distToQuery)) {
@@ -312,15 +314,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
                         int candidateId = candidateConnections.get(i);
-                        Node<TItem> candidateNode = nodes.get(candidateId);
+//                        Node<TItem> candidateNode = nodes.get(candidateId);
 
                         TDistance candidateDistance = distanceFunction.distance(
                                 destination,
-                                candidateNode.item.getVector()
+                                nodes.get(candidateId).item.getVector()
                         );
                         if (lt(candidateDistance, curDist)) {
                             curDist = candidateDistance;
-                            currObj = candidateNode;
+                            currObj = nodes.get(candidateId);
                             changed = true;
                         }
                     }
@@ -339,9 +341,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         List<SearchResult<TItem, TDistance>> results = new ArrayList<>(topCandidates.size());
         while (!topCandidates.isEmpty()) {
             NodeIdAndDistance<TDistance> pair = topCandidates.poll();
-
-            Node<TItem> node = nodes.get(pair.nodeId);
-            results.add(0, new SearchResult<>(node.item, pair.distance));
+            results.add(0, new SearchResult<>(nodes.get(pair.nodeId).item, pair.distance));
         }
 
         return results;
@@ -391,9 +391,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                             visitedBitSet.add(candidateId);
 
-                            TItem candidate = nodes.get(candidateId).item;
-
-                            TDistance candidateDistance = distanceFunction.distance(destination, candidate.getVector());
+                            TDistance candidateDistance = distanceFunction.distance(destination,
+                                    nodes.get(candidateId).item.getVector());
 
                             if (gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
 

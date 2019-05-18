@@ -4,7 +4,6 @@ import org.github.jelmerk.knn.DistanceFunctions;
 import org.github.jelmerk.knn.SearchResult;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.*;
@@ -73,7 +72,7 @@ public class HnswIndexFastText {
         }
 
 
-        index.save(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
+//        index.save(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
     }
 
 
