@@ -1,17 +1,18 @@
 package org.github.jelmerk.knn.hnsw;
 
 
-import org.eclipse.collections.api.iterator.MutableIntIterator;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.set.primitive.IntSet;
+import org.eclipse.collections.api.stack.primitive.MutableIntStack;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.set.mutable.primitive.IntHashSet;
+import org.eclipse.collections.impl.stack.mutable.primitive.IntArrayStack;
+import org.eclipse.collections.impl.stack.mutable.primitive.SynchronizedIntStack;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -44,8 +45,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final int ef;
     private final int efConstruction;
 
-    private final AtomicInteger itemCount;
+    private volatile int itemCount;
     private final AtomicReferenceArray<Node<TItem>> nodes;
+    private final MutableIntStack freedIds;
 
     private final Map<TId, Integer> lookup;
 
@@ -71,7 +73,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        this.itemCount = new AtomicInteger();
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
         this.lookup = new ConcurrentHashMap<>();
@@ -80,9 +81,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
 
-
+        this.freedIds = new SynchronizedIntStack(new IntArrayStack());
         this.timer = new Timer("node-cleanup",true);
-        this.timer.schedule(new CleanupTask(), TimeUnit.SECONDS.toMillis(1));
+        this.timer.schedule(new CleanupTask(), TimeUnit.MINUTES.toMillis(2));
     }
 
     /**
@@ -98,11 +99,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void add(TItem item) {
+        int newNodeId;
 
-        int newNodeId = itemCount.getAndUpdate(value -> value == maxItemCount ? maxItemCount :  value + 1);
-
-        if (newNodeId >= this.maxItemCount) {
-            throw new IllegalStateException("The number of elements exceeds the specified limit.");
+        synchronized (freedIds) {
+            if (freedIds.isEmpty()) {
+                if (itemCount >= this.maxItemCount) {
+                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                }
+                newNodeId = itemCount++;
+            } else {
+                newNodeId = freedIds.pop();
+            }
         }
 
         int randomLevel = getRandomLevel(random, this.levelLambda);
@@ -378,6 +385,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance);
 
+            // TODO JK what if the entry point is deleted
+
             topCandidates.add(pair);
             candidateSet.add(pair);
             visitedBitSet.add(entryPointNode.id);
@@ -498,23 +507,23 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return x.compareTo(y) > 0;
     }
 
-
     class CleanupTask extends TimerTask {
 
         @Override
         public void run() {
+
+            // TODO what if the node is the entrypoint node we should handle that i guess
+
             IntSet nodesToDelete = collectDeletedNodes();
 
             if (nodesToDelete.isEmpty()) {
                 return;
             }
 
-            for (int i = 0; i < nodes.length(); i++) {
+            for (int i = 0; i < itemCount; i++) {
                 Node<TItem> node = nodes.get(i);
-
                 if (node != null) {
                     synchronized (node) {
-
                         for (int level = node.maxLevel(); level >= 0; level--) {
 
                             MutableIntList connectionsAtLevel = node.connections[level];
@@ -531,7 +540,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                                 connectionsAtLevel.clear();
 
-                                while(!candidates.isEmpty()) {
+                                while (!candidates.isEmpty()) {
                                     connectionsAtLevel.add(candidates.poll().nodeId);
                                 }
                             }
@@ -540,8 +549,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
 
+            nodesToDelete.forEach(id -> nodes.set(id, null));
 
-
+            nodesToDelete.forEach(freedIds::push);
         }
 
         private IntSet collectDeletedNodes() {
@@ -563,7 +573,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
     }
-
 
     static class Node<TItem> implements Serializable {
 
