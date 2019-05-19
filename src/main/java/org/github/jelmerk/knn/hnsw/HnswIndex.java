@@ -1,6 +1,7 @@
 package org.github.jelmerk.knn.hnsw;
 
 
+import org.eclipse.collections.api.list.primitive.IntList;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.stack.primitive.MutableIntStack;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
@@ -30,15 +31,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private static final long serialVersionUID = 1L;
 
-    private final Random random;
 
+    private final LevelAssigner<TId> levelAssigner;
     private final DistanceFunction<TVector, TDistance> distanceFunction;
 
     private final int maxItemCount;
     private final int m;
     private final int maxM;
     private final int maxM0;
-    private final double levelLambda;
     private final int ef;
     private final int efConstruction;
 
@@ -54,17 +54,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final Pool<VisitedBitSet> visitedBitSetPool;
 
-    private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
+    private HnswIndex(HnswIndex.Builder<TId, TVector, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
+        this.levelAssigner = builder.levelAllocator;
         this.m = builder.m;
         this.maxM = builder.m;
         this.maxM0 = builder.m * 2;
-        this.levelLambda = 1 / Math.log(this.m);
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
-        this.random = new Random(builder.randomSeed);
 
         this.globalLock = new ReentrantLock();
 
@@ -95,6 +94,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
 
+        // TODO the way this is now it  will likely deadlock
+
         Integer internalNodeId = lookup.get(id);
 
         if (id == null) {
@@ -103,45 +104,56 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             Node<TItem> node = nodes.get(internalNodeId);
 
-            synchronized (node) {
+            for (int level = node.maxLevel(); level > 0; level--) {
 
-                for (int level = node.maxLevel(); level > 0; level--) {
+                IntList incomingConnections;
+                IntList outgoingConnections;
+
+
+                do {
+                    synchronized (node) {
+                        incomingConnections = node.incomingConnections[level].toImmutable();
+                        outgoingConnections = node.outgoingConnections[level].toImmutable();
+                    }
+
+                    if (node == entryPoint) {
+                        if (!outgoingConnections.isEmpty()) {
+
+                            Node<TItem> neighbourNode = nodes.get(outgoingConnections.getFirst());
+
+                            globalLock.lock();
+
+                            entryPoint = neighbourNode;
+
+                            globalLock.unlock();
+                        }
+
+                    }
+
 
                     final int finalLevel = level;
 
-                    node.incomingConnections[level].forEach(neighbourId -> {
+                    incomingConnections.forEach(neighbourId -> {
                         Node<TItem> neighbourNode = nodes.get(neighbourId);
                         synchronized (neighbourNode) {
                             neighbourNode.outgoingConnections[finalLevel].remove(internalNodeId);
                         }
                     });
 
-                    node.outgoingConnections[level].forEach(neighbourId -> {
+                    outgoingConnections.forEach(neighbourId -> {
                         Node<TItem> neighbourNode = nodes.get(neighbourId);
                         synchronized (neighbourNode) {
                             neighbourNode.incomingConnections[finalLevel].remove(internalNodeId);
                         }
                     });
 
-                    if (node == entryPoint) {
-                        MutableIntList outgoingConnections = node.outgoingConnections[level];
-
-                        if (!outgoingConnections.isEmpty()) {
-
-                            Node<TItem> neighbourNode = nodes.get(outgoingConnections.getFirst());
-
-                            synchronized (neighbourNode) {
-                                entryPoint = neighbourNode;
-                            }
-                        }
-
-                    }
-                }
-
-                synchronized (freedIds) {
-                    freedIds.push(node.id);
-                }
+                } while(!incomingConnections.isEmpty() || !outgoingConnections.isEmpty());
             }
+
+            synchronized (freedIds) {
+                freedIds.push(node.id);
+            }
+
 
             return true;
         }
@@ -167,7 +179,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        int randomLevel = getRandomLevel(random, this.levelLambda);
+        int randomLevel = levelAssigner.allocate(item.getId());
 
         IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
         IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
@@ -553,11 +565,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    private int getRandomLevel(Random generator, double lambda) {
-        double r = -Math.log(generator.nextDouble()) * lambda;
-        return (int)r;
-    }
-
     private boolean lt(TDistance x, TDistance y) {
         return x.compareTo(y) < 0;
     }
@@ -616,7 +623,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      */
-    public static class Builder <TVector, TDistance extends Comparable<TDistance>> {
+    public static class Builder <TId, TVector, TDistance extends Comparable<TDistance>> {
 
         private DistanceFunction<TVector, TDistance> distanceFunction;
         private int maxItemCount;
@@ -625,7 +632,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private int efConstruction = 200;
         private int ef = 10;
 
-        private int randomSeed = (int) System.currentTimeMillis();
+        private LevelAssigner<TId> levelAllocator;
 
         /**
          * Constructs a new {@link Builder} instance.
@@ -633,9 +640,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param distanceFunction the distance function
          * @param maxItemCount the maximum number of elements in the index
          */
-        public Builder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
+        public Builder(DistanceFunction<TVector, TDistance> distanceFunction, LevelAssigner<TId> levelAllocator, int maxItemCount) {
             this.distanceFunction = distanceFunction;
             this.maxItemCount = maxItemCount;
+            this.levelAllocator = levelAllocator;
         }
 
         /**
@@ -652,7 +660,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param m the number of bi-directional links created for every new element during construction
          * @return the builder.
          */
-        public Builder<TVector, TDistance> setM(int m) {
+        public Builder<TId, TVector, TDistance> setM(int m) {
             this.m = m;
             return this;
         }
@@ -667,7 +675,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param efConstruction controls the index time / index accuracy
          * @return the builder
          */
-        public Builder<TVector, TDistance> setEfConstruction(int efConstruction) {
+        public Builder<TId, TVector, TDistance> setEfConstruction(int efConstruction) {
             this.efConstruction = efConstruction;
             return this;
         }
@@ -679,31 +687,18 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param ef size of the dynamic list for the nearest neighbors
          * @return the builder
          */
-        public Builder<TVector, TDistance> setEf(int ef) {
+        public Builder<TId, TVector, TDistance> setEf(int ef) {
             this.ef = ef;
-            return this;
-        }
-
-        /**
-         * The seed value used to initialize the pseudo random number generator. This is only useful during for testing
-         * when indexing on a single thread.
-         *
-         * @param randomSeed the initial seed
-         * @return the builder
-         */
-        public Builder<TVector, TDistance> setRandomSeed(int randomSeed) {
-            this.randomSeed = randomSeed;
             return this;
         }
 
         /**
          * Build the index.
          *
-         * @param <TId> type of the external identifier of an item
          * @param <TItem> implementation of the Item interface
          * @return the hnsw index instance
          */
-        public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
+        public <TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
             return new HnswIndex<>(this);
         }
     }

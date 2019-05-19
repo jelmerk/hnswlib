@@ -46,8 +46,10 @@ public class HnswIndexFastText {
 
         int m = 16;
 
+        double poissonLambda = 1 / Math.log(m);
+
         HnswIndex<String, float[], Word, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, new StringMurmur3LevelAllocator(poissonLambda), words.size())
                         .setM(m)
                         .build();
 

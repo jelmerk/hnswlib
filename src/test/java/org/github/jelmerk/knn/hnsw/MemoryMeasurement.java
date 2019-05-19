@@ -44,9 +44,15 @@ public class MemoryMeasurement {
 
         MemoryMeter meter = new MemoryMeter();
 
+        int m = 16;
+
+        double poissonLambda = 1 / Math.log(m);
+
+
+
         Index<Integer, float[], MyItem, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .setM(16)
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, new IntegerMurmur3LevelAssigner(poissonLambda), items.size())
+                        .setM(m)
                         .build();
 
         index.addAll(items);
