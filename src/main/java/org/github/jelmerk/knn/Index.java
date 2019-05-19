@@ -44,6 +44,14 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     void add(TItem item);
 
     /**
+     * Removes an item from the index.
+     *
+     * @param id unique identifier or the item to remove
+     * {@code true} if this list contained the specified element
+     */
+    boolean remove(TId id);
+
+    /**
      * Add multiple items to the index
      *
      * @param items the items to add to the index

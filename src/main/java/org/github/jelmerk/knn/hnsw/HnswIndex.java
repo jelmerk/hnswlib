@@ -2,13 +2,14 @@ package org.github.jelmerk.knn.hnsw;
 
 
 import org.eclipse.collections.api.list.primitive.MutableIntList;
+import org.eclipse.collections.api.stack.primitive.MutableIntStack;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
+import org.eclipse.collections.impl.stack.mutable.primitive.IntArrayStack;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -41,8 +42,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final int ef;
     private final int efConstruction;
 
-    private final AtomicInteger itemCount;
+    private volatile int itemCount;
     private final AtomicReferenceArray<Node<TItem>> nodes;
+    private final MutableIntStack freedIds;
 
     private final Map<TId, Integer> lookup;
 
@@ -66,7 +68,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        this.itemCount = new AtomicInteger();
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
         this.lookup = new ConcurrentHashMap<>();
@@ -74,6 +75,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         // TODO jk: how do we determine the pool size just use num processors or what ?
         this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
+
+        this.freedIds = new IntArrayStack();
     }
 
     /**
@@ -88,24 +91,94 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * {@inheritDoc}
      */
     @Override
+    public boolean remove(TId id) {
+
+        // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
+
+        Integer internalNodeId = lookup.get(id);
+
+        if (id == null) {
+            return false;
+        } else {
+
+            Node<TItem> node = nodes.get(internalNodeId);
+
+            synchronized (node) {
+
+                for (int level = node.maxLevel(); level > 0; level--) {
+
+                    final int finalLevel = level;
+
+                    node.incomingConnections[level].forEach(neighbourId -> {
+                        Node<TItem> neighbourNode = nodes.get(neighbourId);
+                        synchronized (neighbourNode) {
+                            neighbourNode.outgoingConnections[finalLevel].remove(internalNodeId);
+                        }
+                    });
+
+                    node.outgoingConnections[level].forEach(neighbourId -> {
+                        Node<TItem> neighbourNode = nodes.get(neighbourId);
+                        synchronized (neighbourNode) {
+                            neighbourNode.incomingConnections[finalLevel].remove(internalNodeId);
+                        }
+                    });
+
+                    if (node == entryPoint) {
+                        MutableIntList outgoingConnections = node.outgoingConnections[level];
+
+                        if (!outgoingConnections.isEmpty()) {
+
+                            Node<TItem> neighbourNode = nodes.get(outgoingConnections.getFirst());
+
+                            synchronized (neighbourNode) {
+                                entryPoint = neighbourNode;
+                            }
+                        }
+
+                    }
+                }
+
+                synchronized (freedIds) {
+                    freedIds.push(node.id);
+                }
+            }
+
+            return true;
+        }
+
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void add(TItem item) {
 
-        int newNodeId = itemCount.getAndUpdate(value -> value == maxItemCount ? maxItemCount :  value + 1);
+        int newNodeId;
 
-        if (newNodeId >= this.maxItemCount) {
-            throw new IllegalStateException("The number of elements exceeds the specified limit.");
+        synchronized (freedIds) {
+            if (freedIds.isEmpty()) {
+                if (itemCount >= this.maxItemCount) {
+                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                }
+                newNodeId = itemCount++;
+            } else {
+                newNodeId = freedIds.pop();
+            }
         }
 
         int randomLevel = getRandomLevel(random, this.levelLambda);
 
-        IntArrayList[] connections = new IntArrayList[randomLevel + 1];
+        IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
+        IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
 
         for (int level = 0; level <= randomLevel; level++) {
             int levelM = randomLevel == 0 ? maxM0 : maxM;
-            connections[level] = new IntArrayList(levelM);
+            outgoingConnections[level] = new IntArrayList(levelM);
+            incomingConnections[level] = new IntArrayList(levelM);
         }
 
-        Node<TItem> newNode = new Node<>(newNodeId, connections, item);
+        Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
 
         nodes.set(newNodeId, newNode);
 
@@ -138,7 +211,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                 changed = false;
 
                                 synchronized (currObj) {
-                                    MutableIntList candidateConnections = currObj.connections[activeLevel];
+                                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
 
                                     for (int i = 0; i < candidateConnections.size(); i++) {
 
@@ -192,24 +265,28 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         int newNodeId = newNode.id;
         TVector newItemVector = newNode.item.getVector();
-        MutableIntList newItemConnections = newNode.connections[level];
+        MutableIntList outgoingNewItemConnections = newNode.outgoingConnections[level];
 
         getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
 
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
 
-            newItemConnections.add(selectedNeighbourId);
+            outgoingNewItemConnections.add(selectedNeighbourId);
+
+            int removedWeakestNodeId = -1; // TODO should i just change this to newNodeId and save one extra condition down.. its not completely correct then though
 
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
             synchronized (neighbourNode) {
 
+                neighbourNode.incomingConnections[level].add(newNodeId);
+
                 TVector neighbourVector = neighbourNode.item.getVector();
 
-                MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
+                MutableIntList outgoingNeighbourConnectionsAtLevel = neighbourNode.outgoingConnections[level];
 
-                if (neighbourConnectionsAtLevel.size() < bestN) {
-                    neighbourConnectionsAtLevel.add(newNodeId);
+                if (outgoingNeighbourConnectionsAtLevel.size() < bestN) {
+                    outgoingNeighbourConnectionsAtLevel.add(newNodeId);
                 } else {
                     // finding the "weakest" element to replace it with the new one
 
@@ -224,7 +301,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
                     candidates.add(new NodeIdAndDistance<>(newNodeId, dMax));
 
-                    neighbourConnectionsAtLevel.forEach(id -> {
+                    outgoingNeighbourConnectionsAtLevel.forEach(id -> {
                         TDistance dist = distanceFunction.distance(
                                 neighbourVector,
                                 nodes.get(id).item.getVector()
@@ -233,13 +310,22 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         candidates.add(new NodeIdAndDistance<>(id, dist));
                     });
 
-                    getNeighborsByHeuristic2(candidates, bestN);
+                    getNeighborsByHeuristic2(candidates, bestN + 1);
 
-                    neighbourConnectionsAtLevel.clear();
+                    removedWeakestNodeId = candidates.poll().nodeId;
+
+                    outgoingNeighbourConnectionsAtLevel.clear();
 
                     while(!candidates.isEmpty()) {
-                        neighbourConnectionsAtLevel.add(candidates.poll().nodeId);
+                        outgoingNeighbourConnectionsAtLevel.add(candidates.poll().nodeId);
                     }
+                }
+            }
+
+            if (removedWeakestNodeId != newNodeId && removedWeakestNodeId != -1) {
+                Node<TItem> weakestNode = nodes.get(removedWeakestNodeId);
+                synchronized (weakestNode) {
+                    weakestNode.incomingConnections[level].remove(selectedNeighbourId);
                 }
             }
         }
@@ -309,7 +395,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 changed = false;
 
                 synchronized (currObj) {
-                    MutableIntList candidateConnections = currObj.connections[activeLevel];
+                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
 
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
@@ -381,7 +467,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 synchronized (node) {
 
-                    MutableIntList candidates = node.connections[layer];
+                    MutableIntList candidates = node.outgoingConnections[layer];
 
                     for (int i = 0; i < candidates.size(); i++) {
 
@@ -487,18 +573,21 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         final int id;
 
-        final MutableIntList[] connections;
+        final MutableIntList[] outgoingConnections;
+
+        final MutableIntList[] incomingConnections;
 
         final TItem item;
 
-        Node(int id, MutableIntList[] connections, TItem item) {
+        Node(int id, MutableIntList[] outgoingConnections, MutableIntList[] incomingConnections, TItem item) {
             this.id = id;
-            this.connections = connections;
+            this.outgoingConnections = outgoingConnections;
+            this.incomingConnections = incomingConnections;
             this.item = item;
         }
 
         int maxLevel() {
-            return this.connections.length - 1;
+            return this.outgoingConnections.length - 1;
         }
     }
 
