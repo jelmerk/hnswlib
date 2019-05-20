@@ -38,12 +38,9 @@ public class HnswIndexTest {
     @Test
     public void testKnnSearch() {
 
-        int m = 10;
-        double poissonLambda = 1 / Math.log(m);
-
         HnswIndex<String, float[], TestItem, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, new RandomLevelAssigner<String>(42, poissonLambda), items.size())
-                        .setM(m)
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
+                        .setRandomSeed(42)
                         .build();
 
         for (TestItem item : items) {
@@ -64,12 +61,10 @@ public class HnswIndexTest {
 
     @Test
     public void testSerialization() throws Exception {
-        int m = 10;
-        double poissonLambda = 1 / Math.log(m);
 
         HnswIndex<String, float[], TestItem, Float> original =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, new RandomLevelAssigner<String>(42, poissonLambda), items.size())
-                        .setM(m)
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
+                        .setRandomSeed(42)
                         .build();
 
         for (TestItem item : items) {

@@ -44,10 +44,9 @@ public class HnswIndexPerfTest2 {
         long start = System.currentTimeMillis();
 
         int m = 15;
-        double poissonLambda = 1 / Math.log(m);
 
         HnswIndex<Integer, float[], MyItem, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, new RandomLevelAssigner<Integer>(poissonLambda), items.size())
+                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
                         .setM(m)
                         .build();
 
