@@ -30,8 +30,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private static final long serialVersionUID = 1L;
 
-    private final Random random;
-
     private final DistanceFunction<TVector, TDistance> distanceFunction;
 
     private final int maxItemCount;
@@ -64,7 +62,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.levelLambda = 1 / Math.log(this.m);
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
-        this.random = new Random(builder.randomSeed);
 
         this.globalLock = new ReentrantLock();
 
@@ -167,7 +164,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        int randomLevel = getRandomLevel(random, this.levelLambda);
+        int randomLevel = assignLevel(item.getId(), this.levelLambda);
 
         IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
         IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
@@ -553,8 +550,23 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    private int getRandomLevel(Random generator, double lambda) {
-        double r = -Math.log(generator.nextDouble()) * lambda;
+    private int assignLevel(TId value, double lambda) {
+
+        // by relying on the external id to come up with the level, the graph construction should be a lot mor stable
+        // see : https://github.com/nmslib/hnswlib/issues/28
+
+        int hashCode = value.hashCode();
+
+        byte[] bytes = new byte[] {
+                (byte) (hashCode >> 24),
+                (byte) (hashCode >> 16),
+                (byte) (hashCode >> 8),
+                (byte) hashCode
+        };
+
+        double random = Math.abs((double) Murmur3.hash32(bytes) / (double) Integer.MAX_VALUE);
+
+        double r = -Math.log(random) * lambda;
         return (int)r;
     }
 
@@ -625,8 +637,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private int efConstruction = 200;
         private int ef = 10;
 
-        private int randomSeed = (int) System.currentTimeMillis();
-
         /**
          * Constructs a new {@link Builder} instance.
          *
@@ -681,18 +691,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          */
         public Builder<TVector, TDistance> setEf(int ef) {
             this.ef = ef;
-            return this;
-        }
-
-        /**
-         * The seed value used to initialize the pseudo random number generator. This is only useful during for testing
-         * when indexing on a single thread.
-         *
-         * @param randomSeed the initial seed
-         * @return the builder
-         */
-        public Builder<TVector, TDistance> setRandomSeed(int randomSeed) {
-            this.randomSeed = randomSeed;
             return this;
         }
 

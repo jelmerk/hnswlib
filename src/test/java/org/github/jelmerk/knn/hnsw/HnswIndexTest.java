@@ -40,7 +40,6 @@ public class HnswIndexTest {
 
         HnswIndex<String, float[], TestItem, Float> index =
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .setRandomSeed(42)
                         .build();
 
         for (TestItem item : items) {
@@ -64,7 +63,6 @@ public class HnswIndexTest {
 
         HnswIndex<String, float[], TestItem, Float> original =
                 new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .setRandomSeed(42)
                         .build();
 
         for (TestItem item : items) {
