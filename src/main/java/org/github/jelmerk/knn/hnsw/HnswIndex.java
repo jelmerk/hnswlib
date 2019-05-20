@@ -11,7 +11,10 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * Implementation of {@link Index} that implements the hnsw algorithm
@@ -50,6 +53,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final ReentrantLock globalLock;
 
+    private final ReadWriteLock addRemoveLock;
+    private final Lock addLock;
+    private final Lock removeLock;
+
     private final Pool<VisitedBitSet> visitedBitSetPool;
 
     private HnswIndex(HnswIndex.Builder<TVector, TDistance> builder) {
@@ -64,6 +71,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.ef = builder.ef;
 
         this.globalLock = new ReentrantLock();
+
+        this.addRemoveLock = new ReentrantReadWriteLock();
+        this.addLock = addRemoveLock.readLock();
+        this.removeLock = addRemoveLock.writeLock();
 
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
@@ -89,60 +100,57 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean remove(TId id) {
-
-        // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
-
         Integer internalNodeId = lookup.get(id);
 
         if (id == null) {
             return false;
         } else {
+            removeLock.lock();
 
-            Node<TItem> node = nodes.get(internalNodeId);
+            try {
+                Node<TItem> node = nodes.get(internalNodeId);
 
-            synchronized (node) {
-
-                for (int level = node.maxLevel(); level > 0; level--) {
+                for (int level = node.maxLevel(); level >= 0; level--) {
 
                     final int finalLevel = level;
 
-                    node.incomingConnections[level].forEach(neighbourId -> {
-                        Node<TItem> neighbourNode = nodes.get(neighbourId);
-                        synchronized (neighbourNode) {
-                            neighbourNode.outgoingConnections[finalLevel].remove(internalNodeId);
-                        }
-                    });
+                    node.incomingConnections[level].forEach(neighbourId ->
+                            nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
 
-                    node.outgoingConnections[level].forEach(neighbourId -> {
-                        Node<TItem> neighbourNode = nodes.get(neighbourId);
-                        synchronized (neighbourNode) {
-                            neighbourNode.incomingConnections[finalLevel].remove(internalNodeId);
-                        }
-                    });
+                    node.outgoingConnections[level].forEach(neighbourId ->
+                            nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
 
-                    if (node == entryPoint) {
+                }
+
+                // change the entry point to the first outgoing connection at the highest level
+
+                if (entryPoint == node) {
+                    for (int level = node.maxLevel(); level >= 0; level--) {
+
                         MutableIntList outgoingConnections = node.outgoingConnections[level];
-
                         if (!outgoingConnections.isEmpty()) {
-
-                            Node<TItem> neighbourNode = nodes.get(outgoingConnections.getFirst());
-
-                            synchronized (neighbourNode) {
-                                entryPoint = neighbourNode;
-                            }
+                            entryPoint = nodes.get(outgoingConnections.getFirst());
+                            break;
                         }
-
                     }
+
                 }
 
-                synchronized (freedIds) {
-                    freedIds.push(node.id);
+                // if we could not change the outgoing connection it means we are the last node
+
+                if (entryPoint == node) {
+                    entryPoint = null;
                 }
+
+                freedIds.push(internalNodeId);
+                return true;
+
+            } finally {
+                removeLock.unlock();
             }
-
-            return true;
         }
 
+        // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
     }
 
     /**
@@ -150,106 +158,112 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void add(TItem item) {
-
-        int newNodeId;
-
-        synchronized (freedIds) {
-            if (freedIds.isEmpty()) {
-                if (itemCount >= this.maxItemCount) {
-                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
-                }
-                newNodeId = itemCount++;
-            } else {
-                newNodeId = freedIds.pop();
-            }
-        }
-
-        int randomLevel = assignLevel(item.getId(), this.levelLambda);
-
-        IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
-        IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
-
-        for (int level = 0; level <= randomLevel; level++) {
-            int levelM = randomLevel == 0 ? maxM0 : maxM;
-            outgoingConnections[level] = new IntArrayList(levelM);
-            incomingConnections[level] = new IntArrayList(levelM);
-        }
-
-        Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
-
-        nodes.set(newNodeId, newNode);
-
-        lookup.put(item.getId(), newNodeId);
-
-        globalLock.lock();
-
-        Node<TItem> entrypointCopy = entryPoint;
-
-        if (entryPoint != null && newNode.maxLevel() <= entryPoint.maxLevel()) {
-            globalLock.unlock();
-        }
+        addLock.lock();
 
         try {
-            synchronized (newNode) {
+            int newNodeId;
 
-                Node<TItem> currObj = entrypointCopy;
+            synchronized (freedIds) {
+                if (freedIds.isEmpty()) {
+                    if (itemCount >= this.maxItemCount) {
+                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                    }
+                    newNodeId = itemCount++;
+                } else {
+                    newNodeId = freedIds.pop();
+                }
+            }
 
-                if (currObj != null) {
+            int randomLevel = assignLevel(item.getId(), this.levelLambda);
 
-                    if (newNode.maxLevel() < entrypointCopy.maxLevel()) {
+            IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
+            IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
 
-                        TDistance curDist = distanceFunction.distance(item.getVector(), currObj.item.getVector());
+            for (int level = 0; level <= randomLevel; level++) {
+                int levelM = randomLevel == 0 ? maxM0 : maxM;
+                outgoingConnections[level] = new IntArrayList(levelM);
+                incomingConnections[level] = new IntArrayList(levelM);
+            }
 
-                        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+            Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
 
-                            boolean changed = true;
+            nodes.set(newNodeId, newNode);
 
-                            while (changed) {
-                                changed = false;
+            lookup.put(item.getId(), newNodeId);
 
-                                synchronized (currObj) {
-                                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+            globalLock.lock();
 
-                                    for (int i = 0; i < candidateConnections.size(); i++) {
+            try {
 
-                                        int candidateId = candidateConnections.get(i);
+                Node<TItem> entryPointCopy = entryPoint;
 
-                                        Node<TItem> candidateNode = nodes.get(candidateId);
+                if (entryPoint != null && newNode.maxLevel() <= entryPoint.maxLevel()) {
+                    globalLock.unlock();
+                }
 
-                                        TDistance candidateDistance = distanceFunction.distance(
-                                                item.getVector(),
-                                                candidateNode.item.getVector()
-                                        );
+                synchronized (newNode) {
 
-                                        if (lt(candidateDistance, curDist)) {
-                                            curDist = candidateDistance;
-                                            currObj = candidateNode;
-                                            changed = true;
+                    Node<TItem> currObj = entryPointCopy;
+
+                    if (currObj != null) {
+
+                        if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
+
+                            TDistance curDist = distanceFunction.distance(item.getVector(), currObj.item.getVector());
+
+                            for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+
+                                boolean changed = true;
+
+                                while (changed) {
+                                    changed = false;
+
+                                    synchronized (currObj) {
+                                        MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+
+                                        for (int i = 0; i < candidateConnections.size(); i++) {
+
+                                            int candidateId = candidateConnections.get(i);
+
+                                            Node<TItem> candidateNode = nodes.get(candidateId);
+
+                                            TDistance candidateDistance = distanceFunction.distance(
+                                                    item.getVector(),
+                                                    candidateNode.item.getVector()
+                                            );
+
+                                            if (lt(candidateDistance, curDist)) {
+                                                curDist = candidateDistance;
+                                                currObj = candidateNode;
+                                                changed = true;
+                                            }
                                         }
                                     }
-                                }
 
+                                }
                             }
+                        }
+
+                        for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
+                            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                    searchBaseLayer(currObj, item.getVector(), efConstruction, level);
+                            mutuallyConnectNewElement(newNode, topCandidates, level);
                         }
                     }
 
-                    for (int level = Math.min(randomLevel, entrypointCopy.maxLevel()); level >= 0; level--) {
-                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj, item.getVector(), efConstruction, level);
-                        mutuallyConnectNewElement(newNode, topCandidates, level);
+                    // zoom out to the highest level
+                    if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
+                        // this is thread safe because we get the global lock when we add a level
+                        this.entryPoint = newNode;
                     }
                 }
-
-                // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLevel() > entrypointCopy.maxLevel()) {
-                    // this is thread safe because we get the global lock when we add a level
-                    this.entryPoint = newNode;
+            } finally {
+                if (globalLock.isHeldByCurrentThread()) {
+                    globalLock.unlock();
                 }
             }
         } finally {
-            if (globalLock.isHeldByCurrentThread()) {
-                globalLock.unlock();
-            }
+            addLock.unlock();
         }
     }
 
@@ -378,13 +392,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public List<SearchResult<TItem, TDistance>>findNearest(TVector destination, int k) {
 
-        Node<TItem> entrypointCopy = entryPoint;
+        if (entryPoint == null) {
+            return Collections.emptyList();
+        }
 
-        Node<TItem> currObj = entrypointCopy;
+        Node<TItem> entryPointCopy = entryPoint;
+
+        Node<TItem> currObj = entryPointCopy;
 
         TDistance curDist = distanceFunction.distance(destination, currObj.item.getVector());
 
-        for (int activeLevel = entrypointCopy.maxLevel(); activeLevel > 0; activeLevel--) {
+        for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > 0; activeLevel--) {
 
             boolean changed = true;
 
