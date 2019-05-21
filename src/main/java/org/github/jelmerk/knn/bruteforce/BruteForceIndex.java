@@ -35,6 +35,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
+    public int size() {
+        return items.size();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public TItem get(TId id) {
         return items.get(id);
     }

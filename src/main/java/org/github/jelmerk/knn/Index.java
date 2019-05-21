@@ -29,6 +29,13 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     int DEFAULT_PROGRESS_UPDATE_INTERVAL = 100_000;
 
     /**
+     * Returns the size of the index.
+     *
+     * @return size of the index
+     */
+    int size();
+
+    /**
      * Returns an item by its identifier.
      *
      * @param id unique identifier or the item to return
@@ -113,6 +120,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                         } catch (RuntimeException t) {
                             throwableHolder.set(t);
+                        } catch (Throwable t) {
+                            t.printStackTrace();
                         }
                     }
 

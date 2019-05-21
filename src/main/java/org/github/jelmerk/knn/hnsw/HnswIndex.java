@@ -91,6 +91,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * {@inheritDoc}
      */
     @Override
+    public int size() {
+        synchronized (freedIds) {
+            return maxItemCount - freedIds.size();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public TItem get(TId id) {
         return nodes.get(lookup.get(id)).item;
     }
