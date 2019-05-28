@@ -4,7 +4,7 @@ HNSW.Java
 
 Work in progress pure Java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
 
-The index is thread safe and supports adding items to the index incrementally. 
+The index is thread safe, serializable, supports adding items to the index incrementally and has experimental support for deletes. 
 
 It's flexible interface makes it easy to apply it to use it with any type of data and distance metric  
 
@@ -88,9 +88,49 @@ Frequently asked questions
                 
                 return meter.measureDeep(index);
             }
+         }
  
    Run the above code with -javaagent:/path/to/jamm-0.3.0.jar 
    
    The output of this program will show approximately how much memory adding an additional 100.000 elements to this index will take up
    Since the amount of memory used scales roughly linearly with the amount of elements you should be able to work out your memory requirements 
    
+
+- How do I measure the accuracy of the index ?
+
+  This library comes with a brute force implementation of the Index interface that you can compare against
+  
+  
+        Index<String, float[], Word, Float> groundTruthIndex =
+                new BruteForceIndex.Builder<>(DistanceFunctions::cosineDistance)
+                        .build();
+                        
+        groundTruthIndex.addAll(words);
+                        
+        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNearest(words.get(0).getVector(), 10);
+        
+        
+        
+        Index<String, float[], Word, Float> hnswIndex =
+            new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
+                .build();
+                
+        hnswIndex.addAll(words);
+        
+        List<SearchResult<Word, Float>> actualResults = hnswIndex.findNearest(words.get(0).getVector(), 10);
+    
+
+        int correct = 0;
+
+        for (SearchResult<Word, Float> expectedResult : expectedResults) {
+            if (actualResults.contains(expectedResult)) {
+                correct++;
+            }
+        }
+
+        double precision = (double) correct / (double) expectedResults.size();
+        
+        System.out.printf("Precision @10 : %f%n", precision);
+
+  If the accuracy is not what you expect take a look at the ef and efConstruction parameters of the hnsw index builder.
+    
