@@ -93,7 +93,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public int size() {
         synchronized (freedIds) {
-            return maxItemCount - freedIds.size();
+            return itemCount - freedIds.size();
         }
     }
 
