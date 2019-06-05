@@ -3,7 +3,7 @@ import org.github.jelmerk.knn.bruteforce.BruteForceIndex
 import org.github.jelmerk.knn.hnsw.HnswIndex
 
 
-case class MyWord(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+case class MyWord(id: String, @specialized vector: Array[Float]) extends Item[String, Array[Float]]
 
 object Main {
 

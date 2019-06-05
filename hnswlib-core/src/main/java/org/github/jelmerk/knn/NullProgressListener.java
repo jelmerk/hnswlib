@@ -3,12 +3,12 @@ package org.github.jelmerk.knn;
 /**
  * Implementation of {@link ProgressListener} that does nothing.
  */
-class NullProgressListener implements ProgressListener {
+public class NullProgressListener implements ProgressListener {
 
     /**
      * Singleton instance of {@link NullProgressListener}.
      */
-    static final NullProgressListener INSTANCE = new NullProgressListener();
+    public static final NullProgressListener INSTANCE = new NullProgressListener();
 
     private NullProgressListener() {
     }

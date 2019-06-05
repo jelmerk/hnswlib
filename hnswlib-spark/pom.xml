@@ -15,23 +15,13 @@
 
     <description>Spark integrations</description>
 
-    <build>
-        <sourceDirectory>src/main/scala</sourceDirectory>
-        <testSourceDirectory>src/test/scala</testSourceDirectory>
-        <plugins>
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-                <version>4.0.2</version>
-            </plugin>
-        </plugins>
-    </build>
 
     <dependencies>
         <dependency>
-            <groupId>org.github.jelmerk</groupId>
-            <artifactId>hnswlib-scala</artifactId>
-            <version>${project.version}</version>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib-local_2.11</artifactId>
+            <version>2.3.0</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

@@ -12,11 +12,10 @@ package object knn {
 
     def getOptionally(id: TId) = Option(index.get(id))
 
-    def addAll(items: Seq[TItem]): Unit = index.addAll(items.asJava)
-
-    def addAll(items: Seq[TItem], listener: ProgressListener): Unit = index.addAll(items.asJava, listener)
-
-    def addAll(items: Seq[TItem], numThreads: Int, listener: ProgressListener, progressUpdateInterval: Int): Unit =
+    def addAllAsSeq(items: Seq[TItem],
+                    numThreads: Int = Runtime.getRuntime.availableProcessors,
+                    listener: ProgressListener = NullProgressListener.INSTANCE,
+                    progressUpdateInterval: Int = Index.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit =
       index.addAll(items.asJava, numThreads, listener, progressUpdateInterval)
   }
 
