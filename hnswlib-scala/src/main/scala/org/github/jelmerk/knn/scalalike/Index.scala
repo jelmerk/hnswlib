@@ -11,7 +11,7 @@ import org.github.jelmerk.knn.{Index => JIndex}
   * @tparam TId type of the external identifier of an item
   * @tparam TVector The type of the vector to perform distance calculation on
   * @tparam TItem The type of items to connect into small world.
-  * @tparam TDistance The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+  * @tparam TDistance The type of distance between items (expect any numeric type: float, double, int, ..).
   *
   * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm]] for more
   * information.

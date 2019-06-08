@@ -1,5 +1,5 @@
-HNSW.Java
-=========
+Hnswlib
+=======
 
 
 Work in progress pure Java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
@@ -12,15 +12,13 @@ It's flexible interface makes it easy to apply it to use it with any type of dat
 Code example:
 
 
-    Index<String, float[], Word, Float> index =
-        new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
+    Index<String, float[], Word, Float> index = HnswIndex
+        .newBuilder(DistanceFunctions::cosineDistance, words.size())
             .build();
 
     index.addAll(words);
     
-    Word item = index.get("king");
-    
-    List<SearchResult<Word, Float>> nearest = index.findNearest(item.vector, 10);
+    List<SearchResult<Word, Float>> nearest = index.findNeighbours("king", 10);
     
     for (SearchResult<Word, Float> result : nearest) {
         System.out.println(result.getItem().getId() + " " + result.getDistance());
@@ -79,11 +77,12 @@ Frequently asked questions
         
             private static long createIndexAndMeasureMemory(List<MyItem> items) throws InterruptedException {
                 MemoryMeter meter = new MemoryMeter();
-        
-                Index<Integer, float[], MyItem, Float> index =
-                        new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                                .setM(16)
-                                .build();
+
+                Index<String, float[], MyItem, Float> index = HnswIndex
+                    .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                        .withM(16)
+                        .build();
+
                 index.addAll(items);
                 
                 return meter.measureDeep(index);
@@ -101,24 +100,19 @@ Frequently asked questions
   This library comes with a brute force implementation of the Index interface that you can compare against
   
   
-        Index<String, float[], Word, Float> groundTruthIndex =
-                new BruteForceIndex.Builder<>(DistanceFunctions::cosineDistance)
-                        .build();
-                        
+        Index<String, float[], Word, Float> groundTruthIndex = BruteForceIndex
+            .newBuilder(DistanceFunctions::cosineDistance)
+                .build();
         groundTruthIndex.addAll(words);
                         
-        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNearest(words.get(0).getVector(), 10);
         
-        
-        
-        Index<String, float[], Word, Float> hnswIndex =
-            new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
+        Index<String, float[], Word, Float> hnswIndex = HnswIndex
+            .newBuilder(DistanceFunctions::cosineDistance, words.size())
                 .build();
-                
         hnswIndex.addAll(words);
-        
-        List<SearchResult<Word, Float>> actualResults = hnswIndex.findNearest(words.get(0).getVector(), 10);
-    
+
+        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);        
+        List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbours("king", 10);
 
         int correct = 0;
 
@@ -132,5 +126,5 @@ Frequently asked questions
         
         System.out.printf("Precision @10 : %f%n", precision);
 
-  If the accuracy is not what you expect take a look at the ef and efConstruction parameters of the hnsw index builder.
+  If the accuracy is not what you expect take a look at javadoc of the parameters of the hnsw index builder.
     

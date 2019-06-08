@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <TId> type of the external identifier of an item
  * @param <TVector> The type of the vector to perform distance calculation on
  * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+ * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
  */
 public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
@@ -106,7 +106,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
@@ -124,7 +124,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
@@ -143,7 +143,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
@@ -177,7 +177,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * Builder for initializing an {@link BruteForceIndex} instance.
      *
      * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      */
     public static class Builder <TVector, TDistance> {
 

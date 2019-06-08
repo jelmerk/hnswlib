@@ -24,7 +24,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @param <TId> type of the external identifier of an item
  * @param <TVector> The type of the vector to perform distance calculation on
  * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+ * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
  *
  * @see <a href="https://arxiv.org/abs/1603.09320">
  *     Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
@@ -556,7 +556,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
@@ -572,7 +572,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
@@ -588,7 +588,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TId> type of the external identifier of an item
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ...).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
@@ -696,7 +696,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * Builder for initializing an {@link HnswIndex} instance.
      *
      * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
      */
     public static class Builder <TVector, TDistance> {
 
