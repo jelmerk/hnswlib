@@ -3,47 +3,35 @@ package org.github.jelmerk.knn.scalalike
 import java.io.{File, OutputStream}
 import java.nio.file.Path
 
-import scala.collection.JavaConverters._
-import org.github.jelmerk.knn.{Index => JIndex, ProgressListener => JProgressListener}
+import org.github.jelmerk.knn.{Index => JIndex}
 
 trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
 
   type ProgressListener = (Int, Int) => Unit
 
-  protected def delegate: JIndex[TId, TVector, TItem, TDistance]
-
-  def add(item: TItem): Unit = delegate.add(item)
+  def add(item: TItem): Unit
 
   def addAll(items: Seq[TItem],
              numThreads: Int = Runtime.getRuntime.availableProcessors,
              listener: ProgressListener = (_, _) => (),
-             progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit = {
+             progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit
 
-    val progressListener: JProgressListener = new JProgressListener {
-      override def updateProgress(workDone: Int, max: Int): Unit = listener.apply(workDone, max)
-    }
+  def size: Int
 
-    delegate.addAll(items.asJava, numThreads, progressListener, progressUpdateInterval)
-  }
+  def apply(id: TId): TItem
 
-  def size: Int = delegate.size
+  def get(id: TId): Option[TItem]
 
-  def apply(id: TId): TItem = get(id).getOrElse(throw new NoSuchElementException)
+  def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]]
 
-  def get(id: TId): Option[TItem] = Option(delegate.get(id).orElse(null.asInstanceOf[TItem]))
+  def findNeighbours(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]]
 
-  def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
-    delegate.findNearest(vector, k).asScala
+  def remove(id: TId): Boolean
 
-  def findNeighbours(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
-    delegate.findNeighbours(id, k).asScala
+  def save(out: OutputStream): Unit
 
-  def remove(id: TId): Boolean = delegate.remove(id)
+  def save(out: File): Unit
 
-  def save(out: OutputStream): Unit = delegate.save(out)
-
-  def save(out: File): Unit = delegate.save(out)
-
-  def save(path: Path): Unit = delegate.save(path)
+  def save(path: Path): Unit
 
 }

@@ -5,25 +5,24 @@ import java.nio.file.Path
 
 import org.github.jelmerk.knn.DistanceFunction
 import org.github.jelmerk.knn.bruteforce.{BruteForceIndex => JBruteForceIndex}
-import org.github.jelmerk.knn.{Index => JIndex}
-import org.github.jelmerk.knn.scalalike.{Index, Item}
+import org.github.jelmerk.knn.scalalike.{DelegationIndex, Index, Item}
 
 object BruteForceIndex {
 
   def load[TId, TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
-    : BruteForceIndex[TId, TVector, TItem, TDistance] = new BruteForceIndex(JBruteForceIndex.load(inputStream))
+    : Index[TId, TVector, TItem, TDistance] = new DelegationIndex(JBruteForceIndex.load(inputStream))
 
   def load[TId, TVector, TItem <: Item[TId, TVector], TDistance ](file: File)
-    : BruteForceIndex[TId, TVector, TItem, TDistance] =
-      new BruteForceIndex(JBruteForceIndex.load(file))
+    : Index[TId, TVector, TItem, TDistance] =
+      new DelegationIndex(JBruteForceIndex.load(file))
 
   def load[TId, TVector, TItem <: Item[TId, TVector], TDistance ](path: Path)
-    : BruteForceIndex[TId, TVector, TItem, TDistance] =
-      new BruteForceIndex(JBruteForceIndex.load(path))
+    : Index[TId, TVector, TItem, TDistance] =
+      new DelegationIndex(JBruteForceIndex.load(path))
 
   def apply[TId, TVector, TItem <: Item[TId, TVector], TDistance ]
       (distanceFunction: (TVector, TVector) => TDistance)(implicit ordering: Ordering[TDistance])
-        : BruteForceIndex[TId, TVector, TItem, TDistance] = {
+        : Index[TId, TVector, TItem, TDistance] = {
 
     val jDistanceFunction = new DistanceFunction[TVector, TDistance] {
       override def distance(u: TVector, v: TVector): TDistance = distanceFunction(u, v)
@@ -31,11 +30,6 @@ object BruteForceIndex {
 
     val jIndex = JBruteForceIndex.newBuilder(jDistanceFunction, ordering).build[TId, TItem]()
 
-    new BruteForceIndex[TId, TVector, TItem, TDistance](jIndex)
+    new DelegationIndex[TId, TVector, TItem, TDistance](jIndex)
   }
 }
-
-@SerialVersionUID(1L)
-class BruteForceIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance ] private (
-  protected val delegate: JIndex[TId, TVector, TItem, TDistance])
-    extends Index[TId, TVector, TItem, TDistance]
