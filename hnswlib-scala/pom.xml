@@ -15,23 +15,6 @@
 
     <description>Scala integration</description>
 
-    <properties>
-        <!--<scala.version>2.11.12</scala.version>-->
-        <scala.version>2.12.7</scala.version>
-    </properties>
-
-    <build>
-        <sourceDirectory>src/main/scala</sourceDirectory>
-        <testSourceDirectory>src/test/scala</testSourceDirectory>
-        <plugins>
-            <plugin>
-                <groupId>net.alchim31.maven</groupId>
-                <artifactId>scala-maven-plugin</artifactId>
-                <version>4.0.2</version>
-            </plugin>
-        </plugins>
-    </build>
-
     <dependencies>
 
         <dependency>
@@ -45,6 +28,82 @@
             <artifactId>hnswlib-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>net.alchim31.maven</groupId>
+                <artifactId>scala-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>scala-compile-first</id>
+                        <phase>process-resources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>scala-test-compile</id>
+                        <phase>process-test-resources</phase>
+                        <goals>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <classifier>${scala.binary.version}</classifier>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+
+        <profile>
+            <id>scala-2.11</id>
+            <activation>
+                <property>
+                    <name>!scala-2.12</name>
+                </property>
+            </activation>
+
+            <properties>
+                <scala.version>2.11.12</scala.version>
+                <scala.binary.version>2.11</scala.binary.version>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>scala-2.12</id>
+            <activation>
+                <property>
+                    <name>scala-2.12</name>
+                </property>
+            </activation>
+
+            <properties>
+                <scala.version>2.12.7</scala.version>
+                <scala.binary.version>2.12</scala.binary.version>
+            </properties>
+        </profile>
+
+    </profiles>
 
 </project>
