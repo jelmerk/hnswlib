@@ -47,9 +47,9 @@ public class BruteForceIndexFastText {
 
         System.out.println("Loaded " + words.size() + " words.");
 
-        Index<String, float[], Word, Float> index =
-                new BruteForceIndex.Builder<>(DistanceFunctions::cosineDistance)
-                        .build();
+        Index<String, float[], Word, Float> index = BruteForceIndex
+                .newBuilder(DistanceFunctions::cosineDistance)
+                    .build();
 
         index.addAll(words);
 

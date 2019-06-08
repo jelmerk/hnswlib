@@ -3,6 +3,8 @@ package org.github.jelmerk.knn.bruteforce;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,16 +17,19 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <TItem> The type of items to connect into small world.
  * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
  */
-public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
+public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
     private static final long serialVersionUID = 1L;
 
     private final DistanceFunction<TVector, TDistance> distanceFunction;
+    private final Comparator<TDistance> distanceComparator;
+
     private final Map<TId, TItem> items;
 
     private BruteForceIndex(BruteForceIndex.Builder<TVector, TDistance> builder) {
         this.distanceFunction = builder.distanceFunction;
+        this.distanceComparator = builder.distanceComparator;
         this.items = new ConcurrentHashMap<>();
     }
 
@@ -75,7 +80,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         for (TItem item : items.values()) {
             TDistance distance = distanceFunction.distance(item.vector(), vector);
 
-            SearchResult<TItem, TDistance> searchResult = new SearchResult<>(item, distance);
+            SearchResult<TItem, TDistance> searchResult = new SearchResult<>(item, distance, distanceComparator);
             queue.add(searchResult);
 
             if (queue.size() > k) {
@@ -98,13 +103,36 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@link BruteForceIndex#save(File)} method.
      *
      * @param file file to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>> BruteForceIndex<ID, VECTOR, TItem, TDistance> load(File file) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+        BruteForceIndex<TId, TVector, TItem, TDistance>
+            load(File file) throws IOException {
+
         return load(new FileInputStream(file));
+    }
+
+    /**
+     * Restores a {@link BruteForceIndex} instance from a file created by invoking the {@link BruteForceIndex#save(Path)} method.
+     *
+     * @param path path to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
+     * @param <TItem> The type of items to connect into small world.
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @return the Small world restored from a file
+     * @throws IOException in case of an I/O exception
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+        BruteForceIndex<TId, TVector, TItem, TDistance>
+            load(Path path) throws IOException {
+
+        return load(Files.newInputStream(path));
     }
 
     /**
@@ -112,6 +140,8 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@link BruteForceIndex#save(File)} method.
      *
      * @param inputStream InputStream to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      * @return the Small world restored from a file
@@ -119,14 +149,28 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance extends Comparable<TDistance>>
-        BruteForceIndex<ID, VECTOR, TItem, TDistance> load(InputStream inputStream) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+        BruteForceIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream) throws IOException {
 
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (BruteForceIndex<ID, VECTOR, TItem, TDistance>) ois.readObject();
+            return (BruteForceIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
+    }
+
+    public static <TVector, TDistance extends Comparable<TDistance>>
+        Builder <TVector, TDistance> newBuilder(DistanceFunction<TVector, TDistance> distanceFunction) {
+
+        Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
+        return new Builder<>(distanceFunction, distanceComparator);
+    }
+
+    public static <TVector, TDistance>
+        Builder <TVector, TDistance>
+            newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+
+        return new Builder<>(distanceFunction, distanceComparator);
     }
 
     /**
@@ -135,12 +179,15 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      */
-    public static class Builder <TVector, TDistance extends Comparable<TDistance>> {
+    public static class Builder <TVector, TDistance> {
 
         private final DistanceFunction<TVector, TDistance> distanceFunction;
 
-        public Builder(DistanceFunction<TVector, TDistance> distanceFunction) {
+        private final Comparator<TDistance> distanceComparator;
+
+        Builder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
             this.distanceFunction = distanceFunction;
+            this.distanceComparator = distanceComparator;
         }
 
         /**
@@ -154,25 +201,6 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
             return new BruteForceIndex<>(this);
         }
 
-        /**
-         * Convenience method that constructs a builder that uses float arrays as the vector representation and
-         * cosine distance as a distance metric.
-         *
-         * @return the builder
-         */
-        public static Builder<float[], Float> usingCosineDistance() {
-            return new Builder<>(DistanceFunctions::cosineDistance);
-        }
-
-        /**
-         * Convenience method that constructs a builder that uses float arrays as the vector representation and
-         * inner product as a distance metric.
-         *
-         * @return the builder
-         */
-        public static Builder<float[], Float> usingInnerProduct() {
-            return new Builder<>(DistanceFunctions::innerProduct);
-        }
     }
 
 }

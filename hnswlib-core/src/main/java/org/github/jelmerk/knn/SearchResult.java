@@ -1,6 +1,7 @@
 package org.github.jelmerk.knn;
 
 import java.io.Serializable;
+import java.util.Comparator;
 import java.util.Objects;
 
 /**
@@ -9,7 +10,7 @@ import java.util.Objects;
  * @param <TItem> type of the item returned
  * @param <TDistance> type of the distance returned by the configured distance function
  */
-public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
+public class SearchResult<TItem, TDistance>
         implements Comparable<SearchResult<TItem, TDistance>>, Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -18,15 +19,19 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
 
     private final TItem item;
 
+    private final Comparator<TDistance> distanceComparator;
+
     /**
      * Constructs a new SearchResult instance.
      *
      * @param item the item
      * @param distance the distance from the search query
+     * @param distanceComparator used to compare distances
      */
-    public SearchResult( TItem item, TDistance distance) {
+    public SearchResult(TItem item, TDistance distance, Comparator<TDistance> distanceComparator) {
         this.item = item;
         this.distance = distance;
+        this.distanceComparator = distanceComparator;
     }
 
     /**
@@ -52,7 +57,7 @@ public class SearchResult<TItem, TDistance extends Comparable<TDistance>>
      */
     @Override
     public int compareTo(SearchResult<TItem, TDistance> o) {
-        return this.distance.compareTo(o.distance);
+        return distanceComparator.compare(distance, o.distance);
     }
 
     /**

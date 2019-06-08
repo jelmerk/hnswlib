@@ -1,6 +1,8 @@
 package org.github.jelmerk.knn;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Queue;
@@ -21,7 +23,7 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * @see <a href="https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm</a>
  */
-public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>> {
+public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance> {
 
     /**
      * By default after indexing this many items progress will be reported to registered progress listeners.
@@ -171,5 +173,15 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     default void save(File file) throws IOException {
         save(new FileOutputStream(file));
+    }
+
+    /**
+     * Saves the index to a path.
+     *
+     * @param path file to write the index to
+     * @throws IOException in case of I/O exception
+     */
+    default void save(Path path) throws IOException {
+        save(Files.newOutputStream(path));
     }
 }

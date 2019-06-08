@@ -45,10 +45,10 @@ public class HnswIndexPerfTest2 {
 
         int m = 15;
 
-        HnswIndex<Integer, float[], MyItem, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .setM(m)
-                        .build();
+        HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
+                .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                    .withM(m)
+                    .build();
 
 //        for (MyItem item : items) {
 //            index.add(item);

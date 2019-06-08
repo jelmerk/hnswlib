@@ -46,7 +46,7 @@ public class HnswIndexPerfTestSimd {
 ////
 ////        HnswIndex<Integer, FloatVector, MyItem, Float> index =
 ////                new HnswIndex.Builder<>(CosineDistanceSimd::simd, items.size())
-////                        .setM(m)
+////                        .withM(m)
 ////                        .setLevelLambda(1 / Math.log(m))
 ////                        .build();
 ////

@@ -46,11 +46,10 @@ public class HnswIndexFastText {
 
         int m = 16;
 
-        HnswIndex<String, float[], Word, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, words.size())
-                        .setM(m)
-                        .build();
-
+        HnswIndex<String, float[], Word, Float> index = HnswIndex
+                .newBuilder(DistanceFunctions::cosineDistance, words.size())
+                    .withM(m)
+                    .build();
 
         long start = System.currentTimeMillis();
 

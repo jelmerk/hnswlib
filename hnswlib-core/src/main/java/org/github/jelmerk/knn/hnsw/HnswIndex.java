@@ -8,6 +8,8 @@ import org.eclipse.collections.impl.stack.mutable.primitive.IntArrayStack;
 import org.github.jelmerk.knn.*;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -27,13 +29,14 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * @see <a href="https://arxiv.org/abs/1603.09320">
  *     Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
-public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance extends Comparable<TDistance>>
+public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
     // TODO implement Externalizable and store these Nodes more efficiently so the graph loads faster on deserialization
 
     private static final long serialVersionUID = 1L;
 
     private final DistanceFunction<TVector, TDistance> distanceFunction;
+    private final Comparator<TDistance> distanceComparator;
 
     private final int maxItemCount;
     private final int m;
@@ -63,6 +66,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
+        this.distanceComparator = builder.distanceComparator;
+
         this.m = builder.m;
         this.maxM = builder.m;
         this.maxM0 = builder.m * 2;
@@ -320,7 +325,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                             .<NodeIdAndDistance<TDistance>>naturalOrder().reversed();
 
                     PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
-                    candidates.add(new NodeIdAndDistance<>(newNodeId, dMax));
+                    candidates.add(new NodeIdAndDistance<>(newNodeId, dMax, distanceComparator));
 
                     outgoingNeighbourConnectionsAtLevel.forEach(id -> {
                         TDistance dist = distanceFunction.distance(
@@ -328,7 +333,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                 nodes.get(id).item.vector()
                         );
 
-                        candidates.add(new NodeIdAndDistance<>(id, dist));
+                        candidates.add(new NodeIdAndDistance<>(id, dist, distanceComparator));
                     });
 
                     getNeighborsByHeuristic2(candidates, bestN + 1);
@@ -452,7 +457,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         List<SearchResult<TItem, TDistance>> results = new ArrayList<>(topCandidates.size());
         while (!topCandidates.isEmpty()) {
             NodeIdAndDistance<TDistance> pair = topCandidates.poll();
-            results.add(0, new SearchResult<>(nodes.get(pair.nodeId).item, pair.distance));
+            results.add(0, new SearchResult<>(nodes.get(pair.nodeId).item, pair.distance, distanceComparator));
         }
 
         return results;
@@ -470,7 +475,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             TDistance distance = distanceFunction.distance(destination, entryPointNode.item.vector());
 
-            NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance);
+            NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance, distanceComparator);
 
             topCandidates.add(pair);
             candidateSet.add(pair);
@@ -508,7 +513,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                             if (gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
 
                                 NodeIdAndDistance<TDistance> candidatePair =
-                                        new NodeIdAndDistance<>(candidateId, candidateDistance);
+                                        new NodeIdAndDistance<>(candidateId, candidateDistance, distanceComparator);
 
                                 candidateSet.add(candidatePair);
                                 topCandidates.add(candidatePair);
@@ -546,20 +551,40 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(File)} method.
      *
      * @param file file to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      * @return the Small world restored from a file
      * @throws IOException in case of an I/O exception
      */
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance
-            extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(File file) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
+           > HnswIndex<TId, TVector, TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
     /**
-     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(File)} method.
+     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(Path)} method.
+     *
+     * @param path path to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
+     * @param <TItem> The type of items to connect into small world.
+     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+     * @return the Small world restored from a file
+     * @throws IOException in case of an I/O exception
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
+           > HnswIndex<TId, TVector, TItem, TDistance> load(Path path) throws IOException {
+        return load(Files.newInputStream(path));
+    }
+
+    /**
+     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(OutputStream)} method.
      *
      * @param inputStream InputStream to initialize the small world from
+     * @param <TId> type of the external identifier of an item
+     * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ...).
      * @return the Small world restored from a file
@@ -567,15 +592,30 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <ID, VECTOR, TItem extends Item<ID, VECTOR>, TDistance
-            extends Comparable<TDistance>> HnswIndex<ID, VECTOR, TItem, TDistance> load(InputStream inputStream)
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
+           > HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
             throws IOException {
 
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (HnswIndex<ID, VECTOR, TItem, TDistance>) ois.readObject();
+            return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
+    }
+
+    public static <TVector, TDistance extends Comparable<TDistance>>
+        Builder <TVector, TDistance>
+            newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
+
+        Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
+        return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
+    }
+
+    public static <TVector, TDistance>
+        Builder <TVector, TDistance>
+            newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator, int maxItemCount) {
+
+        return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
     }
 
     private int assignLevel(TId value, double lambda) {
@@ -599,13 +639,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     private boolean lt(TDistance x, TDistance y) {
-        return x.compareTo(y) < 0;
+        return distanceComparator.compare(x, y) < 0;
     }
 
     private boolean gt(TDistance x, TDistance y) {
-        return x.compareTo(y) > 0;
+        return distanceComparator.compare(x, y) > 0;
     }
-
 
     static class Node<TItem> implements Serializable {
 
@@ -631,20 +670,21 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    static class NodeIdAndDistance<TDistance extends Comparable<TDistance>>
-            implements Comparable<NodeIdAndDistance<TDistance>> {
+    static class NodeIdAndDistance<TDistance> implements Comparable<NodeIdAndDistance<TDistance>> {
 
         final int nodeId;
         final TDistance distance;
+        final Comparator<TDistance> distanceComparator;
 
-        NodeIdAndDistance(int nodeId, TDistance distance) {
+        NodeIdAndDistance(int nodeId, TDistance distance, Comparator<TDistance> distanceComparator) {
             this.nodeId = nodeId;
             this.distance = distance;
+            this.distanceComparator = distanceComparator;
         }
 
         @Override
         public int compareTo(NodeIdAndDistance<TDistance> o) {
-            return distance.compareTo(o.distance);
+            return  distanceComparator.compare(distance, o.distance);
         }
 
     }
@@ -656,14 +696,20 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
      */
-    public static class Builder <TVector, TDistance extends Comparable<TDistance>> {
+    public static class Builder <TVector, TDistance> {
+
+        public static final int DEFAULT_M = 10;
+        public static final int DEFAULT_EF = 10;
+        public static final int DEFAULT_EF_CONSTRUCTION = 200;
 
         private DistanceFunction<TVector, TDistance> distanceFunction;
+        private Comparator<TDistance> distanceComparator;
+
         private int maxItemCount;
 
-        private int m = 10;
-        private int efConstruction = 200;
-        private int ef = 10;
+        private int m = DEFAULT_M;
+        private int ef = DEFAULT_EF;
+        private int efConstruction = DEFAULT_EF_CONSTRUCTION;
 
         /**
          * Constructs a new {@link Builder} instance.
@@ -671,8 +717,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param distanceFunction the distance function
          * @param maxItemCount the maximum number of elements in the index
          */
-        public Builder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
+        Builder(DistanceFunction<TVector, TDistance> distanceFunction,
+                Comparator<TDistance> distanceComparator,
+                int maxItemCount) {
             this.distanceFunction = distanceFunction;
+            this.distanceComparator = distanceComparator;
             this.maxItemCount = maxItemCount;
         }
 
@@ -690,7 +739,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param m the number of bi-directional links created for every new element during construction
          * @return the builder.
          */
-        public Builder<TVector, TDistance> setM(int m) {
+        public Builder<TVector, TDistance> withM(int m) {
             this.m = m;
             return this;
         }
@@ -705,7 +754,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param efConstruction controls the index time / index accuracy
          * @return the builder
          */
-        public Builder<TVector, TDistance> setEfConstruction(int efConstruction) {
+        public Builder<TVector, TDistance> withEfConstruction(int efConstruction) {
             this.efConstruction = efConstruction;
             return this;
         }
@@ -717,7 +766,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param ef size of the dynamic list for the nearest neighbors
          * @return the builder
          */
-        public Builder<TVector, TDistance> setEf(int ef) {
+        public Builder<TVector, TDistance> withEf(int ef) {
             this.ef = ef;
             return this;
         }
@@ -733,29 +782,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return new HnswIndex<>(this);
         }
 
-        /**
-         * Convenience method that constructs a builder that uses float arrays as the vector representation and
-         * cosine distance as a distance metric.
-         *
-         * @param maxItemCount the maximum number of elements in the index
-         *
-         * @return the builder
-         */
-        public static Builder<float[], Float> usingCosineDistance(int maxItemCount) {
-            return new Builder<>(DistanceFunctions::cosineDistance, maxItemCount);
-        }
-
-        /**
-         * Convenience method that constructs a builder that uses float arrays as the vector representation and
-         * inner product as a distance metric.
-         *
-         * @param maxItemCount the maximum number of elements in the index
-         *
-         * @return the builder
-         */
-        public static Builder<float[], Float> usingInnerProduct(int maxItemCount) {
-            return new Builder<>(DistanceFunctions::innerProduct, maxItemCount);
-        }
     }
 
 }

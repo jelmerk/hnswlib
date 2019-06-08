@@ -38,9 +38,9 @@ public class HnswIndexTest {
     @Test
     public void testKnnSearch() {
 
-        HnswIndex<String, float[], TestItem, Float> index =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .build();
+        HnswIndex<String, float[], TestItem, Float> index = HnswIndex
+                .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                    .build();
 
         for (TestItem item : items) {
             index.add(item);
@@ -61,9 +61,9 @@ public class HnswIndexTest {
     @Test
     public void testSerialization() throws Exception {
 
-        HnswIndex<String, float[], TestItem, Float> original =
-                new HnswIndex.Builder<>(DistanceFunctions::cosineDistance, items.size())
-                        .build();
+        HnswIndex<String, float[], TestItem, Float> original = HnswIndex
+                .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                    .build();
 
         for (TestItem item : items) {
             original.add(item);
