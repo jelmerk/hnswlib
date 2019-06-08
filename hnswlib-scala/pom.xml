@@ -11,7 +11,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-scala</artifactId>
+    <artifactId>hnswlib-scala_${scala.binary.version}</artifactId>
 
     <description>Scala integration</description>
 
@@ -52,6 +52,12 @@
                             <goal>testCompile</goal>
                         </goals>
                     </execution>
+                    <execution>
+                        <id>attach-javadocs</id>
+                        <goals>
+                            <goal>doc-jar</goal>
+                        </goals>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
@@ -64,12 +70,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <classifier>${scala.binary.version}</classifier>
-                </configuration>
             </plugin>
         </plugins>
     </build>
