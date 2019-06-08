@@ -106,8 +106,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * {@inheritDoc}
      */
     @Override
-    public TItem get(TId id) {
-        return nodes.get(lookup.get(id)).item;
+    public Optional<TItem> get(TId id) {
+        return Optional.ofNullable(lookup.get(id))
+                .flatMap(index -> Optional.ofNullable(nodes.get(index)))
+                .map(n -> n.item);
     }
 
     /**

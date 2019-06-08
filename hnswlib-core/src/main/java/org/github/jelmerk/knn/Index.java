@@ -3,15 +3,14 @@ package org.github.jelmerk.knn;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 /**
  * K-nearest neighbours search index.
@@ -43,7 +42,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param id unique identifier or the item to return
      * @return an item
      */
-    TItem get(TId id);
+    Optional<TItem> get(TId id);
 
     /**
      * Add a new item to the index
@@ -152,6 +151,21 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return the items closest to the passed in vector
      */
     List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k);
+
+    /**
+     * Find the items closest to the item identified by the passed in id. If the id does not match an item an empty
+     * list is returned. the element itself is not included in the response.
+     *
+     * @param id id of the
+     * @param k number of items to return
+     * @return the items closest to the passed in vector
+     */
+    default List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
+        return get(id).map(item -> findNearest(item.vector(), k + 1).stream()
+                                        .filter(result -> !result.item().id().equals(id)).limit(k)
+                                        .collect(Collectors.toList()))
+                .orElse(Collections.emptyList());
+    }
 
     /**
      * Saves the index to an OutputStream.

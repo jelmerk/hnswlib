@@ -30,10 +30,13 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
 
   def apply(id: TId): TItem = get(id).getOrElse(throw new NoSuchElementException)
 
-  def get(id: TId): Option[TItem] = Option(delegate.get(id))
+  def get(id: TId): Option[TItem] = Option(delegate.get(id).orElse(null.asInstanceOf[TItem]))
 
   def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asScala
+
+  def findNeighbours(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
+    delegate.findNeighbours(id, k).asScala
 
   def remove(id: TId): Boolean = delegate.remove(id)
 

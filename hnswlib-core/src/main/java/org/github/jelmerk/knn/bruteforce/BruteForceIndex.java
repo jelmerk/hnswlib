@@ -45,8 +45,8 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
-    public TItem get(TId id) {
-        return items.get(id);
+    public Optional<TItem> get(TId id) {
+        return Optional.ofNullable(items.get(id));
     }
 
     /**

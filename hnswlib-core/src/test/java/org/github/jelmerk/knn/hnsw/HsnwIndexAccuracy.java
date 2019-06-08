@@ -42,7 +42,7 @@ public class HsnwIndexAccuracy {
         float[][] tests  = new float[words.length][numDimensions];
 
         for (int i = 0; i < words.length; i++) {
-            tests[i] = bruteForceIndex.get(words[i]).vector();
+            tests[i] = bruteForceIndex.get(words[i]).get().vector();
         }
 
         System.out.println("Done picking some random words from the index to use as entrypoints.");

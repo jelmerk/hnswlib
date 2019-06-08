@@ -61,10 +61,7 @@ public class HnswIndexFastText {
 
         System.out.println("Creating index took " + duration + " millis which is " + TimeUnit.MILLISECONDS.toMinutes(duration));
 
-
-        Word item = index.get("koning");
-
-        List<SearchResult<Word, Float>> nearest = index.findNearest(item.vector(), 10);
+        List<SearchResult<Word, Float>> nearest = index.findNeighbours("koning", 10);
 
         for (SearchResult<Word, Float> result : nearest) {
             System.out.println(result.item().id() + " " + result.distance());
