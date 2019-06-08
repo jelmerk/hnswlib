@@ -1,6 +1,6 @@
-import org.github.jelmerk.knn._
-import org.github.jelmerk.knn.bruteforce.BruteForceIndex
-import org.github.jelmerk.knn.hnsw.HnswIndex
+import com.github.jelmerk.knn._
+import com.github.jelmerk.knn.bruteforce.BruteForceIndex
+import com.github.jelmerk.knn.hnsw.HnswIndex
 
 
 case class MyWord(id: String, @specialized vector: Array[Float]) extends Item[String, Array[Float]]

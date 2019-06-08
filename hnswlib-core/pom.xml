@@ -7,7 +7,7 @@
     <artifactId>hnswlib-core</artifactId>
 
     <parent>
-        <groupId>org.github.jelmerk</groupId>
+        <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-parent-pom</artifactId>
         <version>0.0.1-SNAPSHOT</version>
         <relativePath>..</relativePath>

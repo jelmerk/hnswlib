@@ -1,13 +1,13 @@
 import java.io.File
 
-import org.github.jelmerk.knn.scalalike._
-import org.github.jelmerk.knn.scalalike.hnsw._
-import org.github.jelmerk.knn.scalalike.bruteforce._
+import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.knn.scalalike.hnsw._
+import com.github.jelmerk.knn.scalalike.bruteforce._
 
 import scala.io.Source
 import scala.util.Random
 
-import org.github.jelmerk.knn.DistanceFunctions
+import com.github.jelmerk.knn.DistanceFunctions
 
 case class FastTextWord(id: String, vector: Array[Float], expired: Boolean)
   extends Item[String, Array[Float]]

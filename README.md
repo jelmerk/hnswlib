@@ -46,8 +46,8 @@ Frequently asked questions
   memory use including JVM overhead. Here's an example of how to do this :
   
         import org.github.jamm.MemoryMeter;
-        import org.github.jelmerk.knn.DistanceFunctions;
-        import org.github.jelmerk.knn.Index;
+        import com.github.jelmerk.knn.DistanceFunctions;
+        import com.github.jelmerk.knn.Index;
         
         import java.util.List;
         
