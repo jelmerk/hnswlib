@@ -13,8 +13,7 @@ import com.github.jelmerk.knn.{Index => JIndex}
   * @tparam TItem The type of items to connect into small world.
   * @tparam TDistance The type of distance between items (expect any numeric type: float, double, int, ..).
   *
-  * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm]] for more
-  * information.
+  * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm]] for more information.
   */
 trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
 
@@ -56,8 +55,6 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
     * Returns an item by its identifier. If the item does not exist in the index a NoSuchElementException is thrown
     * @param id unique identifier of the item to return
     * @return the item
-    *
-    * @throws NoSuchElementException when the item does not exist
     */
   def apply(id: TId): TItem
 
