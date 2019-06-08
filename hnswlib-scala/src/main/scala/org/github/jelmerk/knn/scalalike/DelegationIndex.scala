@@ -40,7 +40,7 @@ class DelegationIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](dele
 
   override def save(out: OutputStream): Unit = delegate.save(out)
 
-  override def save(out: File): Unit = delegate.save(out)
+  override def save(file: File): Unit = delegate.save(file)
 
   override def save(path: Path): Unit = delegate.save(path)
 

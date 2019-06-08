@@ -45,7 +45,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     Optional<TItem> get(TId id);
 
     /**
-     * Add a new item to the index
+     * Add a new item to the index.
      *
      * @param item the item to add to the index
      */
@@ -156,9 +156,9 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * Find the items closest to the item identified by the passed in id. If the id does not match an item an empty
      * list is returned. the element itself is not included in the response.
      *
-     * @param id id of the
+     * @param id id of the item to find the neighbours of
      * @param k number of items to return
-     * @return the items closest to the passed in vector
+     * @return the items closest to the item
      */
     default List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
         return get(id).map(item -> findNearest(item.vector(), k + 1).stream()

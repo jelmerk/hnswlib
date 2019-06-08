@@ -4,6 +4,13 @@ import org.apache.spark.ml.linalg.Vector;
 
 public class DistanceFunctions {
 
+    /**
+     * Calculates cosine distance.
+     *
+     * @param u Left vector.
+     * @param v Right vector.
+     * @return Cosine distance between u and v.
+     */
     public static double cosineDistance(Vector u, Vector v) {
         if (u.size() != v.size()) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
@@ -22,7 +29,13 @@ public class DistanceFunctions {
         return 1 - similarity;
     }
 
-
+    /**
+     * Calculates inner product.
+     *
+     * @param u Left vector.
+     * @param v Right vector.
+     * @return Cosine distance between u and v.
+     */
     public static double innerProduct(Vector u, Vector v) {
         if (u.size() != v.size()) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");

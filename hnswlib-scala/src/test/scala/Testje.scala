@@ -43,8 +43,6 @@ object Testje {
       .toSeq
 
 
-//    val testFn = (a: Array[Float], b: Array[Float]) => 1f
-
     val fullBruteForceIndex =
       BruteForceIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.cosineDistance)  // DistanceFunctions.cosineDistance _
 
