@@ -12,7 +12,7 @@ class DelegationIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](dele
 
   override def add(item: TItem): Unit = delegate.add(item)
 
-  override def addAll(items: Seq[TItem],
+  override def addAll(items: Iterable[TItem],
                       numThreads: Int = Runtime.getRuntime.availableProcessors,
                       listener: ProgressListener = (_, _) => (),
                       progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit = {
@@ -21,7 +21,7 @@ class DelegationIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](dele
       override def updateProgress(workDone: Int, max: Int): Unit = listener.apply(workDone, max)
     }
 
-    delegate.addAll(items.asJava, numThreads, progressListener, progressUpdateInterval)
+    delegate.addAll(items.asJavaCollection, numThreads, progressListener, progressUpdateInterval)
   }
 
   override def size: Int = delegate.size

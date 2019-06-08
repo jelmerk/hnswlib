@@ -18,7 +18,7 @@ public class NullProgressListener implements ProgressListener {
      */
     @Override
     public void updateProgress(int workDone, int max) {
-
+        // do nothing
     }
 
 }

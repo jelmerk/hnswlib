@@ -162,7 +162,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     default List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
         return get(id).map(item -> findNearest(item.vector(), k + 1).stream()
-                                        .filter(result -> !result.item().id().equals(id)).limit(k)
+                                        .filter(result -> !result.item().id().equals(id))
+                                        .limit(k)
                                         .collect(Collectors.toList()))
                 .orElse(Collections.emptyList());
     }

@@ -5,6 +5,17 @@ import java.nio.file.Path
 
 import org.github.jelmerk.knn.{Index => JIndex}
 
+/**
+  * K-nearest neighbours search index.
+  *
+  * @tparam TId type of the external identifier of an item
+  * @tparam TVector The type of the vector to perform distance calculation on
+  * @tparam TItem The type of items to connect into small world.
+  * @tparam TDistance The type of distance between items (expect any numeric type: float, double, decimal, int, ..).
+  *
+  * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm]] for more
+  * information.
+  */
 trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
 
   /**
@@ -29,7 +40,7 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
     * @param listener listener to report progress to
     * @param progressUpdateInterval after indexing this many items progress will be reported
     */
-  def addAll(items: Seq[TItem],
+  def addAll(items: Iterable[TItem],
              numThreads: Int = Runtime.getRuntime.availableProcessors,
              listener: ProgressListener = (_, _) => (),
              progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit
