@@ -47,7 +47,7 @@ public class HnswIndexFastText {
         int m = 16;
 
         HnswIndex<String, float[], Word, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions::cosineDistance, words.size())
+                .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
                     .withM(m)
                     .build();
 

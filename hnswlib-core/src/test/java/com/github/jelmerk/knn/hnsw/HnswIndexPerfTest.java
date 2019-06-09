@@ -46,7 +46,7 @@ public class HnswIndexPerfTest {
         int m = 10;
 
         HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                .newBuilder(DistanceFunctions::floatArrayCosineDistance, items.size())
                     .withM(m)
                     .build();
 

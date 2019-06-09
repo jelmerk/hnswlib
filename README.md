@@ -13,7 +13,7 @@ Java code example:
 
 
     Index<String, float[], Word, Float> index = HnswIndex
-        .newBuilder(DistanceFunctions::cosineDistance, words.size())
+        .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
             .withM(10)
             .build();
 
@@ -90,7 +90,7 @@ Frequently asked questions
                 MemoryMeter meter = new MemoryMeter();
 
                 Index<String, float[], MyItem, Float> index = HnswIndex
-                    .newBuilder(DistanceFunctions::cosineDistance, items.size())
+                    .newBuilder(DistanceFunctions::floatArrayCosineDistance, items.size())
                         .withM(16)
                         .build();
 
@@ -113,7 +113,7 @@ Frequently asked questions
   
   
         HnswIndex<String, float[], Word, Float> hnswIndex = HnswIndex
-                .newBuilder(DistanceFunctions::cosineDistance, words.size())
+                .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
                 .build();
         hnswIndex.addAll(words);
 

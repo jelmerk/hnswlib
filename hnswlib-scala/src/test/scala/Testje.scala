@@ -42,7 +42,7 @@ object Testje {
       .toSeq
 
     val fullHnswIndex =
-      HnswIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.cosineDistance, words.size, m, ef, efConstruction)
+      HnswIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.floatArrayCosineDistance, words.size, m, ef, efConstruction)
 
     fullHnswIndex.addAll(words, listener = (workDone: Int, max: Int) => {
       println(s"Indexed $workDone of $max items for full hnsw index.")
@@ -53,7 +53,7 @@ object Testje {
     val nonExpiredWords = words.filterNot(_.expired)
 
     val nonExpiredHnswIndex =
-      HnswIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.cosineDistance, words.size, m, ef, efConstruction)
+      HnswIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.floatArrayCosineDistance, words.size, m, ef, efConstruction)
 
     nonExpiredHnswIndex.addAll(nonExpiredWords, listener = (workDone: Int, max: Int) => {
       println(s"Indexed $workDone of $max items for non expired words hnsw index.")
