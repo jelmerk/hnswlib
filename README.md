@@ -2,18 +2,19 @@ Hnswlib
 =======
 
 
-Work in progress pure Java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
+Work in progress jvm implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
 
 The index is thread safe, serializable, supports adding items to the index incrementally and has experimental support for deletes. 
 
 It's flexible interface makes it easy to apply it to use it with any type of data and distance metric  
 
 
-Code example:
+Java code example:
 
 
     Index<String, float[], Word, Float> index = HnswIndex
         .newBuilder(DistanceFunctions::cosineDistance, words.size())
+            .withM(10)
             .build();
 
     index.addAll(words);
@@ -24,6 +25,16 @@ Code example:
         System.out.println(result.getItem().getId() + " " + result.getDistance());
     }
 
+Scala code example :
+
+    val index = HnswIndex[String, Array[Float], Word, Float](DistanceFunctions.cosineDistance, words.size, m = 10)
+      
+    index.addAll(words)
+    
+    index.findNeighbours("king", k = 10).foreach { case SearchResult(item, distance) => 
+      println(s"$item $distance")
+    }
+      
 
 Frequently asked questions
 --------------------------
