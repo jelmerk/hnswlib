@@ -63,7 +63,7 @@ public class HnswIndexPerfTest2 {
 
         long duration = end - start;
 
-        System.out.println("Done creating small world. took : " + duration + "ms");
+        System.out.println("Done creating index. took : " + duration + "ms");
 
         index.save(new File("/Users/jkuperus/2_million_90_dimensions.ser"));
     }

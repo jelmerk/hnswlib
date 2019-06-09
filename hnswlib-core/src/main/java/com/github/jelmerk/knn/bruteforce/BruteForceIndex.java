@@ -15,10 +15,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * Implementation of {@link Index} that does pairwise comparison and as such can be used as a baseline for measuring
  * approximate nearest neighbours index accuracy.
  *
- * @param <TId> type of the external identifier of an item
- * @param <TVector> The type of the vector to perform distance calculation on
- * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
+ * @param <TId> Type of the external identifier of an item
+ * @param <TVector> Type of the vector to perform distance calculation on
+ * @param <TItem> Type of items stored in the index
+ * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
  */
 public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
@@ -102,15 +102,15 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     }
 
     /**
-     * Restores a {@link BruteForceIndex} instance from a file created by invoking the
-     * {@link BruteForceIndex#save(File)} method.
+     * Restores a {@link BruteForceIndex} from a File.
      *
-     * @param file file to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the index world restored from a file
+     * @param file file to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
@@ -121,14 +121,15 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     }
 
     /**
-     * Restores a {@link BruteForceIndex} instance from a file created by invoking the {@link BruteForceIndex#save(Path)} method.
+     * Restores a {@link BruteForceIndex} from a Path.
      *
-     * @param path path to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the index world restored from a file
+     * @param path path to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
@@ -139,15 +140,15 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     }
 
     /**
-     * Restores a {@link BruteForceIndex} instance from a file created by invoking the
-     * {@link BruteForceIndex#save(File)} method.
+     * Restores a {@link BruteForceIndex} from an InputStream.
      *
-     * @param inputStream InputStream to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the index world restored from a file
+     * @param inputStream InputStream to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */
@@ -179,8 +180,8 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     /**
      * Builder for initializing an {@link BruteForceIndex} instance.
      *
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
      */
     public static class Builder <TVector, TDistance> {
 
@@ -196,7 +197,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         /**
          * Builds the BruteForceIndex instance.
          *
-         * @param <TId> type of the external identifier of an item
+         * @param <TId> Type of the external identifier of an item
          * @param <TItem> implementation of the Item interface
          * @return the brute force index instance
          */

@@ -9,10 +9,10 @@ import java.util.stream.Collectors;
 /**
  * Read only K-nearest neighbours search index.
  *
- * @param <TId> type of the external identifier of an item
- * @param <TVector> The type of the vector to perform distance calculation on
- * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
+ * @param <TId> Type of the external identifier of an item
+ * @param <TVector> Type of the vector to perform distance calculation on
+ * @param <TItem> Type of items stored in the index
+ * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
  *
  * @see <a href="https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm</a>
  */

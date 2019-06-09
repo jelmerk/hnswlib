@@ -19,12 +19,12 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * Implementation of {@link Index} that implements the hnsw algorithm
+ * Implementation of {@link Index} that implements the hnsw algorithm.
  *
- * @param <TId> type of the external identifier of an item
- * @param <TVector> The type of the vector to perform distance calculation on
- * @param <TItem> The type of items to connect into small world.
- * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
+ * @param <TId> Type of the external identifier of an item
+ * @param <TVector> Type of the vector to perform distance calculation on
+ * @param <TItem> Type of items stored in the index
+ * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
  *
  * @see <a href="https://arxiv.org/abs/1603.09320">
  *     Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
@@ -602,53 +602,56 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(File)} method.
+     * Restores a {@link HnswIndex} from a File.
      *
-     * @param file file to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the index world restored from a file
+     * @param file File to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
-           > HnswIndex<TId, TVector, TItem, TDistance> load(File file) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+            HnswIndex<TId, TVector, TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
     /**
-     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(Path)} method.
+     * Restores a {@link HnswIndex} from a Path.
      *
-     * @param path path to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the index world restored from a file
+     * @param path Path to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
-           > HnswIndex<TId, TVector, TItem, TDistance> load(Path path) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+            HnswIndex<TId, TVector, TItem, TDistance> load(Path path) throws IOException {
         return load(Files.newInputStream(path));
     }
 
     /**
-     * Restores a {@link HnswIndex} instance from a file created by invoking the {@link HnswIndex#save(OutputStream)} method.
+     * Restores a {@link HnswIndex} from an InputStream.
      *
-     * @param inputStream InputStream to initialize the small world from
-     * @param <TId> type of the external identifier of an item
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TItem> The type of items to connect into small world.
+     * @param inputStream InputStream to restore the index from
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ...).
-     * @return the index world restored from a file
+     * @return The restored index
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
-           > HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
-            throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+            HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
+                throws IOException {
 
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
             return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
@@ -794,8 +797,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Builder for initializing an {@link HnswIndex} instance.
      *
-     * @param <TVector> The type of the vector to perform distance calculation on
-     * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
      */
     public static class Builder <TVector, TDistance> {
 
@@ -888,7 +891,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         /**
          * Build the index.
          *
-         * @param <TId> type of the external identifier of an item
+         * @param <TId> Type of the external identifier of an item
          * @param <TItem> implementation of the Item interface
          * @return the hnsw index instance
          */
