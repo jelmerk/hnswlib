@@ -91,7 +91,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 executorService.submit(() -> {
                     TItem item;
-                    while((item = queue.poll()) != null) {
+                    while(throwableHolder.get() == null && (item = queue.poll()) != null) {
                         try {
                             add(item);
 
@@ -103,8 +103,6 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                         } catch (RuntimeException t) {
                             throwableHolder.set(t);
-                        } catch (Throwable t) {
-                            t.printStackTrace();
                         }
                     }
 
