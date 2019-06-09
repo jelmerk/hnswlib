@@ -165,6 +165,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     entryPoint = null;
                 }
 
+                nodes.set(internalNodeId, null);
+
                 freedIds.push(internalNodeId);
                 return true;
 
