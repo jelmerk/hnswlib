@@ -12,11 +12,8 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double cosineDistanceDense(DenseVector u, DenseVector v) {
-        if (u.size() != v.size()) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
+    @SuppressWarnings("Duplicates")
+    public static double denseVectorCosineDistance(DenseVector u, DenseVector v) {
         double dot = 0.0f;
         double nru = 0.0f;
         double nrv = 0.0f;
@@ -37,11 +34,8 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double cosineDistanceSparse(SparseVector u, SparseVector v) {
-        if (u.size() != v.size()) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
+    @SuppressWarnings("Duplicates")
+    public static double sparseVectorConsineDistance(SparseVector u, SparseVector v) {
         double dot = 0.0f;
         double nru = 0.0f;
         double nrv = 0.0f;
@@ -63,11 +57,8 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double innerProductDense(DenseVector u, DenseVector v) {
-        if (u.size() != v.size()) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
+    @SuppressWarnings("Duplicates")
+    public static double denseVectorInnerProduct(DenseVector u, DenseVector v) {
         double dot = 0;
         for (int i = 0; i < u.size(); i++) {
             dot += u.apply(i) * v.apply(i);
@@ -83,11 +74,8 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double innerProductSparse(SparseVector u, SparseVector v) {
-        if (u.size() != v.size()) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
+    @SuppressWarnings("Duplicates")
+    public static double sparseVectorInnerProduct(SparseVector u, SparseVector v) {
         double dot = 0;
         for (int i : u.indices()) {
             dot += u.apply(i) * v.apply(i);

@@ -13,11 +13,6 @@ public class DistanceFunctions {
      * @return Cosine distance between u and v.
      */
     public static float cosineDistance(float[] u, float[] v)  {
-
-        if (u.length != v.length) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
         float dot = 0.0f;
         float nru = 0.0f;
         float nrv = 0.0f;
@@ -39,10 +34,6 @@ public class DistanceFunctions {
      * @return Cosine distance between u and v.
      */
     public static float innerProduct(float[] u, float[] v) {
-        if (u.length != v.length) {
-            throw new IllegalArgumentException("Vectors have non-matching dimensions");
-        }
-
         float dot = 0;
         for (int i = 0; i < u.length; i++) {
             dot += u[i] * v[i];
