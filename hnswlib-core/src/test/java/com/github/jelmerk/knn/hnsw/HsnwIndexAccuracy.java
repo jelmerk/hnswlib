@@ -1,11 +1,11 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.Index;
+import com.github.jelmerk.knn.ReadOnlyIndex;
 import com.github.jelmerk.knn.SearchResult;
-import com.github.jelmerk.knn.bruteforce.BruteForceIndex;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
@@ -14,69 +14,43 @@ public class HsnwIndexAccuracy {
 
     public static void main(String[] args) throws Exception {
 
-//        Random random = new Random(1000);
-//
-//        int numTests = 100;
         int numResults = 10;
-        int numDimensions = 300;
-//
-//        float[][] tests  = new float[numTests][numDimensions];
-//
-//        for (int i = 0; i < numTests; i++) {
-//            tests[i] = generateRandomVector(random, numDimensions);
-//        }
 
-        String[] words = new String[] {
+        List<String> words = Arrays.asList(
             "fiets", "appel", "trein", "computer", "schoen", "trui", "rood", "lopen", "werken", "eten",
             "kast", "keuken", "huis", "hamer", "tas", "kat", "koe", "data", "koning"
-        };
+        );
 
-
-        System.out.println("Finished generating test vectors.");
-
-        Index<String, float[], Word, Float> bruteForceIndex =
-                BruteForceIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-bruteforce-index.ser"));
-
-        System.out.println("Finished loading brute force index");
-
-        float[][] tests  = new float[words.length][numDimensions];
-
-        for (int i = 0; i < words.length; i++) {
-            tests[i] = bruteForceIndex.get(words[i]).get().vector();
-        }
-
-        System.out.println("Done picking some random words from the index to use as entrypoints.");
-
-
-        List<List<SearchResult<Word, Float>>> bruteForceResults = performQueries(bruteForceIndex, tests, numResults);
-
-        System.out.println("Finished testing brute force index.");
-
-        bruteForceIndex = null;
-
-        Index<String, float[], Word, Float> hnswIndex =
-                    HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
+        HnswIndex<String, float[], Word, Float> hnswIndex =
+                HnswIndex.load(new File("/Users/jkuperus/cc.nl.300.vec-new.ser3"));
 
         System.out.println("Finished loading hnsw index");
 
-        List<List<SearchResult<Word, Float>>> hnswResults = performQueries(hnswIndex, tests, numResults);
+        ReadOnlyIndex<String, float[], Word, Float> bruteForceIndex = hnswIndex.exactView();
+
+        System.out.println("Done picking some random words from the index to use as entrypoints.");
+
+        List<List<SearchResult<Word, Float>>> bruteForceResults = performQueries(bruteForceIndex, words, numResults);
+
+        System.out.println("Finished testing brute force index.");
+
+
+        List<List<SearchResult<Word, Float>>> hnswResults = performQueries(hnswIndex, words, numResults);
 
         System.out.println("Finished testing hnsw index.");
-
-//        hnswIndex = null;
 
         System.out.println("Calculating precision.");
 
         double sumPrecision = 0;
 
-        for (int i = 0; i < tests.length; i++) {
+        for (int i = 0; i < words.size(); i++) {
             List<SearchResult<Word, Float>> bruteForceResult = bruteForceResults.get(i);
             List<SearchResult<Word, Float>> hnswResult = hnswResults.get(i);
 
             sumPrecision += calculatePrecision(bruteForceResult, hnswResult);
         }
 
-        System.out.println("Precision at " + numResults + " : " + sumPrecision / (double) tests.length);
+        System.out.println("Precision at " + numResults + " : " + sumPrecision / (double) words.size());
 
     }
 
@@ -84,27 +58,20 @@ public class HsnwIndexAccuracy {
             List<SearchResult<Word, Float>> expectedResults,
             List<SearchResult<Word, Float>> actualResults) {
 
-        int correct = 0;
-
-        for (SearchResult<Word, Float> expectedResult : expectedResults) {
-            if (actualResults.contains(expectedResult)) {
-                correct++;
-            }
-        }
-
+        int correct = actualResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
         return (double) correct / (double) expectedResults.size();
     }
 
     private static List<List<SearchResult<Word, Float>>> performQueries(
-            Index<String, float[], Word, Float> index,
-            float[][] tests,
+            ReadOnlyIndex<String, float[], Word, Float> index,
+            List<String> words,
             int numResults) {
-        List<List<SearchResult<Word, Float>>> results = new ArrayList<>(tests.length);
+        List<List<SearchResult<Word, Float>>> results = new ArrayList<>(words.size());
 
         System.out.print("Performing queries ");
-        for (float[] vector : tests) {
+        for (String id : words) {
             System.out.print(".");
-            results.add(index.findNearest(vector, numResults));
+            results.add(index.findNeighbours(id, numResults));
         }
 
         System.out.print("\n");

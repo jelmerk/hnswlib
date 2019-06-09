@@ -47,6 +47,12 @@ object HnswIndex {
 
     val exactView: ReadOnlyIndex[TId, TVector, TItem, TDistance] =
       new DelegatingReadOnlyIndex(delegate.exactView())
+
+    val m: Int = delegate.getM
+
+    val ef: Int = delegate.getEf
+
+    val efConstruction: Int = delegate.getEfConstruction
   }
 
 }

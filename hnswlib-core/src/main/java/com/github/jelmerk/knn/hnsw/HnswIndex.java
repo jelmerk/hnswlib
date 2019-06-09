@@ -551,6 +551,33 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Returns the number of bi-directional links created for every new element during construction.
+     *
+     * @return the number of bi-directional links created for every new element during construction
+     */
+    public int getM() {
+        return m;
+    }
+
+    /**
+     * The size of the dynamic list for the nearest neighbors (used during the search)
+     *
+     * @return The size of the dynamic list for the nearest neighbors
+     */
+    public int getEf() {
+        return ef;
+    }
+
+    /**
+     * Returns the parameter has the same meaning as ef, but controls the index time / index accuracy.
+     *
+     * @return the parameter has the same meaning as ef, but controls the index time / index accuracy
+     */
+    public int getEfConstruction() {
+        return efConstruction;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
