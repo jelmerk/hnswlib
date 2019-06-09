@@ -110,7 +110,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
@@ -128,7 +128,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
@@ -147,7 +147,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */

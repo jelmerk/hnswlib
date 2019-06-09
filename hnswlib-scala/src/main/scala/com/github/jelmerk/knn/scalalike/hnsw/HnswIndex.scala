@@ -8,6 +8,7 @@ import com.github.jelmerk.knn.DistanceFunction
 import com.github.jelmerk.knn.scalalike.{DelegatingIndex, DelegatingReadOnlyIndex, Item, ReadOnlyIndex}
 
 object HnswIndex {
+
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
     : HnswIndex[TId, TVector, TItem, TDistance] = new HnswIndex(JHnswIndex.load(inputStream))
 
@@ -24,18 +25,22 @@ object HnswIndex {
     maxItemCount : Int,
     m: Int = JHnswIndex.Builder.DEFAULT_M,
     ef: Int = JHnswIndex.Builder.DEFAULT_EF,
-    efConstruction: Int = JHnswIndex.Builder.DEFAULT_EF_CONSTRUCTION)(implicit ordering: Ordering[TDistance])
+    efConstruction: Int = JHnswIndex.Builder.DEFAULT_EF_CONSTRUCTION,
+    removeEnabled: Boolean = JHnswIndex.Builder.DEFAULT_REMOVE_ENABLED)(implicit ordering: Ordering[TDistance])
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
     val jDistanceFunction = new DistanceFunction[TVector, TDistance] {
       override def distance(u: TVector, v: TVector): TDistance = distanceFunction(u, v)
     }
 
-    val jIndex = JHnswIndex.newBuilder(jDistanceFunction, ordering, maxItemCount)
-        .withM(m)
-        .withEf(ef)
-        .withEfConstruction(efConstruction)
-        .build[TId, TItem]()
+    val builder = JHnswIndex.newBuilder(jDistanceFunction, ordering, maxItemCount)
+      .withM(m)
+      .withEf(ef)
+      .withEfConstruction(efConstruction)
+
+    val jIndex =
+      if(removeEnabled) builder.withRemoveEnabled().build[TId, TItem]()
+      else builder.build[TId, TItem]()
 
     new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
   }

@@ -45,6 +45,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final double levelLambda;
     private final int ef;
     private final int efConstruction;
+    private final boolean removeEnabled;
 
     private volatile int itemCount;
     private final AtomicReferenceArray<Node<TItem>> nodes;
@@ -74,6 +75,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.levelLambda = 1 / Math.log(this.m);
         this.efConstruction = Math.max(builder.efConstruction, m);
         this.ef = builder.ef;
+        this.removeEnabled = builder.removeEnabled;
 
         this.globalLock = new ReentrantLock();
 
@@ -117,6 +119,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean remove(TId id) {
+        if (!removeEnabled) {
+            throw new UnsupportedOperationException("Index does not have removes enabled.");
+        }
+
         Integer internalNodeId = lookup.get(id);
 
         if (id == null) {
@@ -194,12 +200,18 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int randomLevel = assignLevel(item.id(), this.levelLambda);
 
             IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
-            IntArrayList[] incomingConnections = new IntArrayList[randomLevel + 1];
 
             for (int level = 0; level <= randomLevel; level++) {
                 int levelM = randomLevel == 0 ? maxM0 : maxM;
                 outgoingConnections[level] = new IntArrayList(levelM);
-                incomingConnections[level] = new IntArrayList(levelM);
+            }
+
+            IntArrayList[] incomingConnections = removeEnabled ? new IntArrayList[randomLevel + 1] : null;
+            if (removeEnabled) {
+                for (int level = 0; level <= randomLevel; level++) {
+                    int levelM = randomLevel == 0 ? maxM0 : maxM;
+                    incomingConnections[level] = new IntArrayList(levelM);
+                }
             }
 
             Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
@@ -307,7 +319,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
             synchronized (neighbourNode) {
 
-                neighbourNode.incomingConnections[level].add(newNodeId);
+                if (removeEnabled) {
+                    neighbourNode.incomingConnections[level].add(newNodeId);
+                }
 
                 TVector neighbourVector = neighbourNode.item.vector();
 
@@ -350,7 +364,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
 
-            if (removedWeakestNodeId != newNodeId && removedWeakestNodeId != -1) {
+            if (removeEnabled && removedWeakestNodeId != newNodeId && removedWeakestNodeId != -1) {
                 Node<TItem> weakestNode = nodes.get(removedWeakestNodeId);
                 synchronized (weakestNode) {
                     weakestNode.incomingConnections[level].remove(selectedNeighbourId);
@@ -595,7 +609,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
@@ -611,7 +625,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ..).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      */
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance
@@ -627,7 +641,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector> The type of the vector to perform distance calculation on
      * @param <TItem> The type of items to connect into small world.
      * @param <TDistance> The type of distance between items (expect any numeric type: float, double, int, ...).
-     * @return the Small world restored from a file
+     * @return the index world restored from a file
      * @throws IOException in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */
@@ -788,6 +802,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public static final int DEFAULT_M = 10;
         public static final int DEFAULT_EF = 10;
         public static final int DEFAULT_EF_CONSTRUCTION = 200;
+        public static final boolean DEFAULT_REMOVE_ENABLED = false;
 
         private DistanceFunction<TVector, TDistance> distanceFunction;
         private Comparator<TDistance> distanceComparator;
@@ -797,6 +812,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private int m = DEFAULT_M;
         private int ef = DEFAULT_EF;
         private int efConstruction = DEFAULT_EF_CONSTRUCTION;
+        private boolean removeEnabled = DEFAULT_REMOVE_ENABLED;
 
         /**
          * Constructs a new {@link Builder} instance.
@@ -855,6 +871,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          */
         public Builder<TVector, TDistance> withEf(int ef) {
             this.ef = ef;
+            return this;
+        }
+
+        /**
+         * Call to enable support for the experimental remove operation. Indices that support removes will consume more
+         * memory.
+         *
+         * @return the builder
+         */
+        public Builder<TVector, TDistance> withRemoveEnabled() {
+            this.removeEnabled = true;
             return this;
         }
 
