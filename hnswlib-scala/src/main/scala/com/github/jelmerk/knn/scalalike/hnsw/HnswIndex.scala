@@ -108,7 +108,7 @@ object HnswIndex {
   }
 
   /**
-    * Implementation of [[com.github.jelmerk.knn.Index]] that implements the hnsw algorithm.
+    * Implementation of Index that implements the hnsw algorithm.
     *
     * @see See [[https://arxiv.org/abs/1603.09320]] for more information.
     *
