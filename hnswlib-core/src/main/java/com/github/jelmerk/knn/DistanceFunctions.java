@@ -1,17 +1,7 @@
 package com.github.jelmerk.knn;
 
 /**
- * Calculates cosine similarity.
- *
- * Intuition behind selecting float as a carrier.
- *
- * 1. In practice we work with vectors of dimensionality 100 and each component has value in range [-1; 1]
- *    There certainly is a possibility of underflow.
- *    But we assume that such cases are rare and we can rely on such underflow losses.
- *
- * 2. According to the article http://www.ti3.tuhh.de/paper/rump/JeaRu13.pdf
- *    the floating point rounding error is less then 100 * 2^-24 * sqrt(100) * sqrt(100) &lt; 0.0005960
- *    We deem such precision is satisfactory for out needs.
+ * Various distance metrics.
  */
 public class DistanceFunctions {
 

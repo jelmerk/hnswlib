@@ -1,10 +1,7 @@
 package com.github.jelmerk.knn.hnsw;
 
 
-import com.github.jelmerk.knn.DistanceFunction;
-import com.github.jelmerk.knn.Index;
-import com.github.jelmerk.knn.Item;
-import com.github.jelmerk.knn.SearchResult;
+import com.github.jelmerk.knn.*;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.stack.primitive.MutableIntStack;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
@@ -543,6 +540,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Creates a read only view on top of this index that uses pairwise comparision when doing distance search. And as
+     * such can be used as a baseline for assessing the accuracy of the index.
+     * Searches will be really slow but give the correct result every time.
+     *
+     * @return read only view on top of this index that uses pairwise comparision when doing distance search
+     */
+    public ReadOnlyIndex<TId, TVector, TItem, TDistance> exactView() {
+        return new ExactView();
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
@@ -649,6 +657,53 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private boolean gt(TDistance x, TDistance y) {
         return distanceComparator.compare(x, y) > 0;
+    }
+
+    class ExactView implements ReadOnlyIndex<TId, TVector, TItem, TDistance> {
+        @Override
+        public int size() {
+            return HnswIndex.this.size();
+        }
+
+        @Override
+        public Optional<TItem> get(TId tId) {
+            return HnswIndex.this.get(tId);
+        }
+
+        @Override
+        public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
+
+            Comparator<SearchResult<TItem, TDistance>> comparator = Comparator
+                    .<SearchResult<TItem, TDistance>>naturalOrder()
+                    .reversed();
+
+            PriorityQueue<SearchResult<TItem, TDistance>> queue = new PriorityQueue<>(k, comparator);
+
+            for (int i = 0; i < itemCount; i++) {
+                Node<TItem> node = nodes.get(i);
+                if (node == null) {
+                    continue;
+                }
+
+                TDistance distance = distanceFunction.distance(node.item.vector(), vector);
+
+                SearchResult<TItem, TDistance> searchResult = new SearchResult<>(node.item, distance, distanceComparator);
+                queue.add(searchResult);
+
+                if (queue.size() > k) {
+                    queue.poll();
+                }
+            }
+
+            List<SearchResult<TItem, TDistance>> results = new ArrayList<>(queue.size());
+
+            SearchResult<TItem, TDistance> result;
+            while((result = queue.poll()) != null) { // if you iterate over a priority queue the order is not guaranteed
+                results.add(0, result);
+            }
+
+            return results;
+        }
     }
 
     static class Node<TItem> implements Serializable {

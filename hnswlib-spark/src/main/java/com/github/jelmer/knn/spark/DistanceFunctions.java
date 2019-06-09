@@ -1,6 +1,6 @@
 package com.github.jelmer.knn.spark;
 
-import org.apache.spark.ml.linalg.Vector;
+import org.apache.spark.ml.linalg.DenseVector;
 
 public class DistanceFunctions {
 
@@ -11,7 +11,7 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double cosineDistance(Vector u, Vector v) {
+    public static double cosineDistance(DenseVector u, DenseVector v) {
         if (u.size() != v.size()) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
         }
@@ -36,7 +36,7 @@ public class DistanceFunctions {
      * @param v Right vector.
      * @return Cosine distance between u and v.
      */
-    public static double innerProduct(Vector u, Vector v) {
+    public static double innerProduct(DenseVector u, DenseVector v) {
         if (u.size() != v.size()) {
             throw new IllegalArgumentException("Vectors have non-matching dimensions");
         }

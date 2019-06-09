@@ -97,34 +97,25 @@ Frequently asked questions
 
 - How do I measure the accuracy of the index ?
 
-  This library comes with a brute force implementation of the Index interface that you can compare against
+  By calling exactView on the hnswlib index you create a read only view on the HnswIndex that produces exact results.
+  Which you can use to compare the resuls of the approximative index with
   
   
-        Index<String, float[], Word, Float> groundTruthIndex = BruteForceIndex
-            .newBuilder(DistanceFunctions::cosineDistance)
-                .build();
-        groundTruthIndex.addAll(words);
-                        
-        
-        Index<String, float[], Word, Float> hnswIndex = HnswIndex
-            .newBuilder(DistanceFunctions::cosineDistance, words.size())
+        HnswIndex<String, float[], Word, Float> hnswIndex = HnswIndex
+                .newBuilder(DistanceFunctions::cosineDistance, words.size())
                 .build();
         hnswIndex.addAll(words);
 
-        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);        
+        ReadOnlyIndex<String, float[], Word, Float> groundTruthIndex = hnswIndex.exactView();
+
+        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);
         List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbours("king", 10);
 
-        int correct = 0;
-
-        for (SearchResult<Word, Float> expectedResult : expectedResults) {
-            if (actualResults.contains(expectedResult)) {
-                correct++;
-            }
-        }
-
+        int correct = actualResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
         double precision = (double) correct / (double) expectedResults.size();
-        
+
         System.out.printf("Precision @10 : %f%n", precision);
+
 
   If the accuracy is not what you expect take a look at javadoc of the parameters of the hnsw index builder.
     

@@ -2,7 +2,6 @@ import java.io.File
 
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
-import com.github.jelmerk.knn.scalalike.bruteforce._
 
 import scala.io.Source
 import scala.util.Random
@@ -42,21 +41,14 @@ object Testje {
       }
       .toSeq
 
-
-    val fullBruteForceIndex =
-      BruteForceIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.cosineDistance)  // DistanceFunctions.cosineDistance _
-
-
-    fullBruteForceIndex.addAll(words)
-
-    println(s"Done indexing $indexSize items in brute force index.")
-
     val fullHnswIndex =
       HnswIndex[String, Array[Float], FastTextWord, Float](DistanceFunctions.cosineDistance, words.size, m, ef, efConstruction)
 
     fullHnswIndex.addAll(words, listener = (workDone: Int, max: Int) => {
       println(s"Indexed $workDone of $max items for full hnsw index.")
     })
+
+    val fullBruteForceIndex = fullHnswIndex.exactView
 
     val nonExpiredWords = words.filterNot(_.expired)
 
