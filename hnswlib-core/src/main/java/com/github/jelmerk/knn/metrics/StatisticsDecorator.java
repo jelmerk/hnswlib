@@ -2,7 +2,6 @@ package com.github.jelmerk.knn.metrics;
 
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
-import com.github.jelmerk.knn.ReadOnlyIndex;
 import com.github.jelmerk.knn.SearchResult;
 import org.eclipse.collections.impl.list.mutable.primitive.DoubleArrayList;
 
@@ -19,11 +18,9 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
     private final Index<TId, TVector, TItem, TDistance> delegate;
-    private final ReadOnlyIndex<TId, TVector, TItem, TDistance> groundTruth;
+    private final Index<TId, TVector, TItem, TDistance> groundTruth;
     private final int sampleFrequency;
 
-    private AtomicLong addCount = new AtomicLong();
-    private AtomicLong removeCount = new AtomicLong();
     private AtomicLong searchCount = new AtomicLong();
 
     private final MovingAverageAccuracyCalculator accuracyEvaluator;
@@ -31,7 +28,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
     private ExecutorService executorService;
 
     public StatisticsDecorator(Index<TId, TVector, TItem, TDistance> delegate,
-                               ReadOnlyIndex<TId, TVector, TItem, TDistance> groundTruth,
+                               Index<TId, TVector, TItem, TDistance> groundTruth,
                                int accuracySampleFrequency) {
 
         this.delegate = delegate;
@@ -40,19 +37,17 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
         this.executorService = Executors.newSingleThreadExecutor();
 
-        this.accuracyEvaluator = new MovingAverageAccuracyCalculator(10, 1000);
+        this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, 1000);
         this.executorService.submit(accuracyEvaluator);
     }
 
     @Override
     public void add(TItem item) {
-        addCount.getAndIncrement();
         delegate.add(item);
     }
 
     @Override
     public boolean remove(TId id) {
-        removeCount.getAndIncrement();
         return delegate.remove(id);
     }
 
@@ -71,17 +66,20 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         List<SearchResult<TItem, TDistance>> searchResults = delegate.findNearest(vector, k);
 
         if (searchCount.getAndIncrement() % sampleFrequency == 0) {
-            accuracyEvaluator.offer(new RequestAndResults(vector, k, searchResults));
+            accuracyEvaluator.offer(new RequestArgumentsAndResults(vector, k, searchResults));
         }
 
         return searchResults;
     }
 
+    public IndexStats stats() {
+        return new IndexStats(accuracyEvaluator.getAveragePrecision());
+    }
 
     class MovingAverageAccuracyCalculator implements Runnable {
 
         private final int samples;
-        private final ArrayBlockingQueue<RequestAndResults> queue;
+        private final ArrayBlockingQueue<RequestArgumentsAndResults> queue;
         private final DoubleArrayList results;
 
         private volatile boolean running = true;
@@ -98,7 +96,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         public void run() {
             try {
                 while (running) {
-                    RequestAndResults item = queue.poll(500, TimeUnit.MILLISECONDS);
+                    RequestArgumentsAndResults item = queue.poll(500, TimeUnit.MILLISECONDS);
 
                     if (item != null) {
                         List<SearchResult<TItem, TDistance>> expectedResults = groundTruth.findNearest(item.vector, item.k);
@@ -121,7 +119,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
             }
         }
 
-        boolean offer(RequestAndResults requestAndResults) {
+        boolean offer(RequestArgumentsAndResults requestAndResults) {
             return queue.offer(requestAndResults); // won't block if we can't keep up but will return false
         }
 
@@ -134,12 +132,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         }
     }
 
-    class RequestAndResults {
+    class RequestArgumentsAndResults {
         TVector vector;
         int k;
         List<SearchResult<TItem, TDistance>> searchResults;
 
-        RequestAndResults(TVector vector, int k, List<SearchResult<TItem, TDistance>> searchResults) {
+        RequestArgumentsAndResults(TVector vector, int k, List<SearchResult<TItem, TDistance>> searchResults) {
             this.vector = vector;
             this.k = k;
             this.searchResults = searchResults;

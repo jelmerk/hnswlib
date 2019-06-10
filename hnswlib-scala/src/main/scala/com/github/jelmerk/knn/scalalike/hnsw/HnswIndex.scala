@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 import com.github.jelmerk.knn.hnsw.{HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.DistanceFunction
-import com.github.jelmerk.knn.scalalike.{DelegatingIndex, DelegatingReadOnlyIndex, Item, ReadOnlyIndex}
+import com.github.jelmerk.knn.scalalike.{DelegatingIndex, Index, Item}
 
 object HnswIndex {
 
@@ -129,8 +129,8 @@ object HnswIndex {
       * such can be used as a baseline for assessing the accuracy of the index.
       * Searches will be really slow but give the correct result every time.
       */
-    val exactView: ReadOnlyIndex[TId, TVector, TItem, TDistance] =
-      new DelegatingReadOnlyIndex(delegate.exactView())
+    def asExactIndex: Index[TId, TVector, TItem, TDistance] =
+      new DelegatingIndex(delegate.asExactIndex())
 
     /**
       * The number of bi-directional links created for every new element during construction.

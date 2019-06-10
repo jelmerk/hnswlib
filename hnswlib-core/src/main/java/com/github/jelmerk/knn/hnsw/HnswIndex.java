@@ -562,8 +562,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      *
      * @return read only view on top of this index that uses pairwise comparision when doing distance search
      */
-    public ReadOnlyIndex<TId, TVector, TItem, TDistance> exactView() {
-        return new ExactView();
+    public Index<TId, TVector, TItem, TDistance> asExactIndex() {
+        return new ExactIndex();
     }
 
     /**
@@ -705,7 +705,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return distanceComparator.compare(x, y) > 0;
     }
 
-    class ExactView implements ReadOnlyIndex<TId, TVector, TItem, TDistance> {
+    class ExactIndex implements Index<TId, TVector, TItem, TDistance> {
         @Override
         public int size() {
             return HnswIndex.this.size();
@@ -749,6 +749,36 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
 
             return results;
+        }
+
+        @Override
+        public void add(TItem item) {
+            HnswIndex.this.add(item);
+        }
+
+        @Override
+        public boolean remove(TId id) {
+            return HnswIndex.this.remove(id);
+        }
+
+        @Override
+        public List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
+            return HnswIndex.this.findNeighbours(id, k);
+        }
+
+        @Override
+        public void save(OutputStream out) throws IOException {
+            HnswIndex.this.save(out);
+        }
+
+        @Override
+        public void save(File file) throws IOException {
+            HnswIndex.this.save(file);
+        }
+
+        @Override
+        public void save(Path path) throws IOException {
+            HnswIndex.this.save(path);
         }
     }
 

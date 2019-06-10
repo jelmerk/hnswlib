@@ -48,7 +48,7 @@ object Testje {
       println(s"Indexed $workDone of $max items for full hnsw index.")
     })
 
-    val fullBruteForceIndex = fullHnswIndex.exactView
+    val fullBruteForceIndex = fullHnswIndex.asExactIndex
 
     val nonExpiredWords = words.filterNot(_.expired)
 

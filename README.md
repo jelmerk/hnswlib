@@ -130,7 +130,7 @@ Frequently asked questions
                 .build();
         hnswIndex.addAll(words);
 
-        ReadOnlyIndex<String, float[], Word, Float> groundTruthIndex = hnswIndex.exactView();
+        Index<String, float[], Word, Float> groundTruthIndex = hnswIndex.asExactIndex();
 
         List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);
         List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbours("king", 10);

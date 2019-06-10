@@ -1,6 +1,6 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.ReadOnlyIndex;
+import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.SearchResult;
 
 import java.io.File;
@@ -26,7 +26,7 @@ public class HsnwIndexAccuracy {
 
         System.out.println("Finished loading hnsw index");
 
-        ReadOnlyIndex<String, float[], Word, Float> bruteForceIndex = hnswIndex.exactView();
+        Index<String, float[], Word, Float> bruteForceIndex = hnswIndex.asExactIndex();
 
         System.out.println("Done picking some random words from the index to use as entrypoints.");
 
@@ -63,7 +63,7 @@ public class HsnwIndexAccuracy {
     }
 
     private static List<List<SearchResult<Word, Float>>> performQueries(
-            ReadOnlyIndex<String, float[], Word, Float> index,
+            Index<String, float[], Word, Float> index,
             List<String> words,
             int numResults) {
         List<List<SearchResult<Word, Float>>> results = new ArrayList<>(words.size());
