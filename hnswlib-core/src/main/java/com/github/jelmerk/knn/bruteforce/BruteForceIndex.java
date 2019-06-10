@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Implementation of {@link Index} that does pairwise comparison and as such can be used as a baseline for measuring
- * approximate nearest neighbours index accuracy.
+ * approximate nearest neighbours index precision.
  *
  * @param <TId> Type of the external identifier of an item
  * @param <TVector> Type of the vector to perform distance calculation on

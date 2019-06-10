@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.metrics;
+package com.github.jelmerk.knn.statistics;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -7,14 +7,14 @@ public class IndexStats implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private final double accuracy;
+    private final double precision;
 
-    public IndexStats(double accuracy) {
-        this.accuracy = accuracy;
+    public IndexStats(double precision) {
+        this.precision = precision;
     }
 
-    public double accuracy() {
-        return accuracy;
+    public double precision() {
+        return precision;
     }
 
     @Override
@@ -22,18 +22,18 @@ public class IndexStats implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         IndexStats that = (IndexStats) o;
-        return Double.compare(that.accuracy, accuracy) == 0;
+        return Double.compare(that.precision, precision) == 0;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(accuracy);
+        return Objects.hash(precision);
     }
 
     @Override
     public String toString() {
         return "IndexStats{" +
-                "accuracy=" + accuracy +
+                "precision=" + precision +
                 '}';
     }
 }

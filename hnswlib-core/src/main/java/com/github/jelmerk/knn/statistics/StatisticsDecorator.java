@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.metrics;
+package com.github.jelmerk.knn.statistics;
 
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
@@ -14,8 +14,19 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Decorator on top of an index that will collect statistics about the index. Such as the precision of the results
+ * returned by the approximative index compared to a brute force baseline.
+ *
+ * @param <TId> Type of the external identifier of an item
+ * @param <TVector> Type of the vector to perform distance calculation on
+ * @param <TItem> Type of items stored in the index
+ * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+ */
 public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
+
+    public static final int DEFAULT_NUM_SAMPLES = 1000;
 
     private final Index<TId, TVector, TItem, TDistance> delegate;
     private final Index<TId, TVector, TItem, TDistance> groundTruth;
@@ -27,40 +38,82 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
     private ExecutorService executorService;
 
+    /**
+     * Constructs a new StatisticsDecorator.
+     *
+     * @param delegate the approximative index
+     * @param groundTruth the brute force index
+     * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
+     *                                    will be compared with those of the groundTruth to establish the the runtime
+     *                                    precision of the index.
+     * @param numSamples number of samples to calculate the moving average over
+     */
     public StatisticsDecorator(Index<TId, TVector, TItem, TDistance> delegate,
                                Index<TId, TVector, TItem, TDistance> groundTruth,
-                               int accuracySampleFrequency) {
+                               int maxPrecisionSampleFrequency,
+                               int numSamples) {
 
         this.delegate = delegate;
         this.groundTruth = groundTruth;
-        this.sampleFrequency = accuracySampleFrequency;
+        this.sampleFrequency = maxPrecisionSampleFrequency;
 
         this.executorService = Executors.newSingleThreadExecutor();
 
-        this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, 1000);
+        this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, numSamples);
         this.executorService.submit(accuracyEvaluator);
     }
 
+    /**
+     * Constructs a new StatisticsDecorator. Statistics will be calulated over the last
+     * {@link StatisticsDecorator#DEFAULT_NUM_SAMPLES} number of collected datapoints.
+     *
+     * @param delegate the approximative index
+     * @param groundTruth the brute force index
+     * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
+     *                                    will be compared with those of the groundTruth to establish the the runtime
+     *                                    precision of the index.
+     */
+    public StatisticsDecorator(Index<TId, TVector, TItem, TDistance> delegate,
+                               Index<TId, TVector, TItem, TDistance> groundTruth,
+                               int maxPrecisionSampleFrequency) {
+        this(delegate, groundTruth, maxPrecisionSampleFrequency, DEFAULT_NUM_SAMPLES);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void add(TItem item) {
         delegate.add(item);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public boolean remove(TId id) {
         return delegate.remove(id);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public int size() {
         return delegate.size();
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public Optional<TItem> get(TId id) {
         return delegate.get(id);
     }
 
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
         List<SearchResult<TItem, TDistance>> searchResults = delegate.findNearest(vector, k);
@@ -72,6 +125,11 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         return searchResults;
     }
 
+    /**
+     * Returns the collected statistics for this index.
+     *
+     * @return the collected statistics for this index
+     */
     public IndexStats stats() {
         return new IndexStats(accuracyEvaluator.getAveragePrecision());
     }
@@ -85,11 +143,11 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         private volatile boolean running = true;
         private volatile double averagePrecision;
 
-        MovingAverageAccuracyCalculator(int maxBacklog, int samples) {
-            this.samples = samples;
+        MovingAverageAccuracyCalculator(int maxBacklog, int numSamples) {
+            this.samples = numSamples;
 
             this.queue  = new ArrayBlockingQueue<>(maxBacklog);
-            this.results = new DoubleArrayList(samples);
+            this.results = new DoubleArrayList(numSamples);
         }
 
         @Override

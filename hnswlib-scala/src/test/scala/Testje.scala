@@ -5,8 +5,8 @@ import com.github.jelmerk.knn.scalalike.hnsw._
 
 import scala.io.Source
 import scala.util.Random
-
 import com.github.jelmerk.knn.DistanceFunctions
+import com.github.jelmerk.knn.scalalike.statistics.StatisticsDecorator
 
 case class FastTextWord(id: String, vector: Array[Float], expired: Boolean)
   extends Item[String, Array[Float]]

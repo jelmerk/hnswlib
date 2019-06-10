@@ -557,7 +557,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     /**
      * Creates a read only view on top of this index that uses pairwise comparision when doing distance search. And as
-     * such can be used as a baseline for assessing the accuracy of the index.
+     * such can be used as a baseline for assessing the precision of the index.
      * Searches will be really slow but give the correct result every time.
      *
      * @return read only view on top of this index that uses pairwise comparision when doing distance search
@@ -585,9 +585,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Returns the parameter has the same meaning as ef, but controls the index time / index accuracy.
+     * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
      *
-     * @return the parameter has the same meaning as ef, but controls the index time / index accuracy
+     * @return the parameter has the same meaning as ef, but controls the index time / index precision
      */
     public int getEfConstruction() {
         return efConstruction;
@@ -883,13 +883,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         /**
-         * The parameter has the same meaning as ef, but controls the index time / index accuracy. Bigger efConstruction
+         * The parameter has the same meaning as ef, but controls the index time / index precision. Bigger efConstruction
          * leads to longer construction, but better index quality. At some point, increasing efConstruction does not
          * improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure
          * a recall for M nearest neighbor search when ef = efConstruction: if the recall is lower than 0.9, then
          * there is room for improvement.
          *
-         * @param efConstruction controls the index time / index accuracy
+         * @param efConstruction controls the index time / index precision
          * @return the builder
          */
         public Builder<TVector, TDistance> withEfConstruction(int efConstruction) {

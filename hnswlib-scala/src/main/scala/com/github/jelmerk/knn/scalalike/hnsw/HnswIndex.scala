@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 import com.github.jelmerk.knn.hnsw.{HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.DistanceFunction
-import com.github.jelmerk.knn.scalalike.{DelegatingIndex, Index, Item}
+import com.github.jelmerk.knn.scalalike.{ScalaIndexAdapter, Index, Item}
 
 object HnswIndex {
 
@@ -69,7 +69,7 @@ object HnswIndex {
     *                       assuming that m * efConstruction is a constant.
     * @param ef             The size of the dynamic list for the nearest neighbors (used during the search). Higher ef leads to more
     *                       accurate but slower search. The value ef of can be anything between k and the size of the dataset.
-    * @param efConstruction The parameter has the same meaning as ef, but controls the index time / index accuracy. Bigger efConstruction
+    * @param efConstruction The parameter has the same meaning as ef, but controls the index time / index precision. Bigger efConstruction
     *                       leads to longer construction, but better index quality. At some point, increasing efConstruction does not
     *                       improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure
     *                       a recall for M nearest neighbor search when ef = efConstruction: if the recall is lower than 0.9, then
@@ -121,16 +121,16 @@ object HnswIndex {
     */
   @SerialVersionUID(1L)
   class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](
-    protected val delegate: JHnswIndex[TId, TVector, TItem, TDistance])
-      extends DelegatingIndex[TId, TVector, TItem ,TDistance](delegate) {
+    delegate: JHnswIndex[TId, TVector, TItem, TDistance])
+      extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
 
     /**
       * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
-      * such can be used as a baseline for assessing the accuracy of the index.
+      * such can be used as a baseline for assessing the precision of the index.
       * Searches will be really slow but give the correct result every time.
       */
     def asExactIndex: Index[TId, TVector, TItem, TDistance] =
-      new DelegatingIndex(delegate.asExactIndex())
+      new ScalaIndexAdapter(delegate.asExactIndex())
 
     /**
       * The number of bi-directional links created for every new element during construction.
@@ -143,7 +143,7 @@ object HnswIndex {
     val ef: Int = delegate.getEf
 
     /**
-      * Returns the parameter has the same meaning as ef, but controls the index time / index accuracy.
+      * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
       */
     val efConstruction: Int = delegate.getEfConstruction
   }

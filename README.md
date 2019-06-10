@@ -119,7 +119,7 @@ Frequently asked questions
    Since the amount of memory used scales roughly linearly with the amount of elements you should be able to work out your memory requirements 
    
 
-- How do I measure the accuracy of the index ?
+- How do I measure the precision of the index ?
 
   By calling exactView on the hnswlib index you create a read only view on the HnswIndex that produces exact results.
   Which you can use to compare the resuls of the approximative index with
@@ -141,5 +141,5 @@ Frequently asked questions
         System.out.printf("Precision @10 : %f%n", precision);
 
 
-  If the accuracy is not what you expect take a look at javadoc of the parameters of the hnsw index builder.
+  If the precision is not what you expect take a look at javadoc of the parameters of the hnsw index builder.
     

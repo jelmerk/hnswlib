@@ -5,7 +5,7 @@ import java.nio.file.Path
 
 import com.github.jelmerk.knn.DistanceFunction
 import com.github.jelmerk.knn.bruteforce.{BruteForceIndex => JBruteForceIndex}
-import com.github.jelmerk.knn.scalalike.{DelegatingIndex, Index, Item}
+import com.github.jelmerk.knn.scalalike.{ScalaIndexAdapter, Index, Item}
 
 object BruteForceIndex {
 
@@ -22,7 +22,7 @@ object BruteForceIndex {
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
     : Index[TId, TVector, TItem, TDistance] =
-      new DelegatingIndex(JBruteForceIndex.load(inputStream))
+      new ScalaIndexAdapter(JBruteForceIndex.load(inputStream))
 
   /**
     * Restores a BruteForceIndex from a File.
@@ -37,7 +37,7 @@ object BruteForceIndex {
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File)
     : Index[TId, TVector, TItem, TDistance] =
-      new DelegatingIndex(JBruteForceIndex.load(file))
+      new ScalaIndexAdapter(JBruteForceIndex.load(file))
 
   /**
     * Restores a BruteForceIndex from a Path.
@@ -52,7 +52,7 @@ object BruteForceIndex {
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path)
     : Index[TId, TVector, TItem, TDistance] =
-      new DelegatingIndex(JBruteForceIndex.load(path))
+      new ScalaIndexAdapter(JBruteForceIndex.load(path))
 
   def apply[TId, TVector, TItem <: Item[TId, TVector], TDistance ]
       (distanceFunction: (TVector, TVector) => TDistance)(implicit ordering: Ordering[TDistance])
@@ -64,6 +64,6 @@ object BruteForceIndex {
 
     val jIndex = JBruteForceIndex.newBuilder(jDistanceFunction, ordering).build[TId, TItem]()
 
-    new DelegatingIndex[TId, TVector, TItem, TDistance](jIndex)
+    new ScalaIndexAdapter[TId, TVector, TItem, TDistance](jIndex)
   }
 }
