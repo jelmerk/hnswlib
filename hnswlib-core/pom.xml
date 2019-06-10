@@ -9,7 +9,7 @@
     <parent>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-parent-pom</artifactId>
-        <version>0.0.2</version>
+        <version>0.0.3-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
 
