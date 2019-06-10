@@ -36,6 +36,19 @@ Scala code example :
     }
       
 
+Maven coordinates :
+
+    <dependency>
+        <groupId>com.github.jelmerk</groupId>
+        <artifactId>hnswlib-parent-pom</artifactId>
+        <version>0.0.2</version>
+    </dependency>
+
+Sbt coordinates :
+
+
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.2"
+
 Frequently asked questions
 --------------------------
 
