@@ -58,7 +58,7 @@ public class HsnwIndexAccuracy {
             List<SearchResult<Word, Float>> expectedResults,
             List<SearchResult<Word, Float>> actualResults) {
 
-        int correct = actualResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
+        int correct = expectedResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
         return (double) correct / (double) expectedResults.size();
     }
 

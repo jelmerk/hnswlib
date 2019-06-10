@@ -135,7 +135,7 @@ Frequently asked questions
         List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);
         List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbours("king", 10);
 
-        int correct = actualResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
+        int correct = expectedResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
         double precision = (double) correct / (double) expectedResults.size();
 
         System.out.printf("Precision @10 : %f%n", precision);
