@@ -71,7 +71,7 @@ public class HsnwIndexAccuracy {
         System.out.print("Performing queries ");
         for (String id : words) {
             System.out.print(".");
-            results.add(index.findNeighbours(id, numResults));
+            results.add(index.findNeighbors(id, numResults));
         }
 
         System.out.print("\n");

@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * Read write K-nearest neighbours search index.
+ * Read write K-nearest neighbors search index.
  *
  * @param <TId> Type of the external identifier of an item
  * @param <TVector> Type of the vector to perform distance calculation on
@@ -154,11 +154,11 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * Find the items closest to the item identified by the passed in id. If the id does not match an item an empty
      * list is returned. the element itself is not included in the response.
      *
-     * @param id id of the item to find the neighbours of
+     * @param id id of the item to find the neighbors of
      * @param k number of items to return
      * @return the items closest to the item
      */
-    default List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
+    default List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
         return get(id).map(item -> findNearest(item.vector(), k + 1).stream()
                 .filter(result -> !result.item().id().equals(id))
                 .limit(k)

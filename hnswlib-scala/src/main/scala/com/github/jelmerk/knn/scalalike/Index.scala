@@ -6,7 +6,7 @@ import java.nio.file.Path
 import com.github.jelmerk.knn.{Index => JIndex}
 
 /**
-  * K-nearest neighbours search index.
+  * K-nearest neighbors search index.
   *
   * @tparam TId type of the external identifier of an item
   * @tparam TVector The type of the vector to perform distance calculation on
@@ -87,11 +87,11 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
     * Find the items closest to the item identified by the passed in id. If the id does not match an item an empty
     * list is returned. the element itself is not included in the response.
 
-    * @param id of the item to find the neighbours of
-    * @param k number of neighbours to return
+    * @param id of the item to find the neighbors of
+    * @param k number of neighbors to return
     * @return the items closest to the item
     */
-  def findNeighbours(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]]
+  def findNeighbors(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]]
 
   /**
     * Saves the index to an OutputStream.

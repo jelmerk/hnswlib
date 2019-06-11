@@ -18,7 +18,7 @@ public class HsnwIndexReadPerformance {
 
         System.out.println("done loading index");
 
-        List<SearchResult<Word, Float>> nearest = index.findNeighbours("koning", 10);
+        List<SearchResult<Word, Float>> nearest = index.findNeighbors("koning", 10);
 
         for (SearchResult<Word, Float> result : nearest) {
             System.out.println(result.item().id() + " " + result.distance());

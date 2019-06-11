@@ -35,8 +35,8 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](de
   override def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asScala
 
-  override def findNeighbours(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
-    delegate.findNeighbours(id, k).asScala
+  override def findNeighbors(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
+    delegate.findNeighbors(id, k).asScala
 
   override def save(out: OutputStream): Unit = delegate.save(out)
 

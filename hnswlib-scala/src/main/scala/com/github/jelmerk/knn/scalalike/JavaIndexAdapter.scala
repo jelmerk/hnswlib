@@ -33,7 +33,7 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](del
   override def addAll(items: JCollection[TItem], numThreads: Int, progressListener: ProgressListener, progressUpdateInterval: Int): Unit =
     delegate.addAll(items.asScala, numThreads, (workDone, max) => progressListener.updateProgress(workDone, max), progressUpdateInterval)
 
-  override def findNeighbours(id: TId, k: Int): JList[SearchResult[TItem, TDistance]] = delegate.findNeighbours(id, k).asJava
+  override def findNeighbors(id: TId, k: Int): JList[SearchResult[TItem, TDistance]] = delegate.findNeighbors(id, k).asJava
 
   override def save(out: OutputStream): Unit = delegate.save(out)
 

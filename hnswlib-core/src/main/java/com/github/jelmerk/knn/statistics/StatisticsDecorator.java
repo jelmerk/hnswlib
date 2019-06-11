@@ -9,8 +9,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -36,7 +34,6 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
     private final MovingAverageAccuracyCalculator accuracyEvaluator;
 
-    private ExecutorService executorService;
 
     /**
      * Constructs a new StatisticsDecorator.
@@ -57,10 +54,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         this.groundTruth = groundTruth;
         this.sampleFrequency = maxPrecisionSampleFrequency;
 
-        this.executorService = Executors.newSingleThreadExecutor();
-
         this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, numSamples);
-        this.executorService.submit(accuracyEvaluator);
+
+        Thread thread = new Thread(accuracyEvaluator);
+        thread.setName("accuracyEvaluator");
+        thread.setDaemon(true);
+        thread.start();
     }
 
     /**

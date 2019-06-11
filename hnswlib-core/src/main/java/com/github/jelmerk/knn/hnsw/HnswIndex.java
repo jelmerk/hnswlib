@@ -762,8 +762,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         @Override
-        public List<SearchResult<TItem, TDistance>> findNeighbours(TId id, int k) {
-            return HnswIndex.this.findNeighbours(id, k);
+        public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
+            return HnswIndex.this.findNeighbors(id, k);
         }
 
         @Override

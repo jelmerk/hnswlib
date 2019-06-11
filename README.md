@@ -19,7 +19,7 @@ Java code example:
 
     index.addAll(words);
     
-    List<SearchResult<Word, Float>> nearest = index.findNeighbours("king", 10);
+    List<SearchResult<Word, Float>> nearest = index.findNeighbors("king", 10);
     
     for (SearchResult<Word, Float> result : nearest) {
         System.out.println(result.getItem().getId() + " " + result.getDistance());
@@ -31,7 +31,7 @@ Scala code example :
       
     index.addAll(words)
     
-    index.findNeighbours("king", k = 10).foreach { case SearchResult(item, distance) => 
+    index.findNeighbors("king", k = 10).foreach { case SearchResult(item, distance) => 
       println(s"$item $distance")
     }
       
@@ -132,8 +132,8 @@ Frequently asked questions
 
         Index<String, float[], Word, Float> groundTruthIndex = hnswIndex.asExactIndex();
 
-        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbours("king", 10);
-        List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbours("king", 10);
+        List<SearchResult<Word, Float>> expectedResults = groundTruthIndex.findNeighbors("king", 10);
+        List<SearchResult<Word, Float>> actualResults = hnswIndex.findNeighbors("king", 10);
 
         int correct = expectedResults.stream().mapToInt(r -> actualResults.contains(r) ? 1 : 0).sum();
         double precision = (double) correct / (double) expectedResults.size();
