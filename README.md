@@ -121,7 +121,7 @@ Frequently asked questions
 
 - How do I measure the precision of the index ?
 
-  By calling exactView on the hnswlib index you create a read only view on the HnswIndex that produces exact results.
+  By calling asExactIndex on the hnswlib index you create a view on the HnswIndex that produces exact results.
   Which you can use to compare the resuls of the approximative index with
   
   

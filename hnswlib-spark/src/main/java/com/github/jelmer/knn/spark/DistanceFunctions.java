@@ -1,5 +1,6 @@
 package com.github.jelmer.knn.spark;
 
+import org.apache.spark.ml.linalg.Vector;
 import org.apache.spark.ml.linalg.DenseVector;
 import org.apache.spark.ml.linalg.SparseVector;
 
@@ -25,6 +26,10 @@ public class DistanceFunctions {
 
         double similarity = dot / (Math.sqrt(nru) * Math.sqrt(nrv));
         return 1 - similarity;
+    }
+
+    public static double denseVectorCosineDistance(Vector u, Vector v) {
+        return denseVectorCosineDistance((DenseVector) u, (DenseVector) v);
     }
 
     /**
