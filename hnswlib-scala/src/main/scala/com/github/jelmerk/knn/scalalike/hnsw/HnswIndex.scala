@@ -107,45 +107,44 @@ object HnswIndex {
     new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
   }
 
+}
+
+/**
+  * Implementation of Index that implements the hnsw algorithm.
+  *
+  * @see See [[https://arxiv.org/abs/1603.09320]] for more information.
+  *
+  * @param delegate the java index to delegate calls to
+  *
+  * @tparam TId Type of the external identifier of an item
+  * @tparam TVector Type of the vector to perform distance calculation on
+  * @tparam TItem Type of items stored in the index
+  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+  */
+@SerialVersionUID(1L)
+class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (delegate: JHnswIndex[TId, TVector, TItem, TDistance])
+  extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
+
   /**
-    * Implementation of Index that implements the hnsw algorithm.
-    *
-    * @see See [[https://arxiv.org/abs/1603.09320]] for more information.
-    *
-    * @param delegate the java index to delegate calls to
-    *
-    * @tparam TId Type of the external identifier of an item
-    * @tparam TVector Type of the vector to perform distance calculation on
-    * @tparam TItem Type of items stored in the index
-    * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+    * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
+    * such can be used as a baseline for assessing the precision of the index.
+    * Searches will be really slow but give the correct result every time.
     */
-  @SerialVersionUID(1L)
-  class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](
-    delegate: JHnswIndex[TId, TVector, TItem, TDistance])
-      extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
+  def asExactIndex: Index[TId, TVector, TItem, TDistance] =
+    new ScalaIndexAdapter(delegate.asExactIndex())
 
-    /**
-      * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
-      * such can be used as a baseline for assessing the precision of the index.
-      * Searches will be really slow but give the correct result every time.
-      */
-    def asExactIndex: Index[TId, TVector, TItem, TDistance] =
-      new ScalaIndexAdapter(delegate.asExactIndex())
+  /**
+    * The number of bi-directional links created for every new element during construction.
+    */
+  val m: Int = delegate.getM
 
-    /**
-      * The number of bi-directional links created for every new element during construction.
-      */
-    val m: Int = delegate.getM
+  /**
+    * The size of the dynamic list for the nearest neighbors (used during the search)
+    */
+  val ef: Int = delegate.getEf
 
-    /**
-      * The size of the dynamic list for the nearest neighbors (used during the search)
-      */
-    val ef: Int = delegate.getEf
-
-    /**
-      * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
-      */
-    val efConstruction: Int = delegate.getEfConstruction
-  }
-
+  /**
+    * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
+    */
+  val efConstruction: Int = delegate.getEfConstruction
 }

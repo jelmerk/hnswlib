@@ -8,6 +8,7 @@ import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import static com.github.jelmerk.knn.util.VectorUtils.normalize;
 
 public class HnswIndexFastText {
 
@@ -37,7 +38,8 @@ public class HnswIndexFastText {
                     vector[i] = Float.valueOf(tokens[i]);
                 }
 
-                words.add(new Word(word, vector));
+//                words.add(new Word(word, vector));
+                words.add(new Word(word, normalize(vector)));
             }
 
         }
@@ -47,7 +49,8 @@ public class HnswIndexFastText {
         int m = 16;
 
         HnswIndex<String, float[], Word, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
+//                .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
+                  .newBuilder(DistanceFunctions::floatArrayInnerProduct, words.size())
                     .withM(m)
                     .build();
 
