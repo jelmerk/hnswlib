@@ -1,6 +1,6 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.DistanceFunctions;
+import com.github.jelmerk.knn.FloatDistanceFunctions;
 import com.github.jelmerk.knn.SearchResult;
 
 import java.io.BufferedReader;
@@ -49,8 +49,8 @@ public class HnswIndexFastText {
         int m = 16;
 
         HnswIndex<String, float[], Word, Float> index = HnswIndex
-//                .newBuilder(DistanceFunctions::floatArrayCosineDistance, words.size())
-                  .newBuilder(DistanceFunctions::floatArrayInnerProduct, words.size())
+//                .newBuilder(DistanceFunctions::cosineDistance, words.size())
+                  .newBuilder(FloatDistanceFunctions::innerProduct, words.size())
                     .withM(m)
                     .build();
 

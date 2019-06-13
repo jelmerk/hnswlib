@@ -6,6 +6,8 @@ package object scalalike {
 
   type SearchResult[TItem, TDistance] = com.github.jelmerk.knn.SearchResult[TItem, TDistance]
 
-  type DistanceFunctions = com.github.jelmerk.knn.DistanceFunctions
+  type FloatDistanceFunctions = com.github.jelmerk.knn.FloatDistanceFunctions
+
+  type DoubleDistanceFunctions = com.github.jelmerk.knn.DoubleDistanceFunctions
 
 }

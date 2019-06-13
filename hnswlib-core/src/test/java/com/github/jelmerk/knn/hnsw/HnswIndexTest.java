@@ -1,6 +1,6 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.DistanceFunctions;
+import com.github.jelmerk.knn.FloatDistanceFunctions;
 import com.github.jelmerk.knn.SearchResult;
 import org.junit.Before;
 import org.junit.Test;
@@ -39,7 +39,7 @@ public class HnswIndexTest {
     public void testKnnSearch() {
 
         HnswIndex<String, float[], TestItem, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions::floatArrayCosineDistance, items.size())
+                .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
                     .build();
 
         for (TestItem item : items) {
@@ -62,7 +62,7 @@ public class HnswIndexTest {
     public void testSerialization() throws Exception {
 
         HnswIndex<String, float[], TestItem, Float> original = HnswIndex
-                .newBuilder(DistanceFunctions::floatArrayCosineDistance, items.size())
+                .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
                     .build();
 
         for (TestItem item : items) {

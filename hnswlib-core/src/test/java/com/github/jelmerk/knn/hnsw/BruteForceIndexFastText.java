@@ -1,6 +1,6 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.DistanceFunctions;
+import com.github.jelmerk.knn.FloatDistanceFunctions;
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.bruteforce.BruteForceIndex;
 
@@ -48,7 +48,7 @@ public class BruteForceIndexFastText {
         System.out.println("Loaded " + words.size() + " words.");
 
         Index<String, float[], Word, Float> index = BruteForceIndex
-                .newBuilder(DistanceFunctions::floatArrayCosineDistance)
+                .newBuilder(FloatDistanceFunctions::cosineDistance)
                     .build();
 
         index.addAll(words);
