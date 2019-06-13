@@ -40,14 +40,14 @@ Maven coordinates :
 
     <dependency>
         <groupId>com.github.jelmerk</groupId>
-        <artifactId>hnswlib-parent-pom</artifactId>
+        <artifactId>hnswlib-core</artifactId>
         <version>0.0.6</version>
     </dependency>
 
 Sbt coordinates :
 
 
-    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.3"
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.6"
 
 Frequently asked questions
 --------------------------
