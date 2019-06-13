@@ -30,7 +30,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     int DEFAULT_PROGRESS_UPDATE_INTERVAL = 100_000;
 
     /**
-     * Add a new item to the index.
+     * Add a new item to the index. If the item already exists in the index the old item will first be removed from the
+     * index. for this removes need to be enabled for the index.
      *
      * @param item the item to add to the index
      */

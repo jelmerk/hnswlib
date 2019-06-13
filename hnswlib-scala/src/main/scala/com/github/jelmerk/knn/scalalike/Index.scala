@@ -24,7 +24,8 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
   type ProgressListener = (Int, Int) => Unit
 
   /**
-    * Add a new item to the index.
+    * Add a new item to the index. If the item already exists in the index the old item will first be removed from the
+    * index. for this removes need to be enabled for the index.
     *
     * @param item the item to add to the index
     */
@@ -46,11 +47,11 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
 
   /**
     * Removes an item from the index.
+    *
     * @param id unique identifier or the item to remove
     * @return true if this list contained the specified element
     */
   def remove(id: TId): Boolean
-
 
   /**
     * Returns the size of the index.

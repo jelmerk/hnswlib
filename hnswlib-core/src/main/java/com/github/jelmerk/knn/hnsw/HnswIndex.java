@@ -189,6 +189,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             int newNodeId;
 
             synchronized (freedIds) {
+
+                if (lookup.containsKey(item.id())) {
+                    remove(item.id());
+                }
+
                 if (freedIds.isEmpty()) {
                     if (itemCount >= this.maxItemCount) {
                         throw new IllegalStateException("The number of elements exceeds the specified limit.");
