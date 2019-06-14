@@ -58,8 +58,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final ReentrantLock globalLock;
 
     private final ReadWriteLock addRemoveLock;
-    private final Lock addLock;
-    private final Lock removeLock;
+    private final Lock nonExclusiveLock;
+    private final Lock exclusiveLock;
 
     private final Pool<VisitedBitSet> visitedBitSetPool;
 
@@ -80,8 +80,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.globalLock = new ReentrantLock();
 
         this.addRemoveLock = new ReentrantReadWriteLock();
-        this.addLock = addRemoveLock.readLock();
-        this.removeLock = addRemoveLock.writeLock();
+        this.nonExclusiveLock = addRemoveLock.readLock();
+        this.exclusiveLock = addRemoveLock.writeLock();
 
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
@@ -128,7 +128,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         if (id == null) {
             return false;
         } else {
-            removeLock.lock();
+            exclusiveLock.lock();
 
             try {
                 Node<TItem> node = nodes.get(internalNodeId);
@@ -171,7 +171,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 return true;
 
             } finally {
-                removeLock.unlock();
+                exclusiveLock.unlock();
             }
         }
 
@@ -183,49 +183,49 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void add(TItem item) {
-        addLock.lock();
 
-        try {
-            int newNodeId;
+        int randomLevel = assignLevel(item.id(), this.levelLambda);
 
-            synchronized (freedIds) {
+        IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
 
-                if (lookup.containsKey(item.id())) {
-                    remove(item.id());
-                }
+        for (int level = 0; level <= randomLevel; level++) {
+            int levelM = randomLevel == 0 ? maxM0 : maxM;
+            outgoingConnections[level] = new IntArrayList(levelM);
+        }
 
-                if (freedIds.isEmpty()) {
-                    if (itemCount >= this.maxItemCount) {
-                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
-                    }
-                    newNodeId = itemCount++;
-                } else {
-                    newNodeId = freedIds.pop();
-                }
-            }
-
-            int randomLevel = assignLevel(item.id(), this.levelLambda);
-
-            IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
-
+        IntArrayList[] incomingConnections = removeEnabled ? new IntArrayList[randomLevel + 1] : null;
+        if (removeEnabled) {
             for (int level = 0; level <= randomLevel; level++) {
                 int levelM = randomLevel == 0 ? maxM0 : maxM;
-                outgoingConnections[level] = new IntArrayList(levelM);
+                incomingConnections[level] = new IntArrayList(levelM);
+            }
+        }
+
+        Node<TItem> newNode;
+
+        synchronized (freedIds) {
+            if (lookup.containsKey(item.id())) {
+                remove(item.id());
             }
 
-            IntArrayList[] incomingConnections = removeEnabled ? new IntArrayList[randomLevel + 1] : null;
-            if (removeEnabled) {
-                for (int level = 0; level <= randomLevel; level++) {
-                    int levelM = randomLevel == 0 ? maxM0 : maxM;
-                    incomingConnections[level] = new IntArrayList(levelM);
+            int newNodeId;
+            if (freedIds.isEmpty()) {
+                if (itemCount >= this.maxItemCount) {
+                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
                 }
+                newNodeId = itemCount++;
+            } else {
+                newNodeId = freedIds.pop();
             }
 
-            Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
-
+            newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
             nodes.set(newNodeId, newNode);
-
             lookup.put(item.id(), newNodeId);
+
+            nonExclusiveLock.lock();
+        }
+
+        try {
 
             globalLock.lock();
 
@@ -299,7 +299,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
         } finally {
-            addLock.unlock();
+            nonExclusiveLock.unlock();
         }
     }
 

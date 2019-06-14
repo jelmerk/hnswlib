@@ -7,6 +7,7 @@ import org.junit.Test;
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -34,15 +35,38 @@ public class HnswIndexTest {
                 .collect(Collectors.toList());
     }
 
+    @Test
+    public void testReplace() {
+
+        ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+
+        ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
+
+
+        writeLock.lock();
+        writeLock.lock();
+
+
+        HnswIndex<String, float[], TestItem, Float> index = HnswIndex
+                .newBuilder(FloatDistanceFunctions::cosineDistance, 1)
+                .withRemoveEnabled()
+                .build();
+
+        index.add(items.get(0));
+        index.add(items.get(0));
+    }
+
 
     @Test
     public void testKnnSearch() {
 
         HnswIndex<String, float[], TestItem, Float> index = HnswIndex
                 .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
+                    .withRemoveEnabled()
                     .build();
 
         for (TestItem item : items) {
+            index.add(item);
             index.add(item);
         }
 
