@@ -1,5 +1,7 @@
 package com.github.jelmerk.knn;
 
+import org.nustaq.serialization.FSTObjectOutput;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -174,7 +176,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @throws IOException in case of I/O exception
      */
     default void save(OutputStream out) throws IOException {
-        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
+        try(FSTObjectOutput oos = new FSTObjectOutput(out)) {
             oos.writeObject(this);
         }
     }

@@ -4,6 +4,7 @@ package com.github.jelmerk.knn.hnsw;
 import com.github.jelmerk.knn.FloatDistanceFunctions;
 import com.github.jelmerk.knn.Item;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +38,7 @@ public class HnswIndexPerfTest {
     public static void main(String[] args) throws Exception {
 
 
-        List<MyItem> items = generateRandomItems(100_000, 64);
+        List<MyItem> items = generateRandomItems(200_000, 300);
 
         System.out.println("Done generating random vectors.");
 
@@ -46,7 +47,7 @@ public class HnswIndexPerfTest {
         int m = 10;
 
         HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
-                .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
+                .newBuilder(FloatDistanceFunctions::innerProduct, items.size())
                     .withM(m)
                     .build();
 
@@ -63,7 +64,14 @@ public class HnswIndexPerfTest {
 
         System.out.println("Done creating index. took : " + duration + "ms");
 
-        index.save(new File("/Users/jkuperus/17_million_90.ser"));
+        long startSave = System.currentTimeMillis();
+        index.save(new ByteArrayOutputStream());
+
+        long endSave = System.currentTimeMillis();
+
+        long saveDuration = endSave - startSave;
+
+        System.out.println("save took "  + saveDuration);
     }
 
     private static List<MyItem> generateRandomItems(int numItems, int vectorSize) {

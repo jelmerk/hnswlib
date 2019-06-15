@@ -6,6 +6,9 @@ import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.stack.primitive.MutableIntStack;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.stack.mutable.primitive.IntArrayStack;
+import org.nustaq.serialization.FSTConfiguration;
+import org.nustaq.serialization.FSTObjectInput;
+import org.nustaq.serialization.FSTObjectOutput;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -31,7 +34,22 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
-    // TODO implement Externalizable and store these Nodes more efficiently so the graph loads faster on deserialization
+
+    private static final FSTConfiguration fstConfiguration = FSTConfiguration.createDefaultConfiguration();
+
+    static {
+        fstConfiguration.setShareReferences(false);
+        fstConfiguration.registerClass(HnswIndex.Node.class,
+                           VisitedBitSet.class,
+                           Pool.class,
+                           IntArrayList.class,
+                           ReentrantReadWriteLock.class,
+                           ReentrantReadWriteLock.ReadLock.class,
+                           ReentrantReadWriteLock.WriteLock.class,
+                           ReentrantLock.class,
+                           IntArrayList[].class,
+                           ArrayBlockingQueue.class);
+    }
 
     private static final long serialVersionUID = 1L;
 
@@ -57,7 +75,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private final ReentrantLock globalLock;
 
-    private final ReadWriteLock addRemoveLock;
+    private final ReadWriteLock readWriteLock;
     private final Lock nonExclusiveLock;
     private final Lock exclusiveLock;
 
@@ -79,9 +97,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        this.addRemoveLock = new ReentrantReadWriteLock();
-        this.nonExclusiveLock = addRemoveLock.readLock();
-        this.exclusiveLock = addRemoveLock.writeLock();
+        this.readWriteLock = new ReentrantReadWriteLock();
+        this.nonExclusiveLock = readWriteLock.readLock();
+        this.exclusiveLock = readWriteLock.writeLock();
 
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
@@ -603,8 +621,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
-            oos.writeObject(this);
+        try(FSTObjectOutput oos = new FSTObjectOutput(out, fstConfiguration)) {
+            oos.writeObject(this, HnswIndex.class);
         }
     }
 
@@ -660,9 +678,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
                 throws IOException {
 
-        try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-            return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
-        } catch (ClassNotFoundException e) {
+        try(FSTObjectInput ois = new FSTObjectInput(inputStream, fstConfiguration)) {
+            return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject(HnswIndex.class);
+        } catch(IOException e) {
+            throw e;
+        } catch (Exception e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
     }

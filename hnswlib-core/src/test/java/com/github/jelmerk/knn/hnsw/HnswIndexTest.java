@@ -89,12 +89,18 @@ public class HnswIndexTest {
                 .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
                     .build();
 
+        System.out.println(items.size());
+
         for (TestItem item : items) {
             original.add(item);
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         original.save(baos);
+        baos.flush();
+
+        System.out.println(baos.toByteArray().length); // 129280
+                                                       // 129075
 
         HnswIndex<String, float[], TestItem, Float> loaded = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
 
