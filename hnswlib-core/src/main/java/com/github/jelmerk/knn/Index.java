@@ -1,7 +1,5 @@
 package com.github.jelmerk.knn;
 
-import org.nustaq.serialization.FSTObjectOutput;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -170,19 +168,15 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Saves the index to an OutputStream.
+     * Saves the index to an OutputStream. Only call this when the index is not being modified.
      *
      * @param out the output stream to write the index to
      * @throws IOException in case of I/O exception
      */
-    default void save(OutputStream out) throws IOException {
-        try(FSTObjectOutput oos = new FSTObjectOutput(out)) {
-            oos.writeObject(this);
-        }
-    }
+    void save(OutputStream out) throws IOException;
 
     /**
-     * Saves the index to a file.
+     * Saves the index to a file. Only call this when the index is not being modified.
      *
      * @param file file to write the index to
      * @throws IOException in case of I/O exception
@@ -192,7 +186,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Saves the index to a path.
+     * Saves the index to a path. Only call this when the index is not being modified.
      *
      * @param path file to write the index to
      * @throws IOException in case of I/O exception

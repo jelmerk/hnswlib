@@ -3,9 +3,9 @@ package com.github.jelmerk.knn.scalalike.hnsw
 import java.io.{File, InputStream}
 import java.nio.file.Path
 
-import com.github.jelmerk.knn.hnsw.{HnswIndex => JHnswIndex}
+import com.github.jelmerk.knn.hnsw.{JavaObjectSerializer, HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.DistanceFunction
-import com.github.jelmerk.knn.scalalike.{ScalaIndexAdapter, Index, Item}
+import com.github.jelmerk.knn.scalalike.{Index, Item, ScalaIndexAdapter}
 
 object HnswIndex {
 
@@ -88,7 +88,9 @@ object HnswIndex {
     m: Int = JHnswIndex.Builder.DEFAULT_M,
     ef: Int = JHnswIndex.Builder.DEFAULT_EF,
     efConstruction: Int = JHnswIndex.Builder.DEFAULT_EF_CONSTRUCTION,
-    removeEnabled: Boolean = JHnswIndex.Builder.DEFAULT_REMOVE_ENABLED)(implicit ordering: Ordering[TDistance])
+    removeEnabled: Boolean = JHnswIndex.Builder.DEFAULT_REMOVE_ENABLED,
+    itemIdSerializer: ObjectSerializer[TId] = new JavaObjectSerializer[TId],
+    itemSerializer: ObjectSerializer[TItem] = new JavaObjectSerializer[TItem])(implicit ordering: Ordering[TDistance])
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
     val jDistanceFunction = new DistanceFunction[TVector, TDistance] {
@@ -99,10 +101,11 @@ object HnswIndex {
       .withM(m)
       .withEf(ef)
       .withEfConstruction(efConstruction)
+      .withCustomSerializers(itemIdSerializer, itemSerializer)
 
     val jIndex =
-      if(removeEnabled) builder.withRemoveEnabled().build[TId, TItem]()
-      else builder.build[TId, TItem]()
+      if(removeEnabled) builder.withRemoveEnabled().build()
+      else builder.build()
 
     new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
   }

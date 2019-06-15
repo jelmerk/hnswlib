@@ -4,7 +4,6 @@ import com.github.jelmerk.knn.DistanceFunction;
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
 import com.github.jelmerk.knn.SearchResult;
-import org.nustaq.serialization.FSTObjectInput;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -102,6 +101,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         return results;
     }
 
+
+    @Override
+    public void save(OutputStream out) throws IOException {
+        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
+            oos.writeObject(this);
+        }
+    }
+
     /**
      * Restores a {@link BruteForceIndex} from a File.
      *
@@ -157,7 +164,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         BruteForceIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream) throws IOException {
 
-        try(FSTObjectInput ois = new FSTObjectInput(inputStream)) {
+        try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
             return (BruteForceIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);

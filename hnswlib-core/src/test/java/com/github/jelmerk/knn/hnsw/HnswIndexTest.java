@@ -58,17 +58,23 @@ public class HnswIndexTest {
 
 
     @Test
-    public void testKnnSearch() {
+    public void testKnnSearch() throws Exception{
 
         HnswIndex<String, float[], TestItem, Float> index = HnswIndex
                 .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
                     .withRemoveEnabled()
                     .build();
 
+
+
         for (TestItem item : items) {
             index.add(item);
             index.add(item);
         }
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        index.save(baos);
+        index = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
 
         for (TestItem item : this.items) {
 
@@ -85,8 +91,12 @@ public class HnswIndexTest {
     @Test
     public void testSerialization() throws Exception {
 
+        ObjectSerializer<String> itemIdSerializer = new JavaObjectSerializer<>();
+        ObjectSerializer<TestItem> itemSerializer = new JavaObjectSerializer<>();
+
         HnswIndex<String, float[], TestItem, Float> original = HnswIndex
                 .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
+                    .withCustomSerializers(itemIdSerializer, itemSerializer)
                     .build();
 
         System.out.println(items.size());
