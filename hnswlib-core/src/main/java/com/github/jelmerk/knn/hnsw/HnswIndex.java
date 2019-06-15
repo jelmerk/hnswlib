@@ -805,6 +805,21 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public void save(Path path) throws IOException {
             HnswIndex.this.save(path);
         }
+
+        @Override
+        public void addAll(Collection<TItem> items) throws InterruptedException {
+            HnswIndex.this.addAll(items);
+        }
+
+        @Override
+        public void addAll(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
+            HnswIndex.this.addAll(items, listener);
+        }
+
+        @Override
+        public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
+            HnswIndex.this.addAll(items, numThreads, listener, progressUpdateInterval);
+        }
     }
 
     static class Node<TItem> implements Serializable {

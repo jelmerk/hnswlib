@@ -2,10 +2,16 @@ package com.github.jelmerk.knn.statistics;
 
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
+import com.github.jelmerk.knn.ProgressListener;
 import com.github.jelmerk.knn.SearchResult;
 import org.eclipse.collections.impl.list.mutable.primitive.DoubleArrayList;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.io.Serializable;
+import java.nio.file.Path;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -122,6 +128,62 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         }
 
         return searchResults;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAll(Collection<TItem> items) throws InterruptedException {
+        delegate.addAll(items);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAll(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
+        delegate.addAll(items, listener);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
+        delegate.addAll(items, numThreads, listener, progressUpdateInterval);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
+        return delegate.findNeighbors(id, k);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void save(OutputStream out) throws IOException {
+        delegate.save(out);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void save(File file) throws IOException {
+        delegate.save(file);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void save(Path path) throws IOException {
+        delegate.save(path);
     }
 
     /**
