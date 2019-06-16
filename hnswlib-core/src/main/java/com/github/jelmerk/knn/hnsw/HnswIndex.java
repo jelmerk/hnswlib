@@ -1089,44 +1089,33 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    /**
-     * Builder for initializing an {@link HnswIndex} instance.
-     *
-     * @param <TVector> Type of the vector to perform distance calculation on
-     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
-     */
-    public static class Builder<TVector, TDistance> {
+    public static abstract class BuilderBase<TBuilder extends BuilderBase<TBuilder, TVector, TDistance>, TVector, TDistance> {
 
         public static final int DEFAULT_M = 10;
         public static final int DEFAULT_EF = 10;
         public static final int DEFAULT_EF_CONSTRUCTION = 200;
         public static final boolean DEFAULT_REMOVE_ENABLED = false;
 
-        private DistanceFunction<TVector, TDistance> distanceFunction;
-        private Comparator<TDistance> distanceComparator;
+        DistanceFunction<TVector, TDistance> distanceFunction;
+        Comparator<TDistance> distanceComparator;
 
+        int maxItemCount;
 
-        private int maxItemCount;
+        int m = DEFAULT_M;
+        int ef = DEFAULT_EF;
+        int efConstruction = DEFAULT_EF_CONSTRUCTION;
+        boolean removeEnabled = DEFAULT_REMOVE_ENABLED;
 
-        private int m = DEFAULT_M;
-        private int ef = DEFAULT_EF;
-        private int efConstruction = DEFAULT_EF_CONSTRUCTION;
-        private boolean removeEnabled = DEFAULT_REMOVE_ENABLED;
-
-        /**
-         * Constructs a new {@link Builder} instance.
-         *
-         * @param distanceFunction the distance function
-         * @param maxItemCount the maximum number of elements in the index
-         */
-        Builder(DistanceFunction<TVector, TDistance> distanceFunction,
-                Comparator<TDistance> distanceComparator,
-                int maxItemCount) {
+        BuilderBase(DistanceFunction<TVector, TDistance> distanceFunction,
+                    Comparator<TDistance> distanceComparator,
+                    int maxItemCount) {
 
             this.distanceFunction = distanceFunction;
             this.distanceComparator = distanceComparator;
             this.maxItemCount = maxItemCount;
         }
+
+        abstract TBuilder self();
 
         /**
          * Sets the number of bi-directional links created for every new element during construction. Reasonable range
@@ -1142,9 +1131,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param m the number of bi-directional links created for every new element during construction
          * @return the builder.
          */
-        public Builder<TVector, TDistance> withM(int m) {
+        public TBuilder withM(int m) {
             this.m = m;
-            return this;
+            return self();
         }
 
         /**`
@@ -1157,9 +1146,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param efConstruction controls the index time / index precision
          * @return the builder
          */
-        public Builder<TVector, TDistance> withEfConstruction(int efConstruction) {
+        public TBuilder withEfConstruction(int efConstruction) {
             this.efConstruction = efConstruction;
-            return this;
+            return self();
         }
 
         /**
@@ -1169,9 +1158,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param ef size of the dynamic list for the nearest neighbors
          * @return the builder
          */
-        public Builder<TVector, TDistance> withEf(int ef) {
+        public TBuilder withEf(int ef) {
             this.ef = ef;
-            return this;
+            return self();
         }
 
         /**
@@ -1180,8 +1169,36 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          *
          * @return the builder
          */
-        public Builder<TVector, TDistance> withRemoveEnabled() {
+        public TBuilder withRemoveEnabled() {
             this.removeEnabled = true;
+            return self();
+        }
+    }
+
+
+    /**
+     * Builder for initializing an {@link HnswIndex} instance.
+     *
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     */
+    public static class Builder<TVector, TDistance> extends BuilderBase<Builder<TVector, TDistance>, TVector, TDistance> {
+
+        /**
+         * Constructs a new {@link Builder} instance.
+         *
+         * @param distanceFunction the distance function
+         * @param maxItemCount the maximum number of elements in the index
+         */
+        Builder(DistanceFunction<TVector, TDistance> distanceFunction,
+                Comparator<TDistance> distanceComparator,
+                int maxItemCount) {
+
+            super(distanceFunction, distanceComparator, maxItemCount);
+        }
+
+        @Override
+        Builder<TVector, TDistance> self() {
             return this;
         }
 
@@ -1196,9 +1213,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          */
         public <TId, TItem extends Item<TId, TVector>> RefinedBuilder<TId, TVector, TItem, TDistance>
             withCustomSerializers(ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
-
-            // TODO having to return a refined builder here which is mostly a copy of this builder feels very suboptimal
-            //   but if i don't the whole thing becomes ugly to consume
             return new RefinedBuilder<>(distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
                     removeEnabled, itemIdSerializer, itemSerializer);
         }
@@ -1211,7 +1225,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @return the hnsw index instance
          */
         public <TId, TItem extends Item<TId, TVector>> HnswIndex<TId, TVector, TItem, TDistance> build() {
-
             ObjectSerializer<TId> itemIdSerializer = new JavaObjectSerializer<>();
             ObjectSerializer<TItem> itemSerializer = new JavaObjectSerializer<>();
 
@@ -1221,21 +1234,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     }
 
+    public static class RefinedBuilder<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+            extends BuilderBase<RefinedBuilder<TId, TVector, TItem, TDistance>, TVector, TDistance> {
 
-    public static class RefinedBuilder<TId, TVector, TItem extends Item<TId, TVector>, TDistance> {
         private ObjectSerializer<TId> itemIdSerializer;
         private ObjectSerializer<TItem> itemSerializer;
-
-        private DistanceFunction<TVector, TDistance> distanceFunction;
-        private Comparator<TDistance> distanceComparator;
-
-        private int maxItemCount;
-
-        private int m;
-        private int ef;
-        private int efConstruction;
-        private boolean removeEnabled;
-
 
         RefinedBuilder(DistanceFunction<TVector, TDistance> distanceFunction,
                        Comparator<TDistance> distanceComparator,
@@ -1247,9 +1250,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                        ObjectSerializer<TId> itemIdSerializer,
                        ObjectSerializer<TItem> itemSerializer) {
 
-            this.distanceFunction = distanceFunction;
-            this.distanceComparator = distanceComparator;
-            this.maxItemCount = maxItemCount;
+            super(distanceFunction, distanceComparator, maxItemCount);
 
             this.m = m;
             this.ef = ef;
@@ -1260,60 +1261,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             this.itemSerializer = itemSerializer;
         }
 
-        /**
-         * Sets the number of bi-directional links created for every new element during construction. Reasonable range
-         * for m is 2-100. Higher m work better on datasets with high intrinsic dimensionality and/or high recall,
-         * while low m work better for datasets with low intrinsic dimensionality and/or low recalls. The parameter
-         * also determines the algorithm's memory consumption.
-         * As an example for d = 4 random vectors optimal m for search is somewhere around 6, while for high dimensional
-         * datasets (word embeddings, good face descriptors), higher M are required (e.g. m = 48, 64) for optimal
-         * performance at high recall. The range mM = 12-48 is ok for the most of the use cases. When m is changed one
-         * has to update the other parameters. Nonetheless, ef and efConstruction parameters can be roughly estimated by
-         * assuming that m * efConstruction is a constant.
-         *
-         * @param m the number of bi-directional links created for every new element during construction
-         * @return the builder.
-         */
-        public RefinedBuilder<TId, TVector, TItem, TDistance> withM(int m) {
-            this.m = m;
-            return this;
-        }
-
-        /**`
-         * The parameter has the same meaning as ef, but controls the index time / index precision. Bigger efConstruction
-         * leads to longer construction, but better index quality. At some point, increasing efConstruction does not
-         * improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure
-         * a recall for M nearest neighbor search when ef = efConstruction: if the recall is lower than 0.9, then
-         * there is room for improvement.
-         *
-         * @param efConstruction controls the index time / index precision
-         * @return the builder
-         */
-        public RefinedBuilder<TId, TVector, TItem, TDistance> withEfConstruction(int efConstruction) {
-            this.efConstruction = efConstruction;
-            return this;
-        }
-
-        /**
-         * The size of the dynamic list for the nearest neighbors (used during the search). Higher ef leads to more
-         * accurate but slower search. The value ef of can be anything between k and the size of the dataset.
-         *
-         * @param ef size of the dynamic list for the nearest neighbors
-         * @return the builder
-         */
-        public RefinedBuilder<TId, TVector, TItem, TDistance> withEf(int ef) {
-            this.ef = ef;
-            return this;
-        }
-
-        /**
-         * Call to enable support for the experimental remove operation. Indices that support removes will consume more
-         * memory.
-         *
-         * @return the builder
-         */
-        public RefinedBuilder<TId, TVector, TItem, TDistance> withRemoveEnabled() {
-            this.removeEnabled = true;
+        @Override
+        RefinedBuilder<TId, TVector, TItem, TDistance> self() {
             return this;
         }
 

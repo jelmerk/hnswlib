@@ -89,10 +89,10 @@ object HnswIndex {
   def apply[TId,  TVector, TItem <: Item[TId, TVector], TDistance](
     distanceFunction: (TVector, TVector) => TDistance,
     maxItemCount : Int,
-    m: Int = JHnswIndex.Builder.DEFAULT_M,
-    ef: Int = JHnswIndex.Builder.DEFAULT_EF,
-    efConstruction: Int = JHnswIndex.Builder.DEFAULT_EF_CONSTRUCTION,
-    removeEnabled: Boolean = JHnswIndex.Builder.DEFAULT_REMOVE_ENABLED,
+    m: Int = JHnswIndex.BuilderBase.DEFAULT_M,
+    ef: Int = JHnswIndex.BuilderBase.DEFAULT_EF,
+    efConstruction: Int = JHnswIndex.BuilderBase.DEFAULT_EF_CONSTRUCTION,
+    removeEnabled: Boolean = JHnswIndex.BuilderBase.DEFAULT_REMOVE_ENABLED,
     itemIdSerializer: ObjectSerializer[TId] = new JavaObjectSerializer[TId],
     itemSerializer: ObjectSerializer[TItem] = new JavaObjectSerializer[TItem])(implicit ordering: Ordering[TDistance])
       : HnswIndex[TId, TVector, TItem, TDistance] = {
