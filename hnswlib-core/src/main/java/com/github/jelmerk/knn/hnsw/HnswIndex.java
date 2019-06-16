@@ -642,8 +642,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void save(OutputStream out) throws IOException {
+        exclusiveLock.lock();
 
-        try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
+        try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
 
             oos.writeObject(distanceFunction);
             oos.writeObject(distanceComparator);
@@ -665,6 +666,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             writeNode(oos, entryPoint);
             writeNodes(oos, nodes);
             writeLookup(oos, lookup);
+        } finally {
+            exclusiveLock.unlock();
         }
     }
 

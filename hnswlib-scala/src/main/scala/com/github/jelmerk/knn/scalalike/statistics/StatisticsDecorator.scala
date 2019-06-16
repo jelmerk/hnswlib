@@ -35,9 +35,9 @@ object StatisticsDecorator {
 }
 
 @SerialVersionUID(1L)
-class StatisticsDecorator[TId, TVector, TItem <: Item[TId, TVector], TDistance](
-                                                                                 delegate: JStatisticsDecorator[TId, TVector, TItem, TDistance])
-  extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
+class StatisticsDecorator[TId, TVector, TItem <: Item[TId, TVector], TDistance]
+  (delegate: JStatisticsDecorator[TId, TVector, TItem, TDistance])
+    extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
 
   def stats: IndexStats = delegate.stats
 

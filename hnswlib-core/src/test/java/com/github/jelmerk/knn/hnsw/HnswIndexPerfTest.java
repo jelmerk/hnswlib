@@ -99,7 +99,7 @@ public class HnswIndexPerfTest {
 
         HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
                 .newBuilder(FloatDistanceFunctions::innerProduct, items.size())
-//                .withCustomSerializers(new IdSerializer(), new ItemSerializer())
+                .withCustomSerializers(new IdSerializer(), new ItemSerializer())
                 .withM(m)
                 .build();
 

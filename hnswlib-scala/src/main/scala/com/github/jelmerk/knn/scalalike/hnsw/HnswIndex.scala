@@ -58,24 +58,28 @@ object HnswIndex {
     *
     * @param distanceFunction the distance function
     * @param maxItemCount the maximum number of elements in the index
-    * @param m              Sets the number of bi-directional links created for every new element during construction. Reasonable range
-    *                       for m is 2-100. Higher m work better on datasets with high intrinsic dimensionality and/or high recall,
-    *                       while low m work better for datasets with low intrinsic dimensionality and/or low recalls. The parameter
-    *                       also determines the algorithm's memory consumption.
-    *                       As an example for d = 4 random vectors optimal m for search is somewhere around 6, while for high dimensional
-    *                       datasets (word embeddings, good face descriptors), higher M are required (e.g. m = 48, 64) for optimal
-    *                       performance at high recall. The range mM = 12-48 is ok for the most of the use cases. When m is changed one
-    *                       has to update the other parameters. Nonetheless, ef and efConstruction parameters can be roughly estimated by
-    *                       assuming that m * efConstruction is a constant.
-    * @param ef             The size of the dynamic list for the nearest neighbors (used during the search). Higher ef leads to more
-    *                       accurate but slower search. The value ef of can be anything between k and the size of the dataset.
+    * @param m Sets the number of bi-directional links created for every new element during construction. Reasonable range
+    *          for m is 2-100. Higher m work better on datasets with high intrinsic dimensionality and/or high recall,
+    *          while low m work better for datasets with low intrinsic dimensionality and/or low recalls. The parameter
+    *          also determines the algorithm's memory consumption.
+    *          As an example for d = 4 random vectors optimal m for search is somewhere around 6, while for high dimensional
+    *          datasets (word embeddings, good face descriptors), higher M are required (e.g. m = 48, 64) for optimal
+    *          performance at high recall. The range mM = 12-48 is ok for the most of the use cases. When m is changed one
+    *          has to update the other parameters. Nonetheless, ef and efConstruction parameters can be roughly estimated by
+    *          assuming that m * efConstruction is a constant.
+    * @param ef The size of the dynamic list for the nearest neighbors (used during the search). Higher ef leads to more
+    *           accurate but slower search. The value ef of can be anything between k and the size of the dataset.
     * @param efConstruction The parameter has the same meaning as ef, but controls the index time / index precision. Bigger efConstruction
     *                       leads to longer construction, but better index quality. At some point, increasing efConstruction does not
     *                       improve the quality of the index. One way to check if the selection of ef_construction was ok is to measure
     *                       a recall for M nearest neighbor search when ef = efConstruction: if the recall is lower than 0.9, then
     *                       there is room for improvement
-    * @param removeEnabled  enable or disable the experimental remove operation. Indices that support removes will consume more memory
-    * @param ordering used to compare the distances returned by the distancefunction
+    * @param removeEnabled    enable or disable the experimental remove operation. Indices that support removes will consume more memory
+    * @param itemIdSerializer used to serialize the item key during saving of the index. when unspecified java serialization will be used.
+    *                         for the fastest possible save time and smallest indices you will want to provide this
+    * @param itemSerializer used to serialize the item during saving of the index. when unspecified java serialization will be used.
+    *                       for the fastest possible save time and smallest indices you will want to provide this
+    * @param ordering used to compare the distances returned by the distance function
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
     * @tparam TItem Type of items stored in the index

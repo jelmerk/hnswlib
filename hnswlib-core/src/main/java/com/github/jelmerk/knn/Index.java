@@ -168,7 +168,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Saves the index to an OutputStream. Only call this when the index is not being modified.
+     * Saves the index to an OutputStream. Saving may lock the index for updates.
      *
      * @param out the output stream to write the index to
      * @throws IOException in case of I/O exception
@@ -176,7 +176,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     void save(OutputStream out) throws IOException;
 
     /**
-     * Saves the index to a file. Only call this when the index is not being modified.
+     * Saves the index to a file. Saving may lock the index for updates.
      *
      * @param file file to write the index to
      * @throws IOException in case of I/O exception
@@ -186,7 +186,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Saves the index to a path. Only call this when the index is not being modified.
+     * Saves the index to a path. Saving may lock the index for updates.
      *
      * @param path file to write the index to
      * @throws IOException in case of I/O exception
