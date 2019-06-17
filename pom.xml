@@ -5,7 +5,7 @@
 
     <groupId>com.github.jelmerk</groupId>
     <artifactId>hnswlib-parent-pom</artifactId>
-    <version>0.0.9</version>
+    <version>0.0.10-SNAPSHOT</version>
     <name>hnswlib</name>
     <packaging>pom</packaging>
     <url>https://github.com/jelmerk/hnswlib</url>
@@ -188,12 +188,6 @@
 
     <dependencyManagement>
         <dependencies>
-
-            <dependency>
-                <groupId>de.ruedigermoeller</groupId>
-                <artifactId>fst</artifactId>
-                <version>2.56</version>
-            </dependency>
 
             <dependency>
                 <groupId>org.eclipse.collections</groupId>
