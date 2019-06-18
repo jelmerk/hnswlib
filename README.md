@@ -27,7 +27,7 @@ Java code example:
 
 Scala code example :
 
-    val index = HnswIndex[String, Array[Float], Word, Float](FloatDistanceFunctions::cosineDistance, words.size, m = 10)
+    val index = HnswIndex[String, Array[Float], Word, Float](FloatDistanceFunctions.cosineDistance, words.size, m = 10)
       
     index.addAll(words)
     

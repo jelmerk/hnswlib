@@ -18,6 +18,11 @@ import com.github.jelmerk.knn.{Index => JIndex}
 trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
 
   /**
+    * By default after indexing this many items progress will be reported to registered progress listeners.
+    */
+  val DefaultProgressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL
+
+  /**
     * Called periodically to report on progress during indexing. The first argument is the number of records processed.
     * The second argument is the total number of record to index as part of this operation.
     */
@@ -43,7 +48,7 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
   def addAll(items: Iterable[TItem],
              numThreads: Int = Runtime.getRuntime.availableProcessors,
              listener: ProgressListener = (_, _) => (),
-             progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit
+             progressUpdateInterval: Int = DefaultProgressUpdateInterval): Unit
 
   /**
     * Removes an item from the index.
