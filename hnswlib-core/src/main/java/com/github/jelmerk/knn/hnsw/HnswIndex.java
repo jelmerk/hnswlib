@@ -158,61 +158,66 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean remove(TId id) {
-        if (!removeEnabled) {
-            throw new UnsupportedOperationException("Index does not have removes enabled.");
-        }
+        exclusiveLock.lock();
 
-        Integer internalNodeId = lookup.get(id);
+        try {
 
-        if (id == null) {
-            return false;
-        } else {
-            exclusiveLock.lock();
+            if (!removeEnabled) {
+                return false;
+            }
 
-            try {
-                Node<TItem> node = nodes.get(internalNodeId);
+            Integer internalNodeId = lookup.get(id);
 
+            if (internalNodeId == null) {
+                return false;
+            }
+
+            Node<TItem> node = nodes.get(internalNodeId);
+
+            for (int level = node.maxLevel(); level >= 0; level--) {
+
+                final int finalLevel = level;
+
+                node.incomingConnections[level].forEach(neighbourId ->
+                        nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
+
+                node.outgoingConnections[level].forEach(neighbourId ->
+                        nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
+
+            }
+
+            // change the entry point to the first outgoing connection at the highest level
+
+            if (entryPoint == node) {
                 for (int level = node.maxLevel(); level >= 0; level--) {
 
-                    final int finalLevel = level;
-
-                    node.incomingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
-
-                    node.outgoingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
-
-                }
-
-                // change the entry point to the first outgoing connection at the highest level
-
-                if (entryPoint == node) {
-                    for (int level = node.maxLevel(); level >= 0; level--) {
-
-                        MutableIntList outgoingConnections = node.outgoingConnections[level];
-                        if (!outgoingConnections.isEmpty()) {
-                            entryPoint = nodes.get(outgoingConnections.getFirst());
-                            break;
-                        }
+                    MutableIntList outgoingConnections = node.outgoingConnections[level];
+                    if (!outgoingConnections.isEmpty()) {
+                        entryPoint = nodes.get(outgoingConnections.getFirst());
+                        break;
                     }
-
                 }
 
-                // if we could not change the outgoing connection it means we are the last node
-
-                if (entryPoint == node) {
-                    entryPoint = null;
-                }
-
-                nodes.set(internalNodeId, null);
-
-                freedIds.push(internalNodeId);
-                return true;
-
-            } finally {
-                exclusiveLock.unlock();
             }
+
+            // if we could not change the outgoing connection it means we are the last node
+
+            if (entryPoint == node) {
+                entryPoint = null;
+            }
+
+            lookup.remove(id);
+            nodes.set(internalNodeId, null);
+
+            synchronized (freedIds) {
+                freedIds.push(internalNodeId);
+            }
+            return true;
+
+        } finally {
+            exclusiveLock.unlock();
         }
+
 
         // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
     }
@@ -240,33 +245,32 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        Node<TItem> newNode;
+        globalLock.lock();
 
-        synchronized (freedIds) {
+        try {
+
             if (lookup.containsKey(item.id())) {
                 remove(item.id());
             }
 
             int newNodeId;
-            if (freedIds.isEmpty()) {
-                if (itemCount >= this.maxItemCount) {
-                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
+
+            synchronized (freedIds) {
+                if (freedIds.isEmpty()) {
+                    if (itemCount >= this.maxItemCount) {
+                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                    }
+                    newNodeId = itemCount++;
+                } else {
+                    newNodeId = freedIds.pop();
                 }
-                newNodeId = itemCount++;
-            } else {
-                newNodeId = freedIds.pop();
             }
 
-            newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
+            Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
             nodes.set(newNodeId, newNode);
             lookup.put(item.id(), newNodeId);
 
             nonExclusiveLock.lock();
-        }
-
-        try {
-
-            globalLock.lock();
 
             try {
 
@@ -333,12 +337,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     }
                 }
             } finally {
-                if (globalLock.isHeldByCurrentThread()) {
-                    globalLock.unlock();
-                }
+                nonExclusiveLock.unlock();
             }
         } finally {
-            nonExclusiveLock.unlock();
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
         }
     }
 
@@ -353,16 +357,21 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         TVector newItemVector = newNode.item.vector();
         MutableIntList outgoingNewItemConnections = newNode.outgoingConnections[level];
 
-        getNeighborsByHeuristic2(topCandidates, m); // this modifies the topCandidates queue
+        getNeighborsByHeuristic2(topCandidates, null, m);
 
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
 
             outgoingNewItemConnections.add(selectedNeighbourId);
 
-            int removedWeakestNodeId = -1; // TODO should i just change this to newNodeId and save one extra condition down.. its not completely correct then though
-
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
+
+            MutableIntList prunedConnections = null;
+
+            if (removeEnabled) {
+                prunedConnections = new IntArrayList();
+            }
+
             synchronized (neighbourNode) {
 
                 if (removeEnabled) {
@@ -374,6 +383,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 MutableIntList outgoingNeighbourConnectionsAtLevel = neighbourNode.outgoingConnections[level];
 
                 if (outgoingNeighbourConnectionsAtLevel.size() < bestN) {
+
+                    if (removeEnabled) {
+                        newNode.incomingConnections[level].add(selectedNeighbourId);
+                    }
+
                     outgoingNeighbourConnectionsAtLevel.add(newNodeId);
                 } else {
                     // finding the "weakest" element to replace it with the new one
@@ -398,9 +412,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         candidates.add(new NodeIdAndDistance<>(id, dist, distanceComparator));
                     });
 
-                    getNeighborsByHeuristic2(candidates, bestN + 1);
+                    getNeighborsByHeuristic2(candidates, prunedConnections, bestN);
 
-                    removedWeakestNodeId = candidates.poll().nodeId;
+                    if (removeEnabled) {
+                        newNode.incomingConnections[level].add(selectedNeighbourId);
+                    }
 
                     outgoingNeighbourConnectionsAtLevel.clear();
 
@@ -410,16 +426,20 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
 
-            if (removeEnabled && removedWeakestNodeId != newNodeId && removedWeakestNodeId != -1) {
-                Node<TItem> weakestNode = nodes.get(removedWeakestNodeId);
-                synchronized (weakestNode) {
-                    weakestNode.incomingConnections[level].remove(selectedNeighbourId);
-                }
+            if (removeEnabled) {
+                prunedConnections.forEach(id -> {
+                    Node<TItem> node = nodes.get(id);
+                    synchronized (node) {
+                        node.incomingConnections[level].remove(selectedNeighbourId);
+                    }
+                });
             }
         }
     }
 
-    private void getNeighborsByHeuristic2(PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates, int m) {
+    private void getNeighborsByHeuristic2(PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
+                                          MutableIntList prunedConnections,
+                                          int m) {
 
         if (topCandidates.size() < m) {
             return;
@@ -433,30 +453,35 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         while(!queueClosest.isEmpty()) {
-            if (returnList.size() >= m) {
-                break;
-            }
-
             NodeIdAndDistance<TDistance> currentPair = queueClosest.poll();
 
-            TDistance distToQuery = currentPair.distance;
+            boolean good;
+            if (returnList.size() >= m) {
+                good = false;
+            } else {
+                TDistance distToQuery = currentPair.distance;
 
-            boolean good = true;
-            for (NodeIdAndDistance<TDistance> secondPair : returnList) {
+                good = true;
+                for (NodeIdAndDistance<TDistance> secondPair : returnList) {
 
-                TDistance curdist = distanceFunction.distance(
-                        nodes.get(secondPair.nodeId).item.vector(),
-                        nodes.get(currentPair.nodeId).item.vector()
-                );
+                    TDistance curdist = distanceFunction.distance(
+                            nodes.get(secondPair.nodeId).item.vector(),
+                            nodes.get(currentPair.nodeId).item.vector()
+                    );
 
-                if (lt(curdist, distToQuery)) {
-                    good = false;
-                    break;
+                    if (lt(curdist, distToQuery)) {
+                        good = false;
+                        break;
+                    }
+
                 }
-
             }
             if (good) {
                 returnList.add(currentPair);
+            } else {
+                if (prunedConnections != null) {
+                    prunedConnections.add(currentPair.nodeId);
+                }
             }
         }
 
@@ -492,7 +517,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
                         int candidateId = candidateConnections.get(i);
-//                        Node<TItem> candidateNode = nodes.get(candidateId);
 
                         TDistance candidateDistance = distanceFunction.distance(
                                 destination,

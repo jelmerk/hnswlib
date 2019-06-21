@@ -129,7 +129,7 @@ object HnswIndex {
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
   */
 @SerialVersionUID(1L)
-class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (delegate: JHnswIndex[TId, TVector, TItem, TDistance])
+class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (val delegate: JHnswIndex[TId, TVector, TItem, TDistance])
   extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
 
   /**

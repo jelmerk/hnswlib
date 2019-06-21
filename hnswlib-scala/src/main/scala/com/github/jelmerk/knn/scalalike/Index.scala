@@ -54,7 +54,7 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
     * Removes an item from the index.
     *
     * @param id unique identifier or the item to remove
-    * @return true if this list contained the specified element
+    * @return true if an item was removed from the index
     */
   def remove(id: TId): Boolean
 
