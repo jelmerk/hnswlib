@@ -41,7 +41,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * Removes an item from the index.
      *
      * @param id unique identifier or the item to remove
-     * @return {@code true} if an item was removed from the index
+     * @return {@code true} if an item was removed from the index. In case the index does not support removals this will
+     *                      always be false
      */
     boolean remove(TId id);
 
