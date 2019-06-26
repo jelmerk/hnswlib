@@ -8,8 +8,9 @@ import scala.collection.JavaConverters._
 
 import com.github.jelmerk.knn.{ProgressListener, Index => JIndex}
 
+@SerialVersionUID(1L)
 class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: Index[TId, TVector, TItem, TDistance])
-  extends JIndex[TId, TVector, TItem, TDistance] {
+  extends JIndex[TId, TVector, TItem, TDistance] with Serializable {
 
   override def add(item: TItem): Unit = delegate.add(item)
 

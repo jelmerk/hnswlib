@@ -8,7 +8,7 @@ import com.github.jelmerk.knn.{Index => JIndex, ProgressListener => JProgressLis
 
 @SerialVersionUID(1L)
 class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: JIndex[TId, TVector, TItem, TDistance])
-  extends Index[TId, TVector, TItem, TDistance] {
+  extends Index[TId, TVector, TItem, TDistance] with Serializable {
 
   override def add(item: TItem): Unit = delegate.add(item)
 
