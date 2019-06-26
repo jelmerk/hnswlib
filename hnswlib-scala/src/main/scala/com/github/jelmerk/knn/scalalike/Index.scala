@@ -15,7 +15,7 @@ import com.github.jelmerk.knn.{Index => JIndex}
   *
   * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm]] for more information.
   */
-trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] {
+trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
 
   /**
     * By default after indexing this many items progress will be reported to registered progress listeners.

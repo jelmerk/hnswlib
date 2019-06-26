@@ -9,7 +9,7 @@ import java.util.function.Supplier;
  *
  * @param <T> type of object to pool
  */
-class Pool<T> implements Serializable {
+class GenericObjectPool<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -21,7 +21,7 @@ class Pool<T> implements Serializable {
      * @param supplier used to create instances of the object to pool
      * @param maxPoolSize maximum items to have in the pool
      */
-    Pool(Supplier<T> supplier, int maxPoolSize) {
+    GenericObjectPool(Supplier<T> supplier, int maxPoolSize) {
         this.items = new ArrayBlockingQueue<>(maxPoolSize);
 
         for (int i = 0; i < maxPoolSize; i++) {
@@ -43,7 +43,7 @@ class Pool<T> implements Serializable {
     }
 
     /**
-     * Returns an instance to the pool. By contract, obj must have been obtained using {@link Pool#borrowObject()}
+     * Returns an instance to the pool. By contract, obj must have been obtained using {@link GenericObjectPool#borrowObject()}
      *
      * @param item the item to return to the pool
      */

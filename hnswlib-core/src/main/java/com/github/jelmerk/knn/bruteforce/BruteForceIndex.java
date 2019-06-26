@@ -21,7 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
  */
 public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-        implements Index<TId, TVector, TItem, TDistance>, Serializable {
+        implements Index<TId, TVector, TItem, TDistance> {
 
     private static final long serialVersionUID = 1L;
 
@@ -121,10 +121,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-        BruteForceIndex<TId, TVector, TItem, TDistance>
-            load(File file) throws IOException {
-
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> BruteForceIndex<TId, TVector, TItem, TDistance> load(File file) throws IOException {
         return load(new FileInputStream(file));
     }
 
@@ -140,10 +137,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-        BruteForceIndex<TId, TVector, TItem, TDistance>
-            load(Path path) throws IOException {
-
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> BruteForceIndex<TId, TVector, TItem, TDistance> load(Path path) throws IOException {
         return load(Files.newInputStream(path));
     }
 
@@ -161,8 +155,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-        BruteForceIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> BruteForceIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream) throws IOException {
 
         try(ObjectInputStream ois = new ObjectInputStream(inputStream)) {
             return (BruteForceIndex<TId, TVector, TItem, TDistance>) ois.readObject();
@@ -178,9 +171,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         return new Builder<>(distanceFunction, distanceComparator);
     }
 
-    public static <TVector, TDistance>
-        Builder <TVector, TDistance>
-            newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+    public static <TVector, TDistance> Builder <TVector, TDistance> newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
 
         return new Builder<>(distanceFunction, distanceComparator);
     }

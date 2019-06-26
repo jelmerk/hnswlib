@@ -11,7 +11,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-scala_${scala.binary.version}</artifactId>
+    <artifactId>hnswlib-scala_2.11</artifactId>
 
     <description>Scala integration</description>
 

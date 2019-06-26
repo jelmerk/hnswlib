@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -30,7 +31,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-        implements Index<TId, TVector, TItem, TDistance>, Serializable {
+        implements Index<TId, TVector, TItem, TDistance> {
 
     private static final long serialVersionUID = 1L;
 
@@ -62,7 +63,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private final Lock nonExclusiveLock;
     private final Lock exclusiveLock;
 
-    private final Pool<VisitedBitSet> visitedBitSetPool;
+    private final GenericObjectPool<BitSet> visitedBitSetPool;
+
+    private final BitSet activeConstruction;
+
+    private final AtomicLong testje =  new AtomicLong(0);
 
     private HnswIndex(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator,
                       int maxItemCount, int m, int maxM, int maxM0, double levelLambda, int ef, int efConstruction,
@@ -94,8 +99,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.nonExclusiveLock = readWriteLock.readLock();
         this.exclusiveLock = readWriteLock.writeLock();
 
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
+
+        this.activeConstruction = new BitSet(this.maxItemCount);
     }
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
@@ -127,9 +134,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.nonExclusiveLock = readWriteLock.readLock();
         this.exclusiveLock = readWriteLock.writeLock();
 
-
-        this.visitedBitSetPool = new Pool<>(() -> new VisitedBitSet(this.maxItemCount),
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
+
+        this.activeConstruction = new BitSet(this.maxItemCount);
     }
 
     /**
@@ -244,9 +252,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
         }
 
-        Node<TItem> newNode;
+        globalLock.lock();
 
-        synchronized (freedIds) {
+        try {
             if (lookup.containsKey(item.id())) {
                 if (removeEnabled) {
                     remove(item.id());
@@ -256,99 +264,102 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
 
             int newNodeId;
-            if (freedIds.isEmpty()) {
-                if (itemCount >= this.maxItemCount) {
-                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
+            synchronized (freedIds) {
+                if (freedIds.isEmpty()) {
+                    if (itemCount >= this.maxItemCount) {
+                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                    }
+                    newNodeId = itemCount++;
+                } else {
+                    newNodeId = freedIds.pop();
                 }
-                newNodeId = itemCount++;
-            } else {
-                newNodeId = freedIds.pop();
             }
 
-            newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
-            nodes.set(newNodeId, newNode);
-            lookup.put(item.id(), newNodeId);
-        }
+            Node<TItem> entryPointCopy = entryPoint;
 
-        nonExclusiveLock.lock();
+            if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
+                globalLock.unlock();
+            }
 
-        try {
-            globalLock.lock();
+            nonExclusiveLock.lock();
 
             try {
 
-                Node<TItem> entryPointCopy = entryPoint;
-
-                if (entryPoint != null && newNode.maxLevel() <= entryPoint.maxLevel()) {
-                    globalLock.unlock();
+                synchronized (activeConstruction) {
+                    activeConstruction.add(newNodeId);
                 }
 
-                synchronized (newNode.outgoingConnections) {
+                Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
+                nodes.set(newNodeId, newNode);
+                lookup.put(item.id(), newNodeId);
 
-                    Node<TItem> currObj = entryPointCopy;
+                Node<TItem> currObj = entryPointCopy;
 
-                    if (currObj != null) {
+                if (currObj != null) {
 
-                        if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
+                    if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
 
-                            TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
+                        TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
 
-                            for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+                        for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
-                                boolean changed = true;
+                            boolean changed = true;
 
-                                while (changed) {
-                                    changed = false;
+                            while (changed) {
+                                changed = false;
 
-                                    synchronized (currObj.outgoingConnections) {
-                                        MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+                                synchronized (currObj) {
+                                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
 
-                                        for (int i = 0; i < candidateConnections.size(); i++) {
+                                    for (int i = 0; i < candidateConnections.size(); i++) {
 
-                                            int candidateId = candidateConnections.get(i);
+                                        int candidateId = candidateConnections.get(i);
 
-                                            Node<TItem> candidateNode = nodes.get(candidateId);
+                                        Node<TItem> candidateNode = nodes.get(candidateId);
 
-                                            TDistance candidateDistance = distanceFunction.distance(
-                                                    item.vector(),
-                                                    candidateNode.item.vector()
-                                            );
+                                        TDistance candidateDistance = distanceFunction.distance(
+                                                item.vector(),
+                                                candidateNode.item.vector()
+                                        );
 
-                                            if (lt(candidateDistance, curDist)) {
-                                                curDist = candidateDistance;
-                                                currObj = candidateNode;
-                                                changed = true;
-                                            }
+                                        if (lt(candidateDistance, curDist)) {
+                                            curDist = candidateDistance;
+                                            currObj = candidateNode;
+                                            changed = true;
                                         }
                                     }
-
                                 }
                             }
                         }
+                    }
 
-                        for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
-                            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
-                                    searchBaseLayer(currObj, item.vector(), efConstruction, level);
+                    for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
+                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                searchBaseLayer(currObj, item.vector(), efConstruction, level);
+
+                        synchronized (newNode) {
                             mutuallyConnectNewElement(newNode, topCandidates, level);
                         }
                     }
+                }
 
-                    // zoom out to the highest level
-                    if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
-                        // this is thread safe because we get the global lock when we add a level
-                        this.entryPoint = newNode;
-                    }
+                // zoom out to the highest level
+                if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
+                    // this is thread safe because we get the global lock when we add a level
+                    this.entryPoint = newNode;
                 }
             } finally {
-                if (globalLock.isHeldByCurrentThread()) {
-                    globalLock.unlock();
+                synchronized (activeConstruction) {
+                    activeConstruction.remove(newNodeId);
                 }
+                nonExclusiveLock.unlock();
             }
         } finally {
-            nonExclusiveLock.unlock();
+            if (globalLock.isHeldByCurrentThread()) {
+                globalLock.unlock();
+            }
         }
     }
-
 
     private void mutuallyConnectNewElement(Node<TItem> newNode,
                                            PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
@@ -365,11 +376,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
 
+            synchronized (activeConstruction) {
+                if (activeConstruction.contains(selectedNeighbourId)) {
+                    continue;
+                }
+            }
+
             outgoingNewItemConnections.add(selectedNeighbourId);
 
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
 
-            synchronized (neighbourNode.outgoingConnections) {
+            synchronized (neighbourNode) {
 
                 if (removeEnabled) {
                     neighbourNode.incomingConnections[level].add(newNodeId);
@@ -510,7 +527,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             while (changed) {
                 changed = false;
 
-                synchronized (currObj.outgoingConnections) {
+                synchronized (currObj) {
                     MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
 
                     for (int i = 0; i < candidateConnections.size(); i++) {
@@ -551,7 +568,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private PriorityQueue<NodeIdAndDistance<TDistance>> searchBaseLayer(
             Node<TItem> entryPointNode, TVector destination, int k, int layer) {
 
-        VisitedBitSet visitedBitSet = visitedBitSetPool.borrowObject();
+        BitSet visitedBitSet = visitedBitSetPool.borrowObject();
 
         try {
             PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
@@ -570,17 +587,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             while (!candidateSet.isEmpty()) {
 
-                NodeIdAndDistance<TDistance> currentPair = candidateSet.peek();
+                NodeIdAndDistance<TDistance> currentPair = candidateSet.poll();
 
                 if (gt(currentPair.distance, lowerBound)) {
                     break;
                 }
 
-                candidateSet.poll();
-
                 Node<TItem> node = nodes.get(currentPair.nodeId);
 
-                synchronized (node.outgoingConnections) {
+                synchronized (node) {
 
                     MutableIntList candidates = node.outgoingConnections[layer];
 
@@ -762,8 +777,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-    HnswIndex<TId, TVector, TItem, TDistance> load(File file) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(File file)
+            throws IOException {
         return load(new FileInputStream(file));
     }
 
@@ -778,8 +793,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return The restored index
      * @throws IOException in case of an I/O exception
      */
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-    HnswIndex<TId, TVector, TItem, TDistance> load(Path path) throws IOException {
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(Path path)
+            throws IOException {
         return load(Files.newInputStream(path));
     }
 
@@ -796,8 +811,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @throws IllegalArgumentException in case the file cannot be read
      */
     @SuppressWarnings("unchecked")
-    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance>
-    HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
             throws IOException {
 
         try (ObjectInputStream ois = new ObjectInputStream(inputStream)) {
@@ -896,11 +910,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    private static final <TItem> AtomicReferenceArray<Node<TItem>> readNodes(ObjectInputStream ois,
-                                                                             ObjectSerializer<TItem> itemSerializer,
-                                                                             int maxM0,
-                                                                             int maxM,
-                                                                             boolean removeEnabled)
+    private static <TItem> AtomicReferenceArray<Node<TItem>> readNodes(ObjectInputStream ois,
+                                                                         ObjectSerializer<TItem> itemSerializer,
+                                                                         int maxM0,
+                                                                         int maxM,
+                                                                         boolean removeEnabled)
             throws IOException, ClassNotFoundException {
 
         int size = ois.readInt();
@@ -913,7 +927,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return nodes;
     }
 
-    private static final <TId> Map<TId, Integer> readLookup(ObjectInputStream ois,
+    private static <TId> Map<TId, Integer> readLookup(ObjectInputStream ois,
                                                             ObjectSerializer<TId> itemIdSerializer)
             throws IOException, ClassNotFoundException {
 

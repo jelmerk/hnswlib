@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
  *
  * @see <a href="https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm">k-nearest neighbors algorithm</a>
  */
-public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance> {
+public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance> extends Serializable {
 
     /**
      * By default after indexing this many items progress will be reported to registered progress listeners.
@@ -83,7 +83,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(numThreads);
+        ExecutorService executorService = Executors.newFixedThreadPool(numThreads,
+                new NamedThreadFactory("indexer-%d"));
 
         AtomicInteger workDone = new AtomicInteger();
 
