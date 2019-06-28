@@ -13,7 +13,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -35,75 +34,37 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private static final long serialVersionUID = 1L;
 
-    private final DistanceFunction<TVector, TDistance> distanceFunction;
-    private final Comparator<TDistance> distanceComparator;
+    private DistanceFunction<TVector, TDistance> distanceFunction;
+    private Comparator<TDistance> distanceComparator;
 
-    private final int maxItemCount;
-    private final int m;
-    private final int maxM;
-    private final int maxM0;
-    private final double levelLambda;
-    private final int ef;
-    private final int efConstruction;
-    private final boolean removeEnabled;
+    private int maxItemCount;
+    private int m;
+    private int maxM;
+    private int maxM0;
+    private double levelLambda;
+    private int ef;
+    private int efConstruction;
+    private boolean removeEnabled;
 
     private volatile int itemCount;
-    private final MutableIntStack freedIds;
+    private MutableIntStack freedIds;
 
     private volatile Node<TItem> entryPoint;
 
-    private final AtomicReferenceArray<Node<TItem>> nodes;
-    private final Map<TId, Integer> lookup;
+    private AtomicReferenceArray<Node<TItem>> nodes;
+    private Map<TId, Integer> lookup;
 
-    private final ObjectSerializer<TId> itemIdSerializer;
-    private final ObjectSerializer<TItem> itemSerializer;
+    private ObjectSerializer<TId> itemIdSerializer;
+    private ObjectSerializer<TItem> itemSerializer;
 
-    private final ReentrantLock globalLock;
+    private ReentrantLock globalLock;
 
-    private final Lock nonExclusiveLock;
-    private final Lock exclusiveLock;
+    private Lock nonExclusiveLock;
+    private Lock exclusiveLock;
 
-    private final GenericObjectPool<BitSet> visitedBitSetPool;
+    private GenericObjectPool<BitSet> visitedBitSetPool;
 
-    private final BitSet activeConstruction;
-
-    private final AtomicLong testje =  new AtomicLong(0);
-
-    private HnswIndex(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator,
-                      int maxItemCount, int m, int maxM, int maxM0, double levelLambda, int ef, int efConstruction,
-                      boolean removeEnabled, int itemCount, MutableIntStack freedIds, Node<TItem> entryPoint,
-                      AtomicReferenceArray<Node<TItem>> nodes, Map<TId, Integer> lookup,
-                      ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
-
-        this.distanceFunction = distanceFunction;
-        this.distanceComparator = distanceComparator;
-        this.maxItemCount = maxItemCount;
-        this.m = m;
-        this.maxM = maxM;
-        this.maxM0 = maxM0;
-        this.levelLambda = levelLambda;
-        this.ef = ef;
-        this.efConstruction = efConstruction;
-        this.removeEnabled = removeEnabled;
-        this.itemCount = itemCount;
-        this.freedIds = freedIds;
-        this.entryPoint = entryPoint;
-        this.nodes = nodes;
-        this.lookup = lookup;
-        this.itemIdSerializer = itemIdSerializer;
-        this.itemSerializer = itemSerializer;
-
-        this.globalLock = new ReentrantLock();
-
-        ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-        this.nonExclusiveLock = readWriteLock.readLock();
-        this.exclusiveLock = readWriteLock.writeLock();
-
-        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
-                Runtime.getRuntime().availableProcessors());
-
-        this.activeConstruction = new BitSet(this.maxItemCount);
-    }
+    private BitSet activeConstruction;
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
@@ -683,30 +644,71 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         exclusiveLock.lock();
 
         try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-
-            oos.writeObject(distanceFunction);
-            oos.writeObject(distanceComparator);
-            oos.writeObject(itemIdSerializer);
-            oos.writeObject(itemSerializer);
-
-            oos.writeInt(maxItemCount);
-            oos.writeInt(m);
-            oos.writeInt(maxM);
-            oos.writeInt(maxM0);
-            oos.writeDouble(levelLambda);
-            oos.writeInt(ef);
-            oos.writeInt(efConstruction);
-            oos.writeBoolean(removeEnabled);
-            oos.writeInt(itemCount);
-
-            writeMutableIntStack(oos, freedIds);
-
-            writeNode(oos, entryPoint);
-            writeNodes(oos, nodes);
-            writeLookup(oos, lookup);
+            oos.writeObject(this);
         } finally {
             exclusiveLock.unlock();
         }
+    }
+
+    private void writeObject(ObjectOutputStream oos) throws IOException {
+        oos.writeObject(distanceFunction);
+        oos.writeObject(distanceComparator);
+        oos.writeObject(itemIdSerializer);
+        oos.writeObject(itemSerializer);
+
+        oos.writeInt(maxItemCount);
+        oos.writeInt(m);
+        oos.writeInt(maxM);
+        oos.writeInt(maxM0);
+        oos.writeDouble(levelLambda);
+        oos.writeInt(ef);
+        oos.writeInt(efConstruction);
+        oos.writeBoolean(removeEnabled);
+        oos.writeInt(itemCount);
+
+        writeMutableIntStack(oos, freedIds);
+
+        writeNode(oos, entryPoint);
+        writeNodes(oos, nodes);
+        writeLookup(oos, lookup);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        this.distanceFunction = (DistanceFunction<TVector, TDistance>) ois.readObject();
+        this.distanceComparator = (Comparator<TDistance>) ois.readObject();
+        this.itemIdSerializer = (ObjectSerializer<TId>) ois.readObject();
+        this.itemSerializer = (ObjectSerializer<TItem>) ois.readObject();
+
+        this.maxItemCount = ois.readInt();
+        this.m = ois.readInt();
+        this.maxM = ois.readInt();
+        this.maxM0 = ois.readInt();
+        this.levelLambda = ois.readDouble();
+        this.ef = ois.readInt();
+        this.efConstruction = ois.readInt();
+        this.removeEnabled = ois.readBoolean();
+        this.itemCount = ois.readInt();
+
+        this.freedIds = readIntArrayStack(ois);
+
+        this.entryPoint = readNode(ois, itemSerializer, maxM0, maxM, removeEnabled);
+
+        this.nodes = readNodes(ois, itemSerializer, maxM0, maxM, removeEnabled);
+
+        this.lookup = readLookup(ois, itemIdSerializer);
+
+        this.globalLock = new ReentrantLock();
+
+        ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
+        this.nonExclusiveLock = readWriteLock.readLock();
+        this.exclusiveLock = readWriteLock.writeLock();
+
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
+                Runtime.getRuntime().availableProcessors());
+
+        this.activeConstruction = new BitSet(this.maxItemCount);
+
     }
 
     private void writeLookup(ObjectOutputStream oos, Map<TId, Integer> lookup) throws IOException {
@@ -815,34 +817,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             throws IOException {
 
         try (ObjectInputStream ois = new ObjectInputStream(inputStream)) {
-
-            DistanceFunction<TVector, TDistance> distanceFunction = (DistanceFunction<TVector, TDistance>) ois.readObject();
-            Comparator<TDistance> distanceComparator = (Comparator<TDistance>) ois.readObject();
-            ObjectSerializer<TId> itemIdSerializer = (ObjectSerializer<TId>) ois.readObject();
-            ObjectSerializer<TItem> itemSerializer = (ObjectSerializer<TItem>) ois.readObject();
-
-            int maxItemCount = ois.readInt();
-            int m = ois.readInt();
-            int maxM = ois.readInt();
-            int maxM0 = ois.readInt();
-            double levelLambda = ois.readDouble();
-            int ef = ois.readInt();
-            int efConstruction = ois.readInt();
-            boolean removeEnabled = ois.readBoolean();
-            int itemCount = ois.readInt();
-
-            IntArrayStack freedIds = readIntArrayStack(ois);
-
-            Node<TItem> entryPoint = readNode(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
-            AtomicReferenceArray<Node<TItem>> nodes = readNodes(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
-            Map<TId, Integer> lookup = readLookup(ois, itemIdSerializer);
-
-            return new HnswIndex<>(distanceFunction, distanceComparator, maxItemCount, m, maxM, maxM0, levelLambda, ef,
-                    efConstruction, removeEnabled, itemCount, freedIds, entryPoint, nodes, lookup, itemIdSerializer,
-                    itemSerializer);
-
+            return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
         }
