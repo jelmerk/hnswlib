@@ -14,10 +14,7 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.locks.*;
 
 /**
  * Implementation of {@link Index} that implements the hnsw algorithm.
@@ -59,8 +56,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private ReentrantLock globalLock;
 
-    private Lock nonExclusiveLock;
-    private Lock exclusiveLock;
+    private StampedLock stampedLock;
 
     private GenericObjectPool<BitSet> visitedBitSetPool;
 
@@ -91,9 +87,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-        this.nonExclusiveLock = readWriteLock.readLock();
-        this.exclusiveLock = readWriteLock.writeLock();
+        this.stampedLock = new StampedLock();
 
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
@@ -126,10 +120,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean remove(TId id) {
-        exclusiveLock.lock();
+        long stamp = stampedLock.writeLock();
 
         try {
-
             if (!removeEnabled) {
                 return false;
             }
@@ -183,9 +176,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return true;
 
         } finally {
-            exclusiveLock.unlock();
+            stampedLock.unlockWrite(stamp);
         }
-
 
         // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
     }
@@ -242,7 +234,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 globalLock.unlock();
             }
 
-            nonExclusiveLock.lock();
+
+            long stamp = stampedLock.readLock();
 
             try {
 
@@ -313,7 +306,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 synchronized (activeConstruction) {
                     activeConstruction.remove(newNodeId);
                 }
-                nonExclusiveLock.unlock();
+
+                stampedLock.unlockRead(stamp);
             }
         } finally {
             if (globalLock.isHeldByCurrentThread()) {
@@ -641,12 +635,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        exclusiveLock.lock();
+        long stamp = stampedLock.writeLock();
 
         try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
             oos.writeObject(this);
         } finally {
-            exclusiveLock.unlock();
+            stampedLock.unlockWrite(stamp);
         }
     }
 
@@ -700,9 +694,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.globalLock = new ReentrantLock();
 
-        ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-        this.nonExclusiveLock = readWriteLock.readLock();
-        this.exclusiveLock = readWriteLock.writeLock();
+        this.stampedLock = new StampedLock();
 
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
