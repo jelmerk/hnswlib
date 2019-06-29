@@ -41,13 +41,13 @@ Maven coordinates :
     <dependency>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-core</artifactId>
-        <version>0.0.9</version>
+        <version>0.0.10</version>
     </dependency>
 
 Sbt coordinates :
 
 
-    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.9"
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.10"
 
 Frequently asked questions
 --------------------------
