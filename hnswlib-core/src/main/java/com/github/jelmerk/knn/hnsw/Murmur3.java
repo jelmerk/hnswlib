@@ -13,7 +13,7 @@ package com.github.jelmerk.knn.hnsw;
  * "All MurmurHash versions are public domain software, and the author disclaims all copyright
  * to their code."
  */
-public class Murmur3 {
+class Murmur3 {
 
     // Constants for 32 bit variant
     private static final int C1_32 = 0xcc9e2d51;
@@ -24,7 +24,7 @@ public class Murmur3 {
     private static final int N_32 = 0xe6546b64;
 
 
-    public static final int DEFAULT_SEED = 104729;
+    private static final int DEFAULT_SEED = 104729;
 
 
     /**
@@ -33,7 +33,7 @@ public class Murmur3 {
      * @param data - input byte array
      * @return - hashcode
      */
-    public static int hash32(byte[] data) {
+    static int hash32(byte[] data) {
         return hash32(data, 0, data.length, DEFAULT_SEED);
     }
 
@@ -46,7 +46,7 @@ public class Murmur3 {
      * @param seed   - seed. (default 0)
      * @return - hashcode
      */
-    public static int hash32(byte[] data, int offset, int length, int seed) {
+    static int hash32(byte[] data, int offset, int length, int seed) {
         int hash = seed;
         final int nblocks = length >> 2;
 
