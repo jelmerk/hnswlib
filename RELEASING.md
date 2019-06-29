@@ -3,6 +3,8 @@ Releasing hnswlib
 
 Releasing a new version to maven central is a bit cumbersome because maven does not play nice with cross releasing scala libraries
 
+0. export GPG_TTY=$(tty)
+
 1. manually update the version number to the release version in every pom
 
 2. commit
