@@ -22,6 +22,7 @@ public final class VectorUtils {
      * Turns vector to unit vector.
      *
      * @param vector The vector to normalize.
+     * @return the input vector as a unit vector
      */
     public static float[] normalize(float[] vector) {
 
