@@ -911,19 +911,38 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return map;
     }
 
-    public static <TVector, TDistance extends Comparable<TDistance>>
-    Builder<TVector, TDistance>
-    newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, int maxItemCount) {
+    /**
+     * Start the process of building a new HNSW index.
+     *
+     * @param distanceFunction the distance function
+     * @param maxItemCount maximum number of items the index can hold
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return a builder
+     */
+    public static <TVector, TDistance extends Comparable<TDistance>> Builder<TVector, TDistance> newBuilder(
+            DistanceFunction<TVector, TDistance> distanceFunction,
+            int maxItemCount) {
 
         Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
 
         return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
     }
 
-    public static <TVector, TDistance>
-    Builder<TVector, TDistance>
-    newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator,
-               int maxItemCount) {
+    /**
+     * Start the process of building a new HNSW index.
+     *
+     * @param distanceFunction the distance function
+     * @param distanceComparator used to compare distances
+     * @param maxItemCount maximum number of items the index can hold
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return a builder
+     */
+    public static <TVector, TDistance> Builder<TVector, TDistance> newBuilder(
+            DistanceFunction<TVector, TDistance> distanceFunction,
+            Comparator<TDistance> distanceComparator,
+            int maxItemCount) {
 
         return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
     }
@@ -1090,6 +1109,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    /**
+     * Base class for HNSW index builders.
+     *
+     * @param <TBuilder> Concrete class that extends from this builder
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of items stored in the index
+     */
     public static abstract class BuilderBase<TBuilder extends BuilderBase<TBuilder, TVector, TDistance>, TVector, TDistance> {
 
         public static final int DEFAULT_M = 10;
@@ -1213,14 +1239,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param <TItem>          implementation of the Item interface
          * @return the builder
          */
-        public <TId, TItem extends Item<TId, TVector>> RefinedBuilder<TId, TVector, TItem, TDistance>
-        withCustomSerializers(ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
+        public <TId, TItem extends Item<TId, TVector>> RefinedBuilder<TId, TVector, TItem, TDistance> withCustomSerializers(ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
             return new RefinedBuilder<>(distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
                     removeEnabled, itemIdSerializer, itemSerializer);
         }
 
         /**
-         * Build the index.
+         * Build the index that uses java object serializers to store the items when reading and writing the index.
          *
          * @param <TId>   Type of the external identifier of an item
          * @param <TItem> implementation of the Item interface
@@ -1236,6 +1261,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     }
 
+    /**
+     * Extension of {@link Builder} that has knows what type of item is going to be stored in the index.
+     *
+     * @param <TId> Type of the external identifier of an item
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TItem> Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     */
     public static class RefinedBuilder<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
             extends BuilderBase<RefinedBuilder<TId, TVector, TItem, TDistance>, TVector, TDistance> {
 
