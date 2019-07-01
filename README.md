@@ -2,14 +2,18 @@ Hnswlib
 =======
 
 
-Work in progress jvm implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
+Work in progress java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) algorithm for doing approximate nearest neighbour search.
 
 The index is thread safe, serializable, supports adding items to the index incrementally and has experimental support for deletes. 
 
-It's flexible interface makes it easy to apply it to use it with any type of data and distance metric  
+It's flexible interface makes it easy to apply it to use it with any type of data and distance metric
 
+It comes with a scala wrapper that should feel native to scala developers
 
-Java code example:
+Examples
+-------- 
+
+Java API:
 
 
     Index<String, float[], Word, Float> index = HnswIndex
@@ -25,7 +29,7 @@ Java code example:
         System.out.println(result.getItem().getId() + " " + result.getDistance());
     }
 
-Scala code example :
+Scala API:
 
     val index = HnswIndex[String, Array[Float], Word, Float](FloatDistanceFunctions.cosineDistance, words.size, m = 10)
       
@@ -36,7 +40,11 @@ Scala code example :
     }
       
 
-Maven coordinates :
+Linking
+-------
+
+
+Using Maven:
 
     <dependency>
         <groupId>com.github.jelmerk</groupId>
@@ -44,10 +52,85 @@ Maven coordinates :
         <version>0.0.10</version>
     </dependency>
 
-Sbt coordinates :
+Using sbt:
 
 
     "com.github.jelmerk" %% "hnswlib-scala" % "0.0.10"
+
+Spark
+-----
+
+The easiest way to use this library with spark is to simply collect your data on the driver node and index it there. 
+This does mean you'll have to allocate a lot of cores and memory to the driver.
+
+Alternatively you can shard the index across multiple executors and parallelise the indexing / querying. This may be 
+faster if you have many executors at your disposal or if your dataset won't fit on the driver
+Here's an example of how to do this :
+
+
+    // needs to use java serialization
+    conf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer")
+    
+    ..
+ 
+    val k = 10
+    val m = 48
+    val numPartitions = 50
+
+    val partitionedItems = items
+      .map { item => Math.abs(item.id.hashCode) % numPartitions -> item }
+      .partitionBy(new PartitionIdPassthrough(numPartitions))
+
+    val indices = partitionedItems
+        .mapPartitions(it => new IndexIterator(it))
+        .cache()
+
+    val itemOnAllPartitions = items
+      .flatMap(item => 0 until numPartitions map { partition => partition -> item } )
+      .partitionBy(new PartitionIdPassthrough(numPartitions))
+
+    val nearest = indices.join(itemOnAllPartitions)
+      .flatMap { case (_, (index, MyItem(id, vector))) =>
+        index.findNearest(vector, k + 1).collect {
+          case SearchResult(Word(relatedId, _), score) if relatedId != id =>
+            RelatedItem(id, relatedId, score)
+        }
+        .take(k)
+      }
+      
+    val result = nearest.groupBy(_.id).map { case (id, relatedItems) =>
+
+      val relatedIds = relatedItems.toSeq
+        .sortBy(_.similarity)
+        .map(_.relatedId)
+        .take(k)
+
+      id +: relatedIds mkString "\t"
+    }
+
+    case class RelatedItem(id: String, relatedId: String, similarity: Float)
+    
+    class IndexIterator(delegate: Iterator[(Int, Word)], m: Int)
+      extends Iterator[(Int, HnswIndex[String, Vector, Word, Float])] {
+    
+      override def hasNext: Boolean = delegate.hasNext
+    
+      override def next(): (Int, HnswIndex[String, Vector, Word, Float]) = {
+        val items = delegate.toSeq
+    
+        val index = HnswIndex[String, Vector, Word, Float](cosineDistance, items.size, m = m)
+        index.addAll(items.map(_._2))
+        items.head._1 -> index
+      }
+    }
+    
+    class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
+      override def getPartition(key: Any): Int = key.asInstanceOf[Int]
+    }
+
+
+If you are using spark mllib and are using its vector type you can use the distance functions defined in the
+hnswlib-spark module of this project.
 
 Frequently asked questions
 --------------------------
