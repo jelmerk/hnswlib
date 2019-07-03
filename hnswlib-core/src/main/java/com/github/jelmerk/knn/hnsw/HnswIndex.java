@@ -208,9 +208,21 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         globalLock.lock();
 
         try {
-            if (lookup.containsKey(item.id())) {
+
+            Integer existingNodeId = lookup.get(item.id());
+
+            if (existingNodeId != null) {
                 if (removeEnabled) {
-                    remove(item.id());
+                    Node<TItem> node = nodes.get(existingNodeId);
+                    // as an optimization don't acquire the write lock on the stamped lock if its has the same vector
+                    // instead just update the item because the relations should not change
+                    if (Objects.deepEquals(node.item.vector(), item.vector())) {
+                        nodes.set(existingNodeId, new Node<>(existingNodeId, node.outgoingConnections, node.incomingConnections, item));
+                        return;
+                    } else {
+                        remove(item.id());
+                    }
+
                 } else {
                     throw new IllegalArgumentException("Duplicate item : " + item.id());
                 }
