@@ -1044,11 +1044,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         @Override
-        public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
-            return HnswIndex.this.findNeighbors(id, k);
-        }
-
-        @Override
         public void save(OutputStream out) throws IOException {
             HnswIndex.this.save(out);
         }
