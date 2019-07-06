@@ -10,7 +10,7 @@ class BitSet implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    private int[] buffer;
+    private final int[] buffer;
 
     /**
      * Initializes a new instance of the {@link BitSet} class.
