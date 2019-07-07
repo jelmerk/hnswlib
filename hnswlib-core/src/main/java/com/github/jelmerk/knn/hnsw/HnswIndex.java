@@ -886,7 +886,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             for (int i = 0; i < nodeCount; i++) {
                 Node<TItem> node = nodes.get(i);
-                if (node == null) {
+                if (node == null || node.deleted) {
                     continue;
                 }
 
@@ -918,11 +918,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         @Override
         public boolean remove(TId id) {
             return HnswIndex.this.remove(id);
-        }
-
-        @Override
-        public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
-            return HnswIndex.this.findNeighbors(id, k);
         }
 
         @Override
