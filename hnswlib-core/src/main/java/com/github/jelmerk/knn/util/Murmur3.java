@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.hnsw;
+package com.github.jelmerk.knn.util;
 
 
 /**
@@ -13,7 +13,7 @@ package com.github.jelmerk.knn.hnsw;
  * "All MurmurHash versions are public domain software, and the author disclaims all copyright
  * to their code."
  */
-class Murmur3 {
+public class Murmur3 {
 
     // Constants for 32 bit variant
     private static final int C1_32 = 0xcc9e2d51;
@@ -33,7 +33,7 @@ class Murmur3 {
      * @param data - input byte array
      * @return - hashcode
      */
-    static int hash32(byte[] data) {
+    public static int hash32(byte[] data) {
         return hash32(data, 0, data.length, DEFAULT_SEED);
     }
 
@@ -46,7 +46,7 @@ class Murmur3 {
      * @param seed   - seed. (default 0)
      * @return - hashcode
      */
-    static int hash32(byte[] data, int offset, int length, int seed) {
+    public static int hash32(byte[] data, int offset, int length, int seed) {
         int hash = seed;
         final int nblocks = length >> 2;
 

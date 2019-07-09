@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.hnsw;
+package com.github.jelmerk.knn.util;
 
 import java.io.Serializable;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -9,7 +9,7 @@ import java.util.function.Supplier;
  *
  * @param <T> type of object to pool
  */
-class GenericObjectPool<T> implements Serializable {
+public class GenericObjectPool<T> implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -21,7 +21,7 @@ class GenericObjectPool<T> implements Serializable {
      * @param supplier used to create instances of the object to pool
      * @param maxPoolSize maximum items to have in the pool
      */
-    GenericObjectPool(Supplier<T> supplier, int maxPoolSize) {
+    public GenericObjectPool(Supplier<T> supplier, int maxPoolSize) {
         this.items = new ArrayBlockingQueue<>(maxPoolSize);
 
         for (int i = 0; i < maxPoolSize; i++) {
@@ -34,7 +34,7 @@ class GenericObjectPool<T> implements Serializable {
      *
      * @return the borrowed object
      */
-    T borrowObject() {
+    public T borrowObject() {
         try {
             return items.take();
         } catch (InterruptedException e) {
@@ -47,7 +47,7 @@ class GenericObjectPool<T> implements Serializable {
      *
      * @param item the item to return to the pool
      */
-    void returnObject(T item) {
+    public void returnObject(T item) {
         items.add(item);
     }
 

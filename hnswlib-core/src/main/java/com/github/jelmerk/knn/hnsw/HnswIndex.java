@@ -2,6 +2,8 @@ package com.github.jelmerk.knn.hnsw;
 
 
 import com.github.jelmerk.knn.*;
+import com.github.jelmerk.knn.util.*;
+import com.github.jelmerk.knn.util.BitSet;
 import org.eclipse.collections.api.iterator.IntIterator;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.stack.primitive.MutableIntStack;
@@ -60,7 +62,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private GenericObjectPool<BitSet> visitedBitSetPool;
 
-    private BitSet activeConstruction;
+    private BitSet excludedCandidates;
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
@@ -89,10 +91,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.stampedLock = new StampedLock();
 
-        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
 
-        this.activeConstruction = new BitSet(this.maxItemCount);
+        this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
     }
 
     /**
@@ -120,63 +122,71 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean remove(TId id) {
-        long stamp = stampedLock.writeLock();
+
+        globalLock.lock();
 
         try {
-            if (!removeEnabled) {
-                return false;
-            }
+            long stamp = stampedLock.writeLock();
 
-            Integer internalNodeId = lookup.get(id);
-
-            if (internalNodeId == null) {
-                return false;
-            }
-
-            Node<TItem> node = nodes.get(internalNodeId);
-
-            for (int level = node.maxLevel(); level >= 0; level--) {
-
-                final int finalLevel = level;
-
-                node.incomingConnections[level].forEach(neighbourId ->
-                        nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
-
-                node.outgoingConnections[level].forEach(neighbourId ->
-                        nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
-
-            }
-
-            // change the entry point to the first outgoing connection at the highest level
-
-            if (entryPoint == node) {
-                for (int level = node.maxLevel(); level >= 0; level--) {
-
-                    MutableIntList outgoingConnections = node.outgoingConnections[level];
-                    if (!outgoingConnections.isEmpty()) {
-                        entryPoint = nodes.get(outgoingConnections.getFirst());
-                        break;
-                    }
+            try {
+                if (!removeEnabled) {
+                    return false;
                 }
 
+                Integer internalNodeId = lookup.get(id);
+
+                if (internalNodeId == null) {
+                    return false;
+                }
+
+                Node<TItem> node = nodes.get(internalNodeId);
+
+                for (int level = node.maxLevel(); level >= 0; level--) {
+
+                    final int finalLevel = level;
+
+                    node.incomingConnections[level].forEach(neighbourId ->
+                            nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
+
+                    node.outgoingConnections[level].forEach(neighbourId ->
+                            nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
+
+                }
+
+                // change the entry point to the first outgoing connection at the highest level
+
+                if (entryPoint == node) {
+                    for (int level = node.maxLevel(); level >= 0; level--) {
+
+                        MutableIntList outgoingConnections = node.outgoingConnections[level];
+                        if (!outgoingConnections.isEmpty()) {
+                            entryPoint = nodes.get(outgoingConnections.getFirst());
+                            break;
+                        }
+                    }
+
+                }
+
+                // if we could not change the outgoing connection it means we are the last node
+
+                if (entryPoint == node) {
+                    entryPoint = null;
+                }
+
+                lookup.remove(id);
+                nodes.set(internalNodeId, null);
+
+                synchronized (freedIds) {
+                    freedIds.push(internalNodeId);
+                }
+                return true;
+
+            } finally {
+                stampedLock.unlockWrite(stamp);
             }
-
-            // if we could not change the outgoing connection it means we are the last node
-
-            if (entryPoint == node) {
-                entryPoint = null;
-            }
-
-            lookup.remove(id);
-            nodes.set(internalNodeId, null);
-
-            synchronized (freedIds) {
-                freedIds.push(internalNodeId);
-            }
-            return true;
 
         } finally {
-            stampedLock.unlockWrite(stamp);
+            globalLock.unlock();
         }
 
         // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
@@ -217,7 +227,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     // as an optimization don't acquire the write lock on the stamped lock if its has the same vector
                     // instead just update the item because the relations should not change
                     if (Objects.deepEquals(node.item.vector(), item.vector())) {
-                        nodes.set(existingNodeId, new Node<>(existingNodeId, node.outgoingConnections, node.incomingConnections, item));
+                        node.item = item;
                         return;
                     } else {
                         remove(item.id());
@@ -240,25 +250,22 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             }
 
+            excludedCandidates.add(newNodeId);
+
+            Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
+
+            nodes.set(newNodeId, newNode);
+            lookup.put(item.id(), newNodeId);
+
             Node<TItem> entryPointCopy = entryPoint;
 
             if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
                 globalLock.unlock();
             }
 
-
             long stamp = stampedLock.readLock();
 
             try {
-
-                synchronized (activeConstruction) {
-                    activeConstruction.add(newNodeId);
-                }
-
-                Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
-                nodes.set(newNodeId, newNode);
-                lookup.put(item.id(), newNodeId);
-
                 Node<TItem> currObj = entryPointCopy;
 
                 if (currObj != null) {
@@ -315,9 +322,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     this.entryPoint = newNode;
                 }
             } finally {
-                synchronized (activeConstruction) {
-                    activeConstruction.remove(newNodeId);
-                }
+                excludedCandidates.remove(newNodeId);
 
                 stampedLock.unlockRead(stamp);
             }
@@ -343,10 +348,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
 
-            synchronized (activeConstruction) {
-                if (activeConstruction.contains(selectedNeighbourId)) {
-                    continue;
-                }
+            if (excludedCandidates.contains(selectedNeighbourId)) {
+                continue;
             }
 
             outgoingNewItemConnections.add(selectedNeighbourId);
@@ -708,10 +711,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.stampedLock = new StampedLock();
 
-        this.visitedBitSetPool = new GenericObjectPool<>(() -> new BitSet(this.maxItemCount),
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
 
-        this.activeConstruction = new BitSet(this.maxItemCount);
+        this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
 
     }
 
@@ -1084,7 +1087,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         final MutableIntList[] incomingConnections;
 
-        final TItem item;
+        volatile TItem item;
 
         Node(int id, MutableIntList[] outgoingConnections, MutableIntList[] incomingConnections, TItem item) {
             this.id = id;
