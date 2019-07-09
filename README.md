@@ -26,7 +26,7 @@ Java API:
     List<SearchResult<Word, Float>> nearest = index.findNeighbors("king", 10);
     
     for (SearchResult<Word, Float> result : nearest) {
-        System.out.println(result.getItem().getId() + " " + result.getDistance());
+        System.out.println(result.item().id() + " " + result.getDistance());
     }
 
 Scala API:
