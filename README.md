@@ -68,6 +68,12 @@ faster if you have many executors at your disposal or if your dataset won't fit 
 Here's an example of how to do this :
 
 
+    case class RelatedItem(id: String, relatedId: String, similarity: Float)
+
+    class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
+      override def getPartition(key: Any): Int = key.asInstanceOf[Int]
+    }
+    
     // needs to use java serialization
     conf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer")
     
@@ -82,7 +88,15 @@ Here's an example of how to do this :
       .partitionBy(new PartitionIdPassthrough(numPartitions))
 
     val indices = partitionedItems
-        .mapPartitions(it => new IndexIterator(it))
+        .mapPartitions { it =>
+
+          val items = it.toSeq
+          
+          val index = HnswIndex[String, Vector, Word, Double](cosineDistance, items.size, m = m)
+          index.addAll(items.map(_._2))
+          
+          Iterator(items.head._1 -> index)
+        }
         .cache()
 
     val itemOnAllPartitions = items
@@ -106,26 +120,6 @@ Here's an example of how to do this :
         .take(k)
 
       id +: relatedIds mkString "\t"
-    }
-
-    case class RelatedItem(id: String, relatedId: String, similarity: Float)
-    
-    class IndexIterator(delegate: Iterator[(Int, Word)], m: Int)
-      extends Iterator[(Int, HnswIndex[String, Vector, Word, Float])] {
-    
-      override def hasNext: Boolean = delegate.hasNext
-    
-      override def next(): (Int, HnswIndex[String, Vector, Word, Float]) = {
-        val items = delegate.toSeq
-    
-        val index = HnswIndex[String, Vector, Word, Float](cosineDistance, items.size, m = m)
-        index.addAll(items.map(_._2))
-        items.head._1 -> index
-      }
-    }
-    
-    class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
-      override def getPartition(key: Any): Int = key.asInstanceOf[Int]
     }
 
 
