@@ -84,11 +84,11 @@ object HnswIndex {
     * @tparam TVector Type of the vector to perform distance calculation on
     * @tparam TItem Type of items stored in the index
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-    * @return
+    * @return the index
     */
   def apply[TId,  TVector, TItem <: Item[TId, TVector], TDistance](
     distanceFunction: (TVector, TVector) => TDistance,
-    maxItemCount : Int,
+    maxItemCount: Int,
     m: Int = JHnswIndex.BuilderBase.DEFAULT_M,
     ef: Int = JHnswIndex.BuilderBase.DEFAULT_EF,
     efConstruction: Int = JHnswIndex.BuilderBase.DEFAULT_EF_CONSTRUCTION,
@@ -97,11 +97,8 @@ object HnswIndex {
     itemSerializer: ObjectSerializer[TItem] = new JavaObjectSerializer[TItem])(implicit ordering: Ordering[TDistance])
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
-    val jDistanceFunction = new DistanceFunction[TVector, TDistance] {
-      override def distance(u: TVector, v: TVector): TDistance = distanceFunction(u, v)
-    }
-
-    val builder = JHnswIndex.newBuilder(jDistanceFunction, ordering, maxItemCount)
+    val builder = JHnswIndex
+      .newBuilder(new DistanceFunctionAdapter[TVector, TDistance](distanceFunction), ordering, maxItemCount)
       .withM(m)
       .withEf(ef)
       .withEfConstruction(efConstruction)
@@ -114,6 +111,20 @@ object HnswIndex {
     new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
   }
 
+}
+
+/**
+  * Adapts a scala function to [[DistanceFunction]]
+  *
+  * @param scalaFunction scala function to delegate to
+  *
+  * @tparam TVector Type of the vector to perform distance calculation on
+  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+  */
+class DistanceFunctionAdapter[TVector, TDistance](val scalaFunction: (TVector, TVector) => TDistance)
+    extends DistanceFunction[TVector, TDistance] {
+
+  override def distance(u: TVector, v: TVector): TDistance = scalaFunction(u, v)
 }
 
 /**
@@ -133,12 +144,30 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
   extends ScalaIndexAdapter[TId, TVector, TItem ,TDistance](delegate) {
 
   /**
-    * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
-    * such can be used as a baseline for assessing the precision of the index.
-    * Searches will be really slow but give the correct result every time.
+    * This distance function.
     */
-  def asExactIndex: Index[TId, TVector, TItem, TDistance] =
-    new ScalaIndexAdapter(delegate.asExactIndex())
+  val distanceFunction: (TVector, TVector) => TDistance = delegate
+    .getDistanceFunction.asInstanceOf[DistanceFunctionAdapter[TVector, TDistance]].scalaFunction
+
+  /**
+    * The maximum number of items the index can hold.
+    */
+  val maxItemCount: Int = delegate.getMaxItemCount
+
+  /**
+    * True if removes are enabled for this index.
+    */
+  val removeEnabled: Boolean = delegate.isRemoveEnabled
+
+  /**
+    * The serializer used to serialize item id's when saving the index.
+    */
+  val itemIdSerializer: ObjectSerializer[TId] = delegate.getItemIdSerializer
+
+  /**
+    * The serializer used to serialize items when saving the index
+    */
+  val itemSerializer: ObjectSerializer[TItem] = delegate.getItemSerializer
 
   /**
     * The number of bi-directional links created for every new element during construction.
@@ -154,4 +183,12 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
     * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
     */
   val efConstruction: Int = delegate.getEfConstruction
+
+  /**
+    * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
+    * such can be used as a baseline for assessing the precision of the index.
+    * Searches will be really slow but give the correct result every time.
+    */
+  def asExactIndex: Index[TId, TVector, TItem, TDistance] = new ScalaIndexAdapter(delegate.asExactIndex())
+
 }

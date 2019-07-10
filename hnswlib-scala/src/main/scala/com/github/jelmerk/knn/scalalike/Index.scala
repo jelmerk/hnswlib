@@ -15,7 +15,7 @@ import com.github.jelmerk.knn.{Index => JIndex}
   *
   * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm]] for more information.
   */
-trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
+trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterable[TItem] with Serializable {
 
   /**
     * By default after indexing this many items progress will be reported to registered progress listeners.
@@ -29,12 +29,18 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
   type ProgressListener = (Int, Int) => Unit
 
   /**
-    * Add a new item to the index. If the item already exists in the index the old item will first be removed from the
-    * index. for this removes need to be enabled for the index.
+    * Add a new item to the index. If an item with the same identifier already exists in the index then :
+    *
+    * If deletes are disabled on this index the method will return false and the item will not be updated.
+    *
+    * If deletes are enabled and the version of the item has is higher version than that of the item currently stored
+    * in the index the old item will be removed and the new item added, otherwise this method will return false and the
+    * item will not be updated.
     *
     * @param item the item to add to the index
+    * @return true if the item was added to the index
     */
-  def add(item: TItem): Unit
+  def add(item: TItem): Boolean
 
   /**
     * Add multiple items to the index. Reports progress to the passed in progress listener
@@ -51,12 +57,14 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
              progressUpdateInterval: Int = DefaultProgressUpdateInterval): Unit
 
   /**
-    * Removes an item from the index.
+    * Removes an item from the index. If the index does not support deletes or an item with the same identifier exists
+    * in the index with a higher version number, then this method will return false and the item will not be removed.
     *
     * @param id unique identifier or the item to remove
+    * @param version version of the delete. If your items don't override version use 0
     * @return true if an item was removed from the index
     */
-  def remove(id: TId): Boolean
+  def remove(id: TId, version: Long): Boolean
 
   /**
     * Returns the size of the index.
@@ -66,7 +74,8 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
   def size: Int
 
   /**
-    * Returns an item by its identifier. If the item does not exist in the index a NoSuchElementException is thrown
+    * Returns an item by its identifier. If the item does not exist in the index a NoSuchElementException is thrown.
+    *
     * @param id unique identifier of the item to return
     * @return the item
     */

@@ -29,11 +29,13 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     private final Comparator<TDistance> distanceComparator;
 
     private final Map<TId, TItem> items;
+    private final Map<TId, Long> deletedItemVersions;
 
     private BruteForceIndex(BruteForceIndex.Builder<TVector, TDistance> builder) {
         this.distanceFunction = builder.distanceFunction;
         this.distanceComparator = builder.distanceComparator;
         this.items = new ConcurrentHashMap<>();
+        this.deletedItemVersions = new ConcurrentHashMap<>();
     }
 
     /**
@@ -56,16 +58,51 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
-    public void add(TItem item) {
-        items.putIfAbsent(item.id(), item);
+    public Collection<TItem> items() {
+        return items.values();
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean remove(TId tId) {
-        return items.remove(tId) != null;
+    public boolean add(TItem item) {
+        synchronized (items) {
+            TItem existingItem = items.get(item.id());
+
+            if (existingItem != null && item.version() < existingItem.version()) {
+                return false;
+            }
+
+            if (item.version() < deletedItemVersions.getOrDefault(item.id(), 0L)) {
+                return false;
+            }
+
+            items.put(item.id(), item);
+            return true;
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean remove(TId id, long version) {
+        synchronized (items) {
+            TItem item = items.get(id);
+
+            if (item == null) {
+                return false;
+            }
+
+            if (version < item.version()) {
+                return false;
+            }
+            items.remove(id);
+            deletedItemVersions.put(id, version);
+
+            return true;
+        }
     }
 
     /**

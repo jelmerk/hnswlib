@@ -23,4 +23,13 @@ public interface Item<TId, TVector> extends Serializable {
      * @return the vector to perform the distance calculation on
      */
     TVector vector();
+
+    /**
+     * Returns the version of the item. Higher is newer.
+     *
+     * @return the version of this item.
+     */
+    default long version() {
+        return 0;
+    }
 }

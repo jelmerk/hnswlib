@@ -4,17 +4,19 @@ package com.github.jelmerk.knn.hnsw;
 import com.github.jelmerk.knn.*;
 import com.github.jelmerk.knn.util.*;
 import com.github.jelmerk.knn.util.BitSet;
-import org.eclipse.collections.api.iterator.IntIterator;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
-import org.eclipse.collections.api.stack.primitive.MutableIntStack;
+import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
+import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
+import org.eclipse.collections.api.tuple.primitive.ObjectIntPair;
+import org.eclipse.collections.api.tuple.primitive.ObjectLongPair;
 import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
-import org.eclipse.collections.impl.stack.mutable.primitive.IntArrayStack;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
+import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.*;
 
@@ -33,6 +35,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private static final long serialVersionUID = 1L;
 
+    private static final int NO_NODE_ID = -1;
+
     private DistanceFunction<TVector, TDistance> distanceFunction;
     private Comparator<TDistance> distanceComparator;
 
@@ -45,13 +49,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private int efConstruction;
     private boolean removeEnabled;
 
-    private volatile int itemCount;
-    private MutableIntStack freedIds;
+    private int nodeCount;
 
     private volatile Node<TItem> entryPoint;
 
     private AtomicReferenceArray<Node<TItem>> nodes;
-    private Map<TId, Integer> lookup;
+    private MutableObjectIntMap<TId> lookup;
+    private MutableObjectLongMap<TId> deletedItemVersions;
+    private Map<TId, Object> locks;
 
     private ObjectSerializer<TId> itemIdSerializer;
     private ObjectSerializer<TItem> itemSerializer;
@@ -68,7 +73,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
-        this.distanceComparator = builder.distanceComparator;
+        this.distanceComparator = new MaxValueComparator<>(builder.distanceComparator);
 
         this.m = builder.m;
         this.maxM = builder.m;
@@ -80,9 +85,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
-        this.lookup = new ConcurrentHashMap<>();
-
-        this.freedIds = new IntArrayStack();
+        this.lookup = new ObjectIntHashMap<>();
+        this.deletedItemVersions = new ObjectLongHashMap<>();
+        this.locks = new HashMap<>();
 
         this.itemIdSerializer = builder.itemIdSerializer;
         this.itemSerializer = builder.itemSerializer;
@@ -102,8 +107,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public int size() {
-        synchronized (freedIds) {
-            return itemCount - freedIds.size();
+        globalLock.lock();
+        try {
+            return lookup.size();
+        } finally {
+            globalLock.unlock();
         }
     }
 
@@ -112,214 +120,216 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public Optional<TItem> get(TId id) {
-        return Optional.ofNullable(lookup.get(id))
-                .flatMap(index -> Optional.ofNullable(nodes.get(index)))
-                .map(n -> n.item);
+        globalLock.lock();
+        try {
+            int nodeId = lookup.getIfAbsent(id, NO_NODE_ID);
+
+            if (nodeId == NO_NODE_ID) {
+                return Optional.empty();
+            } else {
+                return Optional.of(nodes.get(nodeId).item);
+            }
+        } finally {
+            globalLock.unlock();
+        }
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean remove(TId id) {
+    public Collection<TItem> items() {
+        globalLock.lock();
+        try {
+            List<TItem> results = new ArrayList<>(size());
+
+            Iterator<TItem> iter = new ItemIterator();
+
+            while(iter.hasNext()) {
+                results.add(iter.next());
+            }
+
+            return results;
+        } finally {
+            globalLock.unlock();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean remove(TId id, long version) {
+
+        if (!removeEnabled) {
+            return false;
+        }
 
         globalLock.lock();
 
         try {
-            long stamp = stampedLock.writeLock();
+            int internalNodeId = lookup.getIfAbsent(id, NO_NODE_ID);
 
-            try {
+            if (internalNodeId == NO_NODE_ID) {
+                return false;
+            }
+
+            Node<TItem> node = nodes.get(internalNodeId);
+
+            if (version < node.item.version()) {
+                return false;
+            }
+
+            node.deleted = true;
+
+            lookup.remove(id);
+
+            deletedItemVersions.put(id, version);
+
+            return true;
+        } finally {
+            globalLock.unlock();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean add(TItem item) {
+
+        int randomLevel = assignLevel(item.id(), this.levelLambda);
+
+        IntArrayList[] connections = new IntArrayList[randomLevel + 1];
+
+        for (int level = 0; level <= randomLevel; level++) {
+            int levelM = randomLevel == 0 ? maxM0 : maxM;
+            connections[level] = new IntArrayList(levelM);
+        }
+
+        globalLock.lock();
+
+        try {
+            int existingNodeId = lookup.getIfAbsent(item.id(), NO_NODE_ID);
+
+            if (existingNodeId != NO_NODE_ID) {
+
                 if (!removeEnabled) {
                     return false;
                 }
 
-                Integer internalNodeId = lookup.get(id);
+                Node<TItem> node = nodes.get(existingNodeId);
 
-                if (internalNodeId == null) {
+                if (item.version() < node.item.version()) {
                     return false;
                 }
 
-                Node<TItem> node = nodes.get(internalNodeId);
-
-                for (int level = node.maxLevel(); level >= 0; level--) {
-
-                    final int finalLevel = level;
-
-                    node.incomingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
-
-                    node.outgoingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
-
-                }
-
-                // change the entry point to the first outgoing connection at the highest level
-
-                if (entryPoint == node) {
-                    for (int level = node.maxLevel(); level >= 0; level--) {
-
-                        MutableIntList outgoingConnections = node.outgoingConnections[level];
-                        if (!outgoingConnections.isEmpty()) {
-                            entryPoint = nodes.get(outgoingConnections.getFirst());
-                            break;
-                        }
-                    }
-
-                }
-
-                // if we could not change the outgoing connection it means we are the last node
-
-                if (entryPoint == node) {
-                    entryPoint = null;
-                }
-
-                lookup.remove(id);
-                nodes.set(internalNodeId, null);
-
-                synchronized (freedIds) {
-                    freedIds.push(internalNodeId);
-                }
-                return true;
-
-            } finally {
-                stampedLock.unlockWrite(stamp);
-            }
-
-        } finally {
-            globalLock.unlock();
-        }
-
-        // TODO do we want to do anything to fix up the connections like here https://github.com/andrusha97/online-hnsw/blob/master/include/hnsw/index.hpp#L185
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void add(TItem item) {
-
-        int randomLevel = assignLevel(item.id(), this.levelLambda);
-
-        IntArrayList[] outgoingConnections = new IntArrayList[randomLevel + 1];
-
-        for (int level = 0; level <= randomLevel; level++) {
-            int levelM = randomLevel == 0 ? maxM0 : maxM;
-            outgoingConnections[level] = new IntArrayList(levelM);
-        }
-
-        IntArrayList[] incomingConnections = removeEnabled ? new IntArrayList[randomLevel + 1] : null;
-        if (removeEnabled) {
-            for (int level = 0; level <= randomLevel; level++) {
-                int levelM = randomLevel == 0 ? maxM0 : maxM;
-                incomingConnections[level] = new IntArrayList(levelM);
-            }
-        }
-
-        globalLock.lock();
-
-        try {
-
-            Integer existingNodeId = lookup.get(item.id());
-
-            if (existingNodeId != null) {
-                if (removeEnabled) {
-                    Node<TItem> node = nodes.get(existingNodeId);
-                    // as an optimization don't acquire the write lock on the stamped lock if its has the same vector
-                    // instead just update the item because the relations should not change
-                    if (Objects.deepEquals(node.item.vector(), item.vector())) {
-                        node.item = item;
-                        return;
-                    } else {
-                        remove(item.id());
-                    }
-
+                if (Objects.deepEquals(node.item.vector(), item.vector())) {
+                    node.item = item;
+                    return true;
                 } else {
-                    throw new IllegalArgumentException("Duplicate item : " + item.id());
+                    remove(item.id(), item.version());
                 }
+
+            } else if (item.version() < deletedItemVersions.getIfAbsent(item.id(), -1)) {
+                return false;
             }
 
-            int newNodeId;
-            synchronized (freedIds) {
-                if (freedIds.isEmpty()) {
-                    if (itemCount >= this.maxItemCount) {
-                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
-                    }
-                    newNodeId = itemCount++;
-                } else {
-                    newNodeId = freedIds.pop();
-                }
+            if (nodeCount >= this.maxItemCount) {
+                throw new IllegalStateException("The number of elements exceeds the specified limit.");
             }
+
+            int newNodeId = nodeCount++;
 
             excludedCandidates.add(newNodeId);
 
-            Node<TItem> newNode = new Node<>(newNodeId, outgoingConnections, incomingConnections, item);
+            Node<TItem> newNode = new Node<>(newNodeId, connections, item, false);
 
             nodes.set(newNodeId, newNode);
             lookup.put(item.id(), newNodeId);
+            deletedItemVersions.remove(item.id());
+
+            Object lock = locks.computeIfAbsent(item.id(), k -> new Object());
 
             Node<TItem> entryPointCopy = entryPoint;
-
-            if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
-                globalLock.unlock();
-            }
 
             long stamp = stampedLock.readLock();
 
             try {
-                Node<TItem> currObj = entryPointCopy;
+                synchronized (lock) {
+                    synchronized (newNode) {
 
-                if (currObj != null) {
+                        if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
+                            globalLock.unlock();
+                        }
 
-                    if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
+                        Node<TItem> currObj = entryPointCopy;
 
-                        TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
+                        if (currObj != null) {
 
-                        for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+                            if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
 
-                            boolean changed = true;
+                                TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
 
-                            while (changed) {
-                                changed = false;
+                                for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
-                                synchronized (currObj) {
-                                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+                                    boolean changed = true;
 
-                                    for (int i = 0; i < candidateConnections.size(); i++) {
+                                    while (changed) {
+                                        changed = false;
 
-                                        int candidateId = candidateConnections.get(i);
+                                        synchronized (currObj) {
+                                            MutableIntList candidateConnections = currObj.connections[activeLevel];
 
-                                        Node<TItem> candidateNode = nodes.get(candidateId);
+                                            for (int i = 0; i < candidateConnections.size(); i++) {
 
-                                        TDistance candidateDistance = distanceFunction.distance(
-                                                item.vector(),
-                                                candidateNode.item.vector()
-                                        );
+                                                int candidateId = candidateConnections.get(i);
 
-                                        if (lt(candidateDistance, curDist)) {
-                                            curDist = candidateDistance;
-                                            currObj = candidateNode;
-                                            changed = true;
+                                                Node<TItem> candidateNode = nodes.get(candidateId);
+
+                                                TDistance candidateDistance = distanceFunction.distance(
+                                                        item.vector(),
+                                                        candidateNode.item.vector()
+                                                );
+
+                                                if (lt(candidateDistance, curDist)) {
+                                                    curDist = candidateDistance;
+                                                    currObj = candidateNode;
+                                                    changed = true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
+
+                            for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
+                                PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                        searchBaseLayer(currObj, item.vector(), efConstruction, level);
+
+                                if (entryPointCopy.deleted) {
+                                    TDistance distance = distanceFunction.distance(item.vector(), entryPointCopy.item.vector());
+                                    topCandidates.add(new NodeIdAndDistance<>(entryPointCopy.id, distance, distanceComparator));
+
+                                    if (topCandidates.size() > efConstruction) {
+                                        topCandidates.poll();
+                                    }
+                                }
+
+
+                                mutuallyConnectNewElement(newNode, topCandidates, level);
+
+                            }
                         }
-                    }
 
-                    for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
-                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj, item.vector(), efConstruction, level);
-
-                        synchronized (newNode) {
-                            mutuallyConnectNewElement(newNode, topCandidates, level);
+                        // zoom out to the highest level
+                        if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
+                            // this is thread safe because we get the global lock when we add a level
+                            this.entryPoint = newNode;
                         }
-                    }
-                }
 
-                // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
-                    // this is thread safe because we get the global lock when we add a level
-                    this.entryPoint = newNode;
+                        return true;
+                    }
                 }
             } finally {
                 excludedCandidates.remove(newNodeId);
@@ -341,9 +351,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         int newNodeId = newNode.id;
         TVector newItemVector = newNode.item.vector();
-        MutableIntList outgoingNewItemConnections = newNode.outgoingConnections[level];
+        MutableIntList newItemConnections = newNode.connections[level];
 
-        getNeighborsByHeuristic2(topCandidates, null, m);
+        getNeighborsByHeuristic2(topCandidates, m);
 
         while (!topCandidates.isEmpty()) {
             int selectedNeighbourId = topCandidates.poll().nodeId;
@@ -352,27 +362,18 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 continue;
             }
 
-            outgoingNewItemConnections.add(selectedNeighbourId);
+            newItemConnections.add(selectedNeighbourId);
 
             Node<TItem> neighbourNode = nodes.get(selectedNeighbourId);
 
             synchronized (neighbourNode) {
 
-                if (removeEnabled) {
-                    neighbourNode.incomingConnections[level].add(newNodeId);
-                }
-
                 TVector neighbourVector = neighbourNode.item.vector();
 
-                MutableIntList outgoingNeighbourConnectionsAtLevel = neighbourNode.outgoingConnections[level];
+                MutableIntList neighbourConnectionsAtLevel = neighbourNode.connections[level];
 
-                if (outgoingNeighbourConnectionsAtLevel.size() < bestN) {
-
-                    if (removeEnabled) {
-                        newNode.incomingConnections[level].add(selectedNeighbourId);
-                    }
-
-                    outgoingNeighbourConnectionsAtLevel.add(newNodeId);
+                if (neighbourConnectionsAtLevel.size() < bestN) {
+                    neighbourConnectionsAtLevel.add(newNodeId);
                 } else {
                     // finding the "weakest" element to replace it with the new one
 
@@ -387,7 +388,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
                     candidates.add(new NodeIdAndDistance<>(newNodeId, dMax, distanceComparator));
 
-                    outgoingNeighbourConnectionsAtLevel.forEach(id -> {
+                    neighbourConnectionsAtLevel.forEach(id -> {
                         TDistance dist = distanceFunction.distance(
                                 neighbourVector,
                                 nodes.get(id).item.vector()
@@ -396,36 +397,19 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                         candidates.add(new NodeIdAndDistance<>(id, dist, distanceComparator));
                     });
 
-                    MutableIntList prunedConnections = removeEnabled ? new IntArrayList() : null;
+                    getNeighborsByHeuristic2(candidates, bestN);
 
-                    getNeighborsByHeuristic2(candidates, prunedConnections, bestN);
-
-                    if (removeEnabled) {
-                        newNode.incomingConnections[level].add(selectedNeighbourId);
-                    }
-
-                    outgoingNeighbourConnectionsAtLevel.clear();
+                    neighbourConnectionsAtLevel.clear();
 
                     while (!candidates.isEmpty()) {
-                        outgoingNeighbourConnectionsAtLevel.add(candidates.poll().nodeId);
-                    }
-
-                    if (removeEnabled) {
-                        prunedConnections.forEach(id -> {
-                            Node<TItem> node = nodes.get(id);
-                            synchronized (node.incomingConnections) {
-                                node.incomingConnections[level].remove(selectedNeighbourId);
-                            }
-                        });
+                        neighbourConnectionsAtLevel.add(candidates.poll().nodeId);
                     }
                 }
             }
         }
     }
 
-    private void getNeighborsByHeuristic2(PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates,
-                                          MutableIntList prunedConnections,
-                                          int m) {
+    private void getNeighborsByHeuristic2(PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates, int m) {
 
         if (topCandidates.size() < m) {
             return;
@@ -434,40 +418,35 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         PriorityQueue<NodeIdAndDistance<TDistance>> queueClosest = new PriorityQueue<>();
         List<NodeIdAndDistance<TDistance>> returnList = new ArrayList<>();
 
-        while (!topCandidates.isEmpty()) {
+        while(!topCandidates.isEmpty()) {
             queueClosest.add(topCandidates.poll());
         }
 
-        while (!queueClosest.isEmpty()) {
+        while(!queueClosest.isEmpty()) {
+            if (returnList.size() >= m) {
+                break;
+            }
+
             NodeIdAndDistance<TDistance> currentPair = queueClosest.poll();
 
-            boolean good;
-            if (returnList.size() >= m) {
-                good = false;
-            } else {
-                TDistance distToQuery = currentPair.distance;
+            TDistance distToQuery = currentPair.distance;
 
-                good = true;
-                for (NodeIdAndDistance<TDistance> secondPair : returnList) {
+            boolean good = true;
+            for (NodeIdAndDistance<TDistance> secondPair : returnList) {
 
-                    TDistance curdist = distanceFunction.distance(
-                            nodes.get(secondPair.nodeId).item.vector(),
-                            nodes.get(currentPair.nodeId).item.vector()
-                    );
+                TDistance curdist = distanceFunction.distance(
+                        nodes.get(secondPair.nodeId).item.vector(),
+                        nodes.get(currentPair.nodeId).item.vector()
+                );
 
-                    if (lt(curdist, distToQuery)) {
-                        good = false;
-                        break;
-                    }
-
+                if (lt(curdist, distToQuery)) {
+                    good = false;
+                    break;
                 }
+
             }
             if (good) {
                 returnList.add(currentPair);
-            } else {
-                if (prunedConnections != null) {
-                    prunedConnections.add(currentPair.nodeId);
-                }
             }
         }
 
@@ -498,7 +477,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 changed = false;
 
                 synchronized (currObj) {
-                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+                    MutableIntList candidateConnections = currObj.connections[activeLevel];
 
                     for (int i = 0; i < candidateConnections.size(); i++) {
 
@@ -545,15 +524,23 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     new PriorityQueue<>(Comparator.<NodeIdAndDistance<TDistance>>naturalOrder().reversed());
             PriorityQueue<NodeIdAndDistance<TDistance>> candidateSet = new PriorityQueue<>();
 
-            TDistance distance = distanceFunction.distance(destination, entryPointNode.item.vector());
+            TDistance lowerBound;
 
-            NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance, distanceComparator);
+            if (!entryPointNode.deleted) {
+                TDistance distance = distanceFunction.distance(destination, entryPointNode.item.vector());
+                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance, distanceComparator);
 
-            topCandidates.add(pair);
-            candidateSet.add(pair);
+                topCandidates.add(pair);
+                lowerBound = distance;
+                candidateSet.add(pair);
+
+            } else {
+                lowerBound = MaxValueComparator.maxValue();
+                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, lowerBound, distanceComparator);
+                candidateSet.add(pair);
+            }
+
             visitedBitSet.add(entryPointNode.id);
-
-            TDistance lowerBound = distance;
 
             while (!candidateSet.isEmpty()) {
 
@@ -567,7 +554,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 synchronized (node) {
 
-                    MutableIntList candidates = node.outgoingConnections[layer];
+                    MutableIntList candidates = node.connections[layer];
 
                     for (int i = 0; i < candidates.size(); i++) {
 
@@ -577,22 +564,29 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                             visitedBitSet.add(candidateId);
 
-                            TDistance candidateDistance = distanceFunction.distance(destination,
-                                    nodes.get(candidateId).item.vector());
+                            Node<TItem> candidateNode = nodes.get(candidateId);
 
-                            if (gt(topCandidates.peek().distance, candidateDistance) || topCandidates.size() < k) {
+                            TDistance candidateDistance = distanceFunction.distance(destination,
+                                    candidateNode.item.vector());
+
+                            if (topCandidates.size() < k || gt(lowerBound, candidateDistance)) {
 
                                 NodeIdAndDistance<TDistance> candidatePair =
                                         new NodeIdAndDistance<>(candidateId, candidateDistance, distanceComparator);
 
                                 candidateSet.add(candidatePair);
-                                topCandidates.add(candidatePair);
+
+                                if (!candidateNode.deleted) {
+                                    topCandidates.add(candidatePair);
+                                }
 
                                 if (topCandidates.size() > k) {
                                     topCandidates.poll();
                                 }
 
-                                lowerBound = topCandidates.peek().distance;
+                                if (!topCandidates.isEmpty()) {
+                                    lowerBound = topCandidates.peek().distance;
+                                }
                             }
                         }
                     }
@@ -646,16 +640,66 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Returns the distance function.
+     *
+     * @return the distance function
+     */
+    public DistanceFunction<TVector, TDistance> getDistanceFunction() {
+        return distanceFunction;
+    }
+
+    /**
+     * Returns if removes are enabled.
+     *
+     * @return true if removes are enabled for this index.
+     */
+    public boolean isRemoveEnabled() {
+        return removeEnabled;
+    }
+
+    /**
+     * Returns the maximum number of items the index can hold.
+     *
+     * @return the maximum number of items the index can hold
+     */
+    public int getMaxItemCount() {
+        return maxItemCount;
+    }
+
+    /**
+     * Returns the serializer used to serialize item id's when saving the index.
+     *
+     * @return the serializer used to serialize item id's when saving the index
+     */
+    public ObjectSerializer<TId> getItemIdSerializer() {
+        return itemIdSerializer;
+    }
+
+    /**
+     * Returns the serializer used to serialize items when saving the index.
+     *
+     * @return the serializer used to serialize items when saving the index
+     */
+    public ObjectSerializer<TItem> getItemSerializer() {
+        return itemSerializer;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        long stamp = stampedLock.writeLock();
+        globalLock.lock();
+        try {
+            long stamp = stampedLock.writeLock();
 
-        try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-            oos.writeObject(this);
+            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
+                oos.writeObject(this);
+            } finally {
+                stampedLock.unlockWrite(stamp);
+            }
         } finally {
-            stampedLock.unlockWrite(stamp);
+            globalLock.unlock();
         }
     }
 
@@ -664,7 +708,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         oos.writeObject(distanceComparator);
         oos.writeObject(itemIdSerializer);
         oos.writeObject(itemSerializer);
-
         oos.writeInt(maxItemCount);
         oos.writeInt(m);
         oos.writeInt(maxM);
@@ -673,13 +716,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         oos.writeInt(ef);
         oos.writeInt(efConstruction);
         oos.writeBoolean(removeEnabled);
-        oos.writeInt(itemCount);
-
-        writeMutableIntStack(oos, freedIds);
-
-        writeNode(oos, entryPoint);
-        writeNodes(oos, nodes);
-        writeLookup(oos, lookup);
+        oos.writeInt(nodeCount);
+        writeMutableObjectIntMap(oos, lookup);
+        writeMutableObjectLongMap(oos, deletedItemVersions);
+        writeNodesArray(oos, nodes);
+        oos.writeInt(entryPoint.id);
     }
 
     @SuppressWarnings("unchecked")
@@ -697,51 +738,39 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.ef = ois.readInt();
         this.efConstruction = ois.readInt();
         this.removeEnabled = ois.readBoolean();
-        this.itemCount = ois.readInt();
-
-        this.freedIds = readIntArrayStack(ois);
-
-        this.entryPoint = readNode(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
-        this.nodes = readNodes(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
-        this.lookup = readLookup(ois, itemIdSerializer);
-
+        this.nodeCount = ois.readInt();
+        this.lookup = readMutableObjectIntMap(ois, itemIdSerializer);
+        this.deletedItemVersions = readMutableObjectLongMap(ois, itemIdSerializer);
+        this.nodes = readNodesArray(ois, itemSerializer, maxM0, maxM);
+        this.entryPoint = nodes.get(ois.readInt());
         this.globalLock = new ReentrantLock();
-
         this.stampedLock = new StampedLock();
-
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
-
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
-
+        this.locks = new HashMap<>();
     }
 
-    private void writeLookup(ObjectOutputStream oos, Map<TId, Integer> lookup) throws IOException {
-        Set<Map.Entry<TId, Integer>> entries = lookup.entrySet();
+    private void writeMutableObjectIntMap(ObjectOutputStream oos, MutableObjectIntMap<TId> map) throws IOException {
+        oos.writeInt(map.size());
 
-        oos.writeInt(entries.size());
-
-        for (Map.Entry<TId, Integer> entry : entries) {
-            itemIdSerializer.write(entry.getKey(), oos);
-            oos.writeInt(entry.getValue());
+        for (ObjectIntPair<TId> pair : map.keyValuesView()) {
+            itemIdSerializer.write(pair.getOne(), oos);
+            oos.writeInt(pair.getTwo());
         }
     }
 
-    private void writeMutableIntStack(ObjectOutputStream oos, MutableIntStack stack) throws IOException {
-        IntIterator iterator = stack.intIterator();
+    private void writeMutableObjectLongMap(ObjectOutputStream oos, MutableObjectLongMap<TId> map) throws IOException {
+        oos.writeInt(map.size());
 
-        oos.writeInt(stack.size());
-
-        while (iterator.hasNext()) {
-            oos.writeInt(iterator.next());
+        for (ObjectLongPair<TId> pair : map.keyValuesView()) {
+            itemIdSerializer.write(pair.getOne(), oos);
+            oos.writeLong(pair.getTwo());
         }
     }
 
-    private void writeNodes(ObjectOutputStream oos, AtomicReferenceArray<Node<TItem>> nodes) throws IOException {
+    private void writeNodesArray(ObjectOutputStream oos, AtomicReferenceArray<Node<TItem>> nodes) throws IOException {
         oos.writeInt(nodes.length());
-
         for (int i = 0; i < nodes.length(); i++) {
             writeNode(oos, nodes.get(i));
         }
@@ -752,26 +781,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             oos.writeInt(-1);
         } else {
             oos.writeInt(node.id);
-            oos.writeInt(node.outgoingConnections.length);
+            oos.writeInt(node.connections.length);
 
-            for (MutableIntList connections : node.outgoingConnections) {
+            for (MutableIntList connections : node.connections) {
                 oos.writeInt(connections.size());
                 for (int j = 0; j < connections.size(); j++) {
                     oos.writeInt(connections.get(j));
                 }
             }
-
             itemSerializer.write(node.item, oos);
-
-            if (removeEnabled) {
-                oos.writeInt(node.incomingConnections.length);
-                for (MutableIntList connections : node.incomingConnections) {
-                    oos.writeInt(connections.size());
-                    for (int j = 0; j < connections.size(); j++) {
-                        oos.writeInt(connections.get(j));
-                    }
-                }
-            }
+            oos.writeBoolean(node.deleted);
         }
     }
 
@@ -830,17 +849,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
-    private static IntArrayStack readIntArrayStack(ObjectInputStream ois) throws IOException {
-        int size = ois.readInt();
-
-        int[] values = new int[size];
-
-        for (int i = 0; i < size; i++) {
-            values[i] = ois.readInt();
-        }
-        return IntArrayStack.newStackWith(values);
-    }
-
     private static IntArrayList readIntArrayList(ObjectInputStream ois, int initialSize) throws IOException {
         int size = ois.readInt();
 
@@ -856,70 +864,74 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private static <TItem> Node<TItem> readNode(ObjectInputStream ois,
                                                 ObjectSerializer<TItem> itemSerializer,
                                                 int maxM0,
-                                                int maxM,
-                                                boolean removeEnabled) throws IOException, ClassNotFoundException {
+                                                int maxM) throws IOException, ClassNotFoundException {
 
         int id = ois.readInt();
 
         if (id == -1) {
             return null;
         } else {
-            int outgoingConnectionsSize = ois.readInt();
+            int connectionsSize = ois.readInt();
 
-            MutableIntList[] outgoingConnections = new MutableIntList[outgoingConnectionsSize];
+            MutableIntList[] connections = new MutableIntList[connectionsSize];
 
-            for (int i = 0; i < outgoingConnectionsSize; i++) {
+            for (int i = 0; i < connectionsSize; i++) {
                 int levelM = i == 0 ? maxM0 : maxM;
-                outgoingConnections[i] = readIntArrayList(ois, levelM);
+                connections[i] = readIntArrayList(ois, levelM);
             }
 
             TItem item = itemSerializer.read(ois);
 
-            MutableIntList[] incomingConnections = null;
+            boolean deleted = ois.readBoolean();
 
-            if (removeEnabled) {
-
-                int incomingConnectionsSize = ois.readInt();
-                incomingConnections = new MutableIntList[incomingConnectionsSize];
-
-                for (int i = 0; i < incomingConnectionsSize; i++) {
-                    int levelM = i == 0 ? maxM0 : maxM;
-                    incomingConnections[i] = readIntArrayList(ois, levelM);
-                }
-            }
-
-            return new Node<>(id, outgoingConnections, incomingConnections, item);
+            return new Node<>(id, connections, item, deleted);
         }
     }
 
-    private static <TItem> AtomicReferenceArray<Node<TItem>> readNodes(ObjectInputStream ois,
-                                                                         ObjectSerializer<TItem> itemSerializer,
-                                                                         int maxM0,
-                                                                         int maxM,
-                                                                         boolean removeEnabled)
+    private static <TItem> AtomicReferenceArray<Node<TItem>> readNodesArray(ObjectInputStream ois,
+                                                                            ObjectSerializer<TItem> itemSerializer,
+                                                                            int maxM0,
+                                                                            int maxM)
             throws IOException, ClassNotFoundException {
 
         int size = ois.readInt();
         AtomicReferenceArray<Node<TItem>> nodes = new AtomicReferenceArray<>(size);
 
         for (int i = 0; i < nodes.length(); i++) {
-            nodes.set(i, readNode(ois, itemSerializer, maxM0, maxM, removeEnabled));
+            nodes.set(i, readNode(ois, itemSerializer, maxM0, maxM));
         }
 
         return nodes;
     }
 
-    private static <TId> Map<TId, Integer> readLookup(ObjectInputStream ois,
-                                                            ObjectSerializer<TId> itemIdSerializer)
+    private static <TId> MutableObjectIntMap<TId> readMutableObjectIntMap(ObjectInputStream ois,
+                                                                          ObjectSerializer<TId> itemIdSerializer)
             throws IOException, ClassNotFoundException {
 
         int size = ois.readInt();
 
-        Map<TId, Integer> map = new ConcurrentHashMap<>(size);
+        MutableObjectIntMap<TId> map = new ObjectIntHashMap<>(size);
 
         for (int i = 0; i < size; i++) {
             TId key = itemIdSerializer.read(ois);
             int value = ois.readInt();
+
+            map.put(key, value);
+        }
+        return map;
+    }
+
+    private static <TId> MutableObjectLongMap<TId> readMutableObjectLongMap(ObjectInputStream ois,
+                                                                            ObjectSerializer<TId> itemIdSerializer)
+            throws IOException, ClassNotFoundException {
+
+        int size = ois.readInt();
+
+        MutableObjectLongMap<TId> map = new ObjectLongHashMap<>(size);
+
+        for (int i = 0; i < size; i++) {
+            TId key = itemIdSerializer.read(ois);
+            long value = ois.readLong();
 
             map.put(key, value);
         }
@@ -1001,6 +1013,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return HnswIndex.this.get(tId);
         }
 
+
+        @Override
+        public Collection<TItem> items() {
+            return HnswIndex.this.items();
+        }
+
         @Override
         public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
 
@@ -1010,9 +1028,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             PriorityQueue<SearchResult<TItem, TDistance>> queue = new PriorityQueue<>(k, comparator);
 
-            for (int i = 0; i < itemCount; i++) {
+            for (int i = 0; i < nodeCount; i++) {
                 Node<TItem> node = nodes.get(i);
-                if (node == null) {
+                if (node == null || node.deleted) {
                     continue;
                 }
 
@@ -1037,13 +1055,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
 
         @Override
-        public void add(TItem item) {
-            HnswIndex.this.add(item);
+        public boolean add(TItem item) {
+            return HnswIndex.this.add(item);
         }
 
         @Override
-        public boolean remove(TId id) {
-            return HnswIndex.this.remove(id);
+        public boolean remove(TId id, long version) {
+            return HnswIndex.this.remove(id, version);
         }
 
         @Override
@@ -1077,27 +1095,51 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    class ItemIterator implements Iterator<TItem> {
+
+        private int done = 0;
+        private int index = 0;
+
+        @Override
+        public boolean hasNext() {
+            return done < HnswIndex.this.size();
+        }
+
+        @Override
+        public TItem next() {
+            Node<TItem> node;
+
+            do {
+                node = HnswIndex.this.nodes.get(index++);
+            } while(node == null || node.deleted);
+
+            done++;
+
+            return node.item;
+        }
+    }
+
     static class Node<TItem> implements Serializable {
 
         private static final long serialVersionUID = 1L;
 
         final int id;
 
-        final MutableIntList[] outgoingConnections;
-
-        final MutableIntList[] incomingConnections;
+        final MutableIntList[] connections;
 
         volatile TItem item;
 
-        Node(int id, MutableIntList[] outgoingConnections, MutableIntList[] incomingConnections, TItem item) {
+        volatile boolean deleted;
+
+        Node(int id, MutableIntList[] connections, TItem item, boolean deleted) {
             this.id = id;
-            this.outgoingConnections = outgoingConnections;
-            this.incomingConnections = incomingConnections;
+            this.connections = connections;
             this.item = item;
+            this.deleted = deleted;
         }
 
         int maxLevel() {
-            return this.outgoingConnections.length - 1;
+            return this.connections.length - 1;
         }
     }
 
@@ -1116,6 +1158,28 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         @Override
         public int compareTo(NodeIdAndDistance<TDistance> o) {
             return distanceComparator.compare(distance, o.distance);
+        }
+    }
+
+
+    static class MaxValueComparator<TDistance> implements Comparator<TDistance>, Serializable  {
+
+        private static final long serialVersionUID = 1L;
+
+        private final Comparator<TDistance> delegate;
+
+        MaxValueComparator(Comparator<TDistance> delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int compare(TDistance o1, TDistance o2) {
+            return o1 == null ? o2 == null ? 0 : 1
+                    : o2 == null ? -1 : delegate.compare(o1, o2);
+        }
+
+        static <TDistance> TDistance maxValue() {
+            return null;
         }
     }
 
@@ -1163,7 +1227,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * datasets (word embeddings, good face descriptors), higher M are required (e.g. m = 48, 64) for optimal
          * performance at high recall. The range mM = 12-48 is ok for the most of the use cases. When m is changed one
          * has to update the other parameters. Nonetheless, ef and efConstruction parameters can be roughly estimated by
-         * assuming that m * efConstruction is a constant.
+         * assuming that m  efConstruction is a constant.
          *
          * @param m the number of bi-directional links created for every new element during construction
          * @return the builder.

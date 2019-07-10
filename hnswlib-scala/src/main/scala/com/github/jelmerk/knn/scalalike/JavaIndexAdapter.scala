@@ -12,9 +12,9 @@ import com.github.jelmerk.knn.{ProgressListener, Index => JIndex}
 class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: Index[TId, TVector, TItem, TDistance])
   extends JIndex[TId, TVector, TItem, TDistance] {
 
-  override def add(item: TItem): Unit = delegate.add(item)
+  override def add(item: TItem): Boolean = delegate.add(item)
 
-  override def remove(id: TId): Boolean = delegate.remove(id)
+  override def remove(id: TId, version: Long): Boolean = delegate.remove(id, version)
 
   override def size(): Int = delegate.size
 
@@ -22,6 +22,8 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](del
     case Some(value) => Optional.of(value);
     case _ => Optional.empty()
   }
+
+  override def items(): JCollection[TItem] = delegate.iterator.toSeq.asJavaCollection
 
   override def findNearest(vector: TVector, k: Int): JList[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asJava
