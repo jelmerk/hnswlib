@@ -126,18 +126,20 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         globalLock.lock();
 
         try {
+
+            if (!removeEnabled) {
+                return false;
+            }
+
+            Integer internalNodeId = lookup.get(id);
+
+            if (internalNodeId == null) {
+                return false;
+            }
+
             long stamp = stampedLock.writeLock();
 
             try {
-                if (!removeEnabled) {
-                    return false;
-                }
-
-                Integer internalNodeId = lookup.get(id);
-
-                if (internalNodeId == null) {
-                    return false;
-                }
 
                 Node<TItem> node = nodes.get(internalNodeId);
 
@@ -650,12 +652,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        long stamp = stampedLock.writeLock();
+        globalLock.lock();
 
         try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
             oos.writeObject(this);
         } finally {
-            stampedLock.unlockWrite(stamp);
+            globalLock.unlock();
         }
     }
 
