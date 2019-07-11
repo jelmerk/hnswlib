@@ -22,7 +22,7 @@ object StatisticsDecorator {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return the StatisticsDecorator
     */
-  def apply[TId, TVector, TItem <: Item[TId, TVector], TDistance ]
+  def apply[TId, TVector, TItem <: Item[TId, TVector], TDistance]
     (delegate: Index[TId, TVector, TItem, TDistance],
      groundTruth: Index[TId, TVector, TItem, TDistance],
      maxPrecisionSampleFrequency: Int,

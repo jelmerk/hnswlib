@@ -15,7 +15,7 @@ import com.github.jelmerk.knn.{Index => JIndex}
   *
   * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm]] for more information.
   */
-trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serializable {
+trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterable[TItem] with Serializable {
 
   /**
     * By default after indexing this many items progress will be reported to registered progress listeners.
@@ -66,7 +66,8 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Serial
   def size: Int
 
   /**
-    * Returns an item by its identifier. If the item does not exist in the index a NoSuchElementException is thrown
+    * Returns an item by its identifier. If the item does not exist in the index a NoSuchElementException is thrown.
+    *
     * @param id unique identifier of the item to return
     * @return the item
     */

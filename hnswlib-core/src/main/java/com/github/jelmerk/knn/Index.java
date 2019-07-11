@@ -145,6 +145,13 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     Optional<TItem> get(TId id);
 
     /**
+     * Returns all items in the index.
+     *
+     * @return all items in the index
+     */
+    Collection<TItem> items();
+
+    /**
      * Find the items closest to the passed in vector.
      *
      * @param vector the vector

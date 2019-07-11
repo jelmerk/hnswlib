@@ -56,6 +56,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
+    public Collection<TItem> items() {
+        return items.values();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public void add(TItem item) {
         items.putIfAbsent(item.id(), item);
     }

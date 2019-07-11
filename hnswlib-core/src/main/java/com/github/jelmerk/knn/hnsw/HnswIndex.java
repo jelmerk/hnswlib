@@ -45,7 +45,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private int efConstruction;
     private boolean removeEnabled;
 
-    private volatile int itemCount;
+    private int itemCount;
     private MutableIntStack freedIds;
 
     private volatile Node<TItem> entryPoint;
@@ -102,8 +102,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public int size() {
-        synchronized (freedIds) {
+        globalLock.lock();
+        try {
             return itemCount - freedIds.size();
+        } finally {
+            globalLock.unlock();
         }
     }
 
@@ -115,6 +118,27 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return Optional.ofNullable(lookup.get(id))
                 .flatMap(index -> Optional.ofNullable(nodes.get(index)))
                 .map(n -> n.item);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Collection<TItem> items() {
+        globalLock.lock();
+        try {
+            List<TItem> results = new ArrayList<>(size());
+
+            Iterator<TItem> iter = new ItemIterator();
+
+            while(iter.hasNext()) {
+                results.add(iter.next());
+            }
+
+            return results;
+        } finally {
+            globalLock.unlock();
+        }
     }
 
     /**
@@ -142,17 +166,17 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             try {
 
                 Node<TItem> node = nodes.get(internalNodeId);
+                synchronized (node) {
+                    for (int level = node.maxLevel(); level >= 0; level--) {
 
-                for (int level = node.maxLevel(); level >= 0; level--) {
+                        final int finalLevel = level;
 
-                    final int finalLevel = level;
+                        node.incomingConnections[level].forEach(neighbourId ->
+                                nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
 
-                    node.incomingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).outgoingConnections[finalLevel].remove(internalNodeId));
-
-                    node.outgoingConnections[level].forEach(neighbourId ->
-                            nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
-
+                        node.outgoingConnections[level].forEach(neighbourId ->
+                                nodes.get(neighbourId).incomingConnections[finalLevel].remove(internalNodeId));
+                    }
                 }
 
                 // change the entry point to the first outgoing connection at the highest level
@@ -178,9 +202,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 lookup.remove(id);
                 nodes.set(internalNodeId, null);
 
-                synchronized (freedIds) {
-                    freedIds.push(internalNodeId);
-                }
+                freedIds.push(internalNodeId);
+
                 return true;
 
             } finally {
@@ -241,15 +264,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
 
             int newNodeId;
-            synchronized (freedIds) {
-                if (freedIds.isEmpty()) {
-                    if (itemCount >= this.maxItemCount) {
-                        throw new IllegalStateException("The number of elements exceeds the specified limit.");
-                    }
-                    newNodeId = itemCount++;
-                } else {
-                    newNodeId = freedIds.pop();
+
+            if (freedIds.isEmpty()) {
+                if (itemCount >= this.maxItemCount) {
+                    throw new IllegalStateException("The number of elements exceeds the specified limit.");
                 }
+                newNodeId = itemCount++;
+            } else {
+                newNodeId = freedIds.pop();
             }
 
             excludedCandidates.add(newNodeId);
@@ -661,6 +683,74 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         }
     }
 
+    /**
+     * Optimize the index by re-indexing all the items. You cannot update the index while this operation is in progress.
+     * Optimizing the index takes a long time to complete and you should only ever need to do it if the index has
+     * removes enabled and you where unlucky with the updates
+     *
+     * @throws InterruptedException thrown when the thread doing the indexing is interrupted
+     */
+    public void optimize() throws InterruptedException {
+        optimize(NullProgressListener.INSTANCE);
+    }
+
+
+    /**
+     * Optimize the index by re-indexing all the items. You cannot update the index while this operation is in progress.
+     * Optimizing the index takes a long time to complete and you should only ever need to do it if the index has
+     * removes enabled and you where unlucky with the updates
+     *
+     * @param listener listener to report progress to
+     * @throws InterruptedException thrown when the thread doing the indexing is interrupted
+     */
+    public void optimize(ProgressListener listener) throws InterruptedException {
+        optimize(Runtime.getRuntime().availableProcessors(), listener, DEFAULT_PROGRESS_UPDATE_INTERVAL);
+    }
+
+    /**
+     * Optimize the index by re-indexing all the items. You cannot update the index while this operation is in progress.
+     * Optimizing the index takes a long time to complete and you should only ever need to do it if the index has
+     * removes enabled and you where unlucky with the updates
+     *
+     * @param numThreads number of threads to use for parallel indexing
+     * @param listener listener to report progress to
+     * @param progressUpdateInterval after indexing this many items progress will be reported
+     * @throws InterruptedException thrown when the thread doing the indexing is interrupted
+     */
+    public void optimize(int numThreads, ProgressListener listener, int progressUpdateInterval)
+            throws InterruptedException {
+
+        globalLock.lock();
+
+        try {
+            RefinedBuilder<TId, TVector, TItem, TDistance> builder = HnswIndex
+                    .newBuilder(distanceFunction, distanceComparator, maxItemCount)
+                    .withM(m)
+                    .withEf(ef)
+                    .withEfConstruction(efConstruction)
+                    .withCustomSerializers(itemIdSerializer, itemSerializer);
+
+            HnswIndex<TId, TVector, TItem, TDistance> newIndex;
+
+            if (removeEnabled) {
+                newIndex = builder.withRemoveEnabled().build();
+            } else {
+                newIndex = builder.build();
+            }
+
+            newIndex.addAll(HnswIndex.this.items(), numThreads, listener, progressUpdateInterval);
+
+            this.entryPoint = newIndex.entryPoint;
+            this.nodes = newIndex.nodes;
+            this.lookup = newIndex.lookup;
+            this.freedIds = newIndex.freedIds;
+            this.maxItemCount = newIndex.itemCount;
+
+        } finally {
+            globalLock.unlock();
+        }
+    }
+
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.writeObject(distanceFunction);
         oos.writeObject(distanceComparator);
@@ -1003,6 +1093,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             return HnswIndex.this.get(tId);
         }
 
+
+        @Override
+        public Collection<TItem> items() {
+            return HnswIndex.this.items();
+        }
+
         @Override
         public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
 
@@ -1076,6 +1172,30 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         @Override
         public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
             HnswIndex.this.addAll(items, numThreads, listener, progressUpdateInterval);
+        }
+    }
+
+    class ItemIterator implements Iterator<TItem> {
+
+        private int done = 0;
+        private int index = 0;
+
+        @Override
+        public boolean hasNext() {
+            return done < HnswIndex.this.size();
+        }
+
+        @Override
+        public TItem next() {
+            Node<TItem> node;
+
+            do {
+                node = HnswIndex.this.nodes.get(index++);
+            } while(node == null);
+
+            done++;
+
+            return node.item;
         }
     }
 

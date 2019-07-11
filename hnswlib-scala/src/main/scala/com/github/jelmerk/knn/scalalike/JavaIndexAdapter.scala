@@ -23,6 +23,8 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](del
     case _ => Optional.empty()
   }
 
+  override def items(): JCollection[TItem] = delegate.iterator.toSeq.asJavaCollection
+
   override def findNearest(vector: TVector, k: Int): JList[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asJava
 

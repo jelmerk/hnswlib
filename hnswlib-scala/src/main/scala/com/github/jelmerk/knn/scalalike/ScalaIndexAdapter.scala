@@ -32,6 +32,8 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](de
 
   override def get(id: TId): Option[TItem] = Option(delegate.get(id).orElse(null.asInstanceOf[TItem]))
 
+  override def iterator: Iterator[TItem] = delegate.items().asScala.iterator
+
   override def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asScala
 

@@ -120,6 +120,14 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      * {@inheritDoc}
      */
     @Override
+    public Collection<TItem> items() {
+        return delegate.items();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
         List<SearchResult<TItem, TDistance>> searchResults = delegate.findNearest(vector, k);
 
