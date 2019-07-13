@@ -767,7 +767,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         oos.writeObject(distanceComparator);
         oos.writeObject(itemIdSerializer);
         oos.writeObject(itemSerializer);
-
         oos.writeInt(maxItemCount);
         oos.writeInt(m);
         oos.writeInt(maxM);
@@ -777,12 +776,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         oos.writeInt(efConstruction);
         oos.writeBoolean(removeEnabled);
         oos.writeInt(itemCount);
-
         writeMutableIntStack(oos, freedIds);
-
-        writeNode(oos, entryPoint);
-        writeNodes(oos, nodes);
         writeLookup(oos, lookup);
+        writeNodes(oos, nodes);
+        oos.writeInt(entryPoint.id);
     }
 
     @SuppressWarnings("unchecked")
@@ -801,24 +798,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.efConstruction = ois.readInt();
         this.removeEnabled = ois.readBoolean();
         this.itemCount = ois.readInt();
-
         this.freedIds = readIntArrayStack(ois);
-
-        this.entryPoint = readNode(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
-        this.nodes = readNodes(ois, itemSerializer, maxM0, maxM, removeEnabled);
-
         this.lookup = readLookup(ois, itemIdSerializer);
-
+        this.nodes = readNodes(ois, itemSerializer, maxM0, maxM, removeEnabled);
+        this.entryPoint = nodes.get(ois.readInt());
         this.globalLock = new ReentrantLock();
-
         this.stampedLock = new StampedLock();
-
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
-
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
-
     }
 
     private void writeLookup(ObjectOutputStream oos, Map<TId, Integer> lookup) throws IOException {
