@@ -115,9 +115,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public Optional<TItem> get(TId id) {
-        return Optional.ofNullable(lookup.get(id))
-                .flatMap(index -> Optional.ofNullable(nodes.get(index)))
-                .map(n -> n.item);
+        globalLock.lock();
+        try {
+            return Optional.ofNullable(lookup.get(id))
+                    .flatMap(index -> Optional.ofNullable(nodes.get(index)))
+                    .map(n -> n.item);
+        } finally {
+            globalLock.unlock();
+        }
     }
 
     /**
@@ -283,13 +288,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             Node<TItem> entryPointCopy = entryPoint;
 
-            if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
-                globalLock.unlock();
-            }
-
             long stamp = stampedLock.readLock();
 
             try {
+
+                if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
+                    globalLock.unlock();
+                }
+
                 Node<TItem> currObj = entryPointCopy;
 
                 if (currObj != null) {
@@ -675,9 +681,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public void save(OutputStream out) throws IOException {
         globalLock.lock();
+        try {
+            long stamp = stampedLock.writeLock();
 
-        try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-            oos.writeObject(this);
+            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
+                oos.writeObject(this);
+            } finally {
+                stampedLock.unlockWrite(stamp);
+            }
         } finally {
             globalLock.unlock();
         }
