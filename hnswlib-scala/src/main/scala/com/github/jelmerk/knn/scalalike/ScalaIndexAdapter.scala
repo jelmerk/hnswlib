@@ -10,7 +10,7 @@ import com.github.jelmerk.knn.{Index => JIndex, ProgressListener => JProgressLis
 class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: JIndex[TId, TVector, TItem, TDistance])
   extends Index[TId, TVector, TItem, TDistance] {
 
-  override def add(item: TItem): Unit = delegate.add(item)
+  override def add(item: TItem): Boolean = delegate.add(item)
 
   override def addAll(items: Iterable[TItem],
                       numThreads: Int = Runtime.getRuntime.availableProcessors,
@@ -24,7 +24,7 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](de
     delegate.addAll(items.asJavaCollection, numThreads, progressListener, progressUpdateInterval)
   }
 
-  override def remove(id: TId): Boolean = delegate.remove(id)
+  override def remove(id: TId, version: Int): Boolean = delegate.remove(id, version)
 
   override def size: Int = delegate.size
 

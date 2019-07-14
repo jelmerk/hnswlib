@@ -64,15 +64,21 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      * {@inheritDoc}
      */
     @Override
-    public void add(TItem item) {
+    public boolean add(TItem item) {
+
+        // TODO implement versioning here
+
         items.putIfAbsent(item.id(), item);
+        return true;
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean remove(TId tId) {
+    public boolean remove(TId tId, int version) {
+        // TODO implement versioning here
+
         return items.remove(tId) != null;
     }
 

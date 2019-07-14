@@ -12,9 +12,9 @@ import com.github.jelmerk.knn.{ProgressListener, Index => JIndex}
 class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: Index[TId, TVector, TItem, TDistance])
   extends JIndex[TId, TVector, TItem, TDistance] {
 
-  override def add(item: TItem): Unit = delegate.add(item)
+  override def add(item: TItem): Boolean = delegate.add(item)
 
-  override def remove(id: TId): Boolean = delegate.remove(id)
+  override def remove(id: TId, version: Int): Boolean = delegate.remove(id, version)
 
   override def size(): Int = delegate.size
 

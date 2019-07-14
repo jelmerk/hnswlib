@@ -30,21 +30,30 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     int DEFAULT_PROGRESS_UPDATE_INTERVAL = 100_000;
 
     /**
-     * Add a new item to the index. If the item already exists in the index the old item will first be removed from the
-     * index. for this removes need to be enabled for the index.
+     * Add a new item to the index. If an item with the same identifier already exists in the index then :
+     *
+     * If deletes are disabled on this index the method will return false and the item will not be updated.
+     *
+     * If deletes are enabled and the version of the item has is higher version than that of the item currently stored
+     * in the index the old item will be removed and the new item added, otherwise this method will return false and the
+     * item will not be updated.
      *
      * @param item the item to add to the index
+     *
+     * @return true if the item was added to the index
      */
-    void add(TItem item);
+    boolean add(TItem item);
 
     /**
-     * Removes an item from the index.
+     * Removes an item from the index. If the index does not support deletes or an item with the same identifier exists
+     * in the index with a higher version number, then this method will return false and the item will not be removed.
      *
      * @param id unique identifier or the item to remove
+     * @param version version of the delete. If your items don't override version  use 0
      * @return {@code true} if an item was removed from the index. In case the index does not support removals this will
      *                      always be false
      */
-    boolean remove(TId id);
+    boolean remove(TId id, int version);
 
     /**
      * Add multiple items to the index

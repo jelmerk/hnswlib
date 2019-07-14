@@ -88,16 +88,16 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      * {@inheritDoc}
      */
     @Override
-    public void add(TItem item) {
-        delegate.add(item);
+    public boolean add(TItem item) {
+        return delegate.add(item);
     }
 
     /**
      * {@inheritDoc}
      */
     @Override
-    public boolean remove(TId id) {
-        return delegate.remove(id);
+    public boolean remove(TId id, int version) {
+        return delegate.remove(id, version);
     }
 
     /**
