@@ -52,6 +52,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private AtomicReferenceArray<Node<TItem>> nodes;
     private Map<TId, Integer> lookup;
+    private Map<TId, Object> locks;
 
     private ObjectSerializer<TId> itemIdSerializer;
     private ObjectSerializer<TItem> itemSerializer;
@@ -81,6 +82,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.nodes = new AtomicReferenceArray<>(this.maxItemCount);
 
         this.lookup = new ConcurrentHashMap<>();
+        this.locks = new ConcurrentHashMap<>();
 
         this.freedIds = new IntArrayStack();
 
@@ -152,14 +154,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     @Override
     public boolean remove(TId id) {
 
+        if (!removeEnabled) {
+            return false;
+        }
+
         globalLock.lock();
 
         try {
-
-            if (!removeEnabled) {
-                return false;
-            }
-
             Integer internalNodeId = lookup.get(id);
 
             if (internalNodeId == null) {
@@ -213,6 +214,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 lookup.remove(id);
                 nodes.set(internalNodeId, null);
+                locks.remove(id);
 
                 freedIds.push(internalNodeId);
 
@@ -293,70 +295,74 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             nodes.set(newNodeId, newNode);
             lookup.put(item.id(), newNodeId);
 
+            Object lock = locks.computeIfAbsent(item.id(), k -> new Object());
+
             Node<TItem> entryPointCopy = entryPoint;
 
             long stamp = stampedLock.readLock();
 
             try {
+                synchronized (lock) {
 
-                if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
-                    globalLock.unlock();
-                }
+                    synchronized (newNode) {
 
-                Node<TItem> currObj = entryPointCopy;
+                        if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
+                            globalLock.unlock();
+                        }
 
-                if (currObj != null) {
+                        Node<TItem> currObj = entryPointCopy;
 
-                    if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
+                        if (currObj != null) {
 
-                        TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
+                            if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
 
-                        for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+                                TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
 
-                            boolean changed = true;
+                                for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
-                            while (changed) {
-                                changed = false;
+                                    boolean changed = true;
 
-                                synchronized (currObj) {
-                                    MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
+                                    while (changed) {
+                                        changed = false;
 
-                                    for (int i = 0; i < candidateConnections.size(); i++) {
+                                        synchronized (currObj) {
+                                            MutableIntList candidateConnections = currObj.outgoingConnections[activeLevel];
 
-                                        int candidateId = candidateConnections.get(i);
+                                            for (int i = 0; i < candidateConnections.size(); i++) {
 
-                                        Node<TItem> candidateNode = nodes.get(candidateId);
+                                                int candidateId = candidateConnections.get(i);
 
-                                        TDistance candidateDistance = distanceFunction.distance(
-                                                item.vector(),
-                                                candidateNode.item.vector()
-                                        );
+                                                Node<TItem> candidateNode = nodes.get(candidateId);
 
-                                        if (lt(candidateDistance, curDist)) {
-                                            curDist = candidateDistance;
-                                            currObj = candidateNode;
-                                            changed = true;
+                                                TDistance candidateDistance = distanceFunction.distance(
+                                                        item.vector(),
+                                                        candidateNode.item.vector()
+                                                );
+
+                                                if (lt(candidateDistance, curDist)) {
+                                                    curDist = candidateDistance;
+                                                    currObj = candidateNode;
+                                                    changed = true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
+
+                            for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
+                                PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                        searchBaseLayer(currObj, item.vector(), efConstruction, level);
+                                mutuallyConnectNewElement(newNode, topCandidates, level);
+                            }
+                        }
+
+                        // zoom out to the highest level
+                        if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
+                            // this is thread safe because we get the global lock when we add a level
+                            this.entryPoint = newNode;
                         }
                     }
-
-                    for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
-                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj, item.vector(), efConstruction, level);
-
-                        synchronized (newNode) {
-                            mutuallyConnectNewElement(newNode, topCandidates, level);
-                        }
-                    }
-                }
-
-                // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
-                    // this is thread safe because we get the global lock when we add a level
-                    this.entryPoint = newNode;
                 }
             } finally {
                 excludedCandidates.remove(newNodeId);
@@ -746,6 +752,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
+        this.locks = new ConcurrentHashMap<>();
     }
 
     private void writeLookup(ObjectOutputStream oos, Map<TId, Integer> lookup) throws IOException {

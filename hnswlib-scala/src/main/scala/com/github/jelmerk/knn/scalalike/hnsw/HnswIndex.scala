@@ -6,7 +6,6 @@ import java.nio.file.Path
 import com.github.jelmerk.knn.hnsw.{JavaObjectSerializer, HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.DistanceFunction
 import com.github.jelmerk.knn.scalalike.{Index, Item, ScalaIndexAdapter}
-import com.github.jelmerk.knn.{ProgressListener => JProgressListener}
 
 object HnswIndex {
 
@@ -155,23 +154,4 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
     */
   val efConstruction: Int = delegate.getEfConstruction
 
-  /**
-    * Optimize the index by re-indexing all the items. You cannot update the index while this operation is in progress.
-    * Optimizing the index takes a long time to complete and you should only ever need to do it if the index has
-    * removes enabled and you where unlucky with the updates
-    *
-    * @param numThreads number of threads to use for parallel indexing
-    * @param listener listener to report progress to
-    * @param progressUpdateInterval after indexing this many items progress will be reported
-    */
-  def optimize(numThreads: Int = Runtime.getRuntime.availableProcessors,
-             listener: ProgressListener = (_, _) => (),
-             progressUpdateInterval: Int = DefaultProgressUpdateInterval): Unit = {
-
-    val progressListener: JProgressListener = new JProgressListener {
-      override def updateProgress(workDone: Int, max: Int): Unit = listener.apply(workDone, max)
-    }
-
-    delegate.optimize(numThreads, progressListener, progressUpdateInterval)
-  }
 }
