@@ -50,6 +50,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private AtomicReferenceArray<Node<TItem>> nodes;
     private Map<TId, Integer> lookup;
     private Map<TId, Integer> versions;
+    private Map<TId, Object> locks;
 
     private ObjectSerializer<TId> itemIdSerializer;
     private ObjectSerializer<TItem> itemSerializer;
@@ -80,6 +81,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.lookup = new ConcurrentHashMap<>();
         this.versions = new ConcurrentHashMap<>();
+        this.locks = new ConcurrentHashMap<>();
 
         this.itemIdSerializer = builder.itemIdSerializer;
         this.itemSerializer = builder.itemSerializer;
@@ -241,82 +243,88 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             nodes.set(newNodeId, newNode);
             lookup.put(item.id(), newNodeId);
 
+            Object lock = locks.computeIfAbsent(item.id(), k -> new Object());
+
             Node<TItem> entryPointCopy = entryPoint;
 
             long stamp = stampedLock.readLock();
 
             try {
+                synchronized (lock) {
+                    synchronized (newNode) {
 
-                if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
-                    globalLock.unlock();
-                }
+                        if (entryPoint != null && randomLevel <= entryPoint.maxLevel()) {
+                            globalLock.unlock();
+                        }
 
-                Node<TItem> currObj = entryPointCopy;
+                        Node<TItem> currObj = entryPointCopy;
 
-                if (currObj != null) {
+                        if (currObj != null) {
 
-                    if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
+                            if (newNode.maxLevel() < entryPointCopy.maxLevel()) {
 
-                        TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
+                                TDistance curDist = distanceFunction.distance(item.vector(), currObj.item.vector());
 
-                        for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
+                                for (int activeLevel = entryPointCopy.maxLevel(); activeLevel > newNode.maxLevel(); activeLevel--) {
 
-                            boolean changed = true;
+                                    boolean changed = true;
 
-                            while (changed) {
-                                changed = false;
+                                    while (changed) {
+                                        changed = false;
 
-                                synchronized (currObj) {
-                                    MutableIntList candidateConnections = currObj.connections[activeLevel];
+                                        synchronized (currObj) {
+                                            MutableIntList candidateConnections = currObj.connections[activeLevel];
 
-                                    for (int i = 0; i < candidateConnections.size(); i++) {
+                                            for (int i = 0; i < candidateConnections.size(); i++) {
 
-                                        int candidateId = candidateConnections.get(i);
+                                                int candidateId = candidateConnections.get(i);
 
-                                        Node<TItem> candidateNode = nodes.get(candidateId);
+                                                Node<TItem> candidateNode = nodes.get(candidateId);
 
-                                        TDistance candidateDistance = distanceFunction.distance(
-                                                item.vector(),
-                                                candidateNode.item.vector()
-                                        );
+                                                TDistance candidateDistance = distanceFunction.distance(
+                                                        item.vector(),
+                                                        candidateNode.item.vector()
+                                                );
 
-                                        if (lt(candidateDistance, curDist)) {
-                                            curDist = candidateDistance;
-                                            currObj = candidateNode;
-                                            changed = true;
+                                                if (lt(candidateDistance, curDist)) {
+                                                    curDist = candidateDistance;
+                                                    currObj = candidateNode;
+                                                    changed = true;
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
 
-                    for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
-                        PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
-                                searchBaseLayer(currObj, item.vector(), efConstruction, level);
+                            for (int level = Math.min(randomLevel, entryPointCopy.maxLevel()); level >= 0; level--) {
+                                PriorityQueue<NodeIdAndDistance<TDistance>> topCandidates =
+                                        searchBaseLayer(currObj, item.vector(), efConstruction, level);
 
-                        if (entryPointCopy.deleted) {
-                            TDistance distance = distanceFunction.distance(item.vector(), entryPointCopy.item.vector());
-                            topCandidates.add(new NodeIdAndDistance<>(entryPointCopy.id, distance, distanceComparator));
+                                if (entryPointCopy.deleted) {
+                                    TDistance distance = distanceFunction.distance(item.vector(), entryPointCopy.item.vector());
+                                    topCandidates.add(new NodeIdAndDistance<>(entryPointCopy.id, distance, distanceComparator));
 
-                            if (topCandidates.size() > efConstruction) {
-                                topCandidates.poll();
+                                    if (topCandidates.size() > efConstruction) {
+                                        topCandidates.poll();
+                                    }
+                                }
+
+
+                                mutuallyConnectNewElement(newNode, topCandidates, level);
+
                             }
                         }
 
-                        synchronized (newNode) {
-                            mutuallyConnectNewElement(newNode, topCandidates, level);
+                        // zoom out to the highest level
+                        if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
+                            // this is thread safe because we get the global lock when we add a level
+                            this.entryPoint = newNode;
                         }
+
+                        return true;
                     }
                 }
-
-                // zoom out to the highest level
-                if (entryPoint == null || newNode.maxLevel() > entryPointCopy.maxLevel()) {
-                    // this is thread safe because we get the global lock when we add a level
-                    this.entryPoint = newNode;
-                }
-
-                return true;
             } finally {
                 excludedCandidates.remove(newNodeId);
 
@@ -691,6 +699,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
+        this.locks = new ConcurrentHashMap<>();
     }
 
     private void writeItemIdMap(ObjectOutputStream oos, Map<TId, Integer> lookup) throws IOException {
