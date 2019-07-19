@@ -236,7 +236,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             }
 
             if (nodeCount >= this.maxItemCount) {
-                throw new IllegalStateException("The number of elements exceeds the specified limit.");
+                throw new SizeLimitExceededException("The number of elements exceeds the specified limit.");
             }
 
             int newNodeId = nodeCount++;
