@@ -122,7 +122,7 @@ object HnswIndex {
   * @tparam TVector Type of the vector to perform distance calculation on
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
   */
-class DistanceFunctionAdapter[TVector, TDistance](val scalaFunction: (TVector, TVector) => TDistance)
+class DistanceFunctionAdapter[TVector, TDistance](val scalaFunction: DistanceFunction[TVector, TDistance])
     extends JDistanceFunction[TVector, TDistance] {
 
   override def distance(u: TVector, v: TVector): TDistance = scalaFunction(u, v)
@@ -147,7 +147,7 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
   /**
     * This distance function.
     */
-  val distanceFunction: (TVector, TVector) => TDistance = delegate
+  val distanceFunction: DistanceFunction[TVector, TDistance] = delegate
     .getDistanceFunction.asInstanceOf[DistanceFunctionAdapter[TVector, TDistance]].scalaFunction
 
   /**
