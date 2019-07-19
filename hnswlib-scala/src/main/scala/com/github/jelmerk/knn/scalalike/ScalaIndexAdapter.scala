@@ -16,12 +16,8 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](de
                       numThreads: Int = Runtime.getRuntime.availableProcessors,
                       listener: ProgressListener = (_, _) => (),
                       progressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL): Unit = {
-
-    val progressListener: JProgressListener = new JProgressListener {
-      override def updateProgress(workDone: Int, max: Int): Unit = listener.apply(workDone, max)
-    }
-
-    delegate.addAll(items.asJavaCollection, numThreads, progressListener, progressUpdateInterval)
+    delegate
+      .addAll(items.asJavaCollection, numThreads, new ScalaProgressListenerAdapter(listener), progressUpdateInterval)
   }
 
   override def remove(id: TId, version: Long): Boolean = delegate.remove(id, version)
@@ -46,4 +42,8 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](de
 
   override def save(path: Path): Unit = delegate.save(path)
 
+}
+
+class ScalaProgressListenerAdapter(delegate: ProgressListener) extends JProgressListener {
+  override def updateProgress(workDone: Int, max: Int): Unit = delegate(workDone, max)
 }

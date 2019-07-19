@@ -23,12 +23,6 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterab
   val DefaultProgressUpdateInterval: Int = JIndex.DEFAULT_PROGRESS_UPDATE_INTERVAL
 
   /**
-    * Called periodically to report on progress during indexing. The first argument is the number of records processed.
-    * The second argument is the total number of record to index as part of this operation.
-    */
-  type ProgressListener = (Int, Int) => Unit
-
-  /**
     * Add a new item to the index. If an item with the same identifier already exists in the index then :
     *
     * If deletes are disabled on this index the method will return false and the item will not be updated.

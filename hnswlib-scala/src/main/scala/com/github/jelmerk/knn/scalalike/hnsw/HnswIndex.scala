@@ -4,8 +4,8 @@ import java.io.{File, InputStream}
 import java.nio.file.Path
 
 import com.github.jelmerk.knn.hnsw.{JavaObjectSerializer, HnswIndex => JHnswIndex}
-import com.github.jelmerk.knn.DistanceFunction
-import com.github.jelmerk.knn.scalalike.{Index, Item, ScalaIndexAdapter}
+import com.github.jelmerk.knn.{DistanceFunction => JDistanceFunction}
+import com.github.jelmerk.knn.scalalike._
 
 object HnswIndex {
 
@@ -87,7 +87,7 @@ object HnswIndex {
     * @return the index
     */
   def apply[TId,  TVector, TItem <: Item[TId, TVector], TDistance](
-    distanceFunction: (TVector, TVector) => TDistance,
+    distanceFunction: DistanceFunction[TVector, TDistance],
     maxItemCount: Int,
     m: Int = JHnswIndex.BuilderBase.DEFAULT_M,
     ef: Int = JHnswIndex.BuilderBase.DEFAULT_EF,
@@ -109,6 +109,7 @@ object HnswIndex {
       else builder.build()
 
     new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
+
   }
 
 }
@@ -122,7 +123,7 @@ object HnswIndex {
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
   */
 class DistanceFunctionAdapter[TVector, TDistance](val scalaFunction: (TVector, TVector) => TDistance)
-    extends DistanceFunction[TVector, TDistance] {
+    extends JDistanceFunction[TVector, TDistance] {
 
   override def distance(u: TVector, v: TVector): TDistance = scalaFunction(u, v)
 }

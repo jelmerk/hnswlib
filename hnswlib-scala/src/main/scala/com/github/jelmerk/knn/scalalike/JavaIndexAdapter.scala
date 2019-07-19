@@ -6,7 +6,7 @@ import java.util.{ Collection => JCollection, List => JList}
 import java.util.Optional
 import scala.collection.JavaConverters._
 
-import com.github.jelmerk.knn.{ProgressListener, Index => JIndex}
+import com.github.jelmerk.knn.{ProgressListener => JProgressListener, Index => JIndex}
 
 @SerialVersionUID(1L)
 class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: Index[TId, TVector, TItem, TDistance])
@@ -30,10 +30,10 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](del
 
   override def addAll(items: JCollection[TItem]): Unit = delegate.addAll(items.asScala)
 
-  override def addAll(items: JCollection[TItem], progressListener: ProgressListener): Unit =
+  override def addAll(items: JCollection[TItem], progressListener: JProgressListener): Unit =
     delegate.addAll(items.asScala, listener = (workDone, max) => progressListener.updateProgress(workDone, max))
 
-  override def addAll(items: JCollection[TItem], numThreads: Int, progressListener: ProgressListener, progressUpdateInterval: Int): Unit =
+  override def addAll(items: JCollection[TItem], numThreads: Int, progressListener: JProgressListener, progressUpdateInterval: Int): Unit =
     delegate.addAll(items.asScala, numThreads, (workDone, max) => progressListener.updateProgress(workDone, max), progressUpdateInterval)
 
   override def findNeighbors(id: TId, k: Int): JList[SearchResult[TItem, TDistance]] = delegate.findNeighbors(id, k).asJava
