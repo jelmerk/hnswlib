@@ -79,7 +79,7 @@ object HnswIndex {
     *                         for the fastest possible save time and smallest indices you will want to provide this
     * @param itemSerializer used to serialize the item during saving of the index. when unspecified java serialization will be used.
     *                       for the fastest possible save time and smallest indices you will want to provide this
-    * @param ordering used to compare the distances returned by the distance function
+    * @param distanceOrdering used to compare the distances returned by the distance function
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
     * @tparam TItem Type of items stored in the index
@@ -94,11 +94,11 @@ object HnswIndex {
     efConstruction: Int = JHnswIndex.BuilderBase.DEFAULT_EF_CONSTRUCTION,
     removeEnabled: Boolean = JHnswIndex.BuilderBase.DEFAULT_REMOVE_ENABLED,
     itemIdSerializer: ObjectSerializer[TId] = new JavaObjectSerializer[TId],
-    itemSerializer: ObjectSerializer[TItem] = new JavaObjectSerializer[TItem])(implicit ordering: Ordering[TDistance])
+    itemSerializer: ObjectSerializer[TItem] = new JavaObjectSerializer[TItem])(implicit distanceOrdering: Ordering[TDistance])
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
     val builder = JHnswIndex
-      .newBuilder(new DistanceFunctionAdapter[TVector, TDistance](distanceFunction), ordering, maxItemCount)
+      .newBuilder(new DistanceFunctionAdapter[TVector, TDistance](distanceFunction), distanceOrdering, maxItemCount)
       .withM(m)
       .withEf(ef)
       .withEfConstruction(efConstruction)
@@ -148,6 +148,11 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
     */
   val distanceFunction: (TVector, TVector) => TDistance = delegate
     .getDistanceFunction.asInstanceOf[DistanceFunctionAdapter[TVector, TDistance]].scalaFunction
+
+  /**
+    * The ordering used to compare distances
+    */
+  val distanceOrdering: Ordering[TDistance] = delegate.getDistanceComparator.asInstanceOf[Ordering[TDistance]]
 
   /**
     * The maximum number of items the index can hold.

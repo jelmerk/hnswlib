@@ -648,6 +648,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return distanceFunction;
     }
 
+
+    /**
+     * Returns the comparator used to compare distances.
+     *
+     * @return the comparator used to compare distance
+     */
+    public Comparator<TDistance> getDistanceComparator() {
+        return distanceComparator;
+    }
+
     /**
      * Returns if removes are enabled.
      *
