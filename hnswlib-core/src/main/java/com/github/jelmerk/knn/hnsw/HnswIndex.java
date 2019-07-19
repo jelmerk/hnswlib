@@ -39,6 +39,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private DistanceFunction<TVector, TDistance> distanceFunction;
     private Comparator<TDistance> distanceComparator;
+    private MaxValueComparator<TDistance> maxValueDistanceComparator;
 
     private int maxItemCount;
     private int m;
@@ -73,7 +74,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
-        this.distanceComparator = new MaxValueComparator<>(builder.distanceComparator);
+        this.distanceComparator = builder.distanceComparator;
+        this.maxValueDistanceComparator = new MaxValueComparator<>(this.distanceComparator);
 
         this.m = builder.m;
         this.maxM = builder.m;
@@ -309,7 +311,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                                 if (entryPointCopy.deleted) {
                                     TDistance distance = distanceFunction.distance(item.vector(), entryPointCopy.item.vector());
-                                    topCandidates.add(new NodeIdAndDistance<>(entryPointCopy.id, distance, distanceComparator));
+                                    topCandidates.add(new NodeIdAndDistance<>(entryPointCopy.id, distance, maxValueDistanceComparator));
 
                                     if (topCandidates.size() > efConstruction) {
                                         topCandidates.poll();
@@ -386,7 +388,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                             .<NodeIdAndDistance<TDistance>>naturalOrder().reversed();
 
                     PriorityQueue<NodeIdAndDistance<TDistance>> candidates = new PriorityQueue<>(comparator);
-                    candidates.add(new NodeIdAndDistance<>(newNodeId, dMax, distanceComparator));
+                    candidates.add(new NodeIdAndDistance<>(newNodeId, dMax, maxValueDistanceComparator));
 
                     neighbourConnectionsAtLevel.forEach(id -> {
                         TDistance dist = distanceFunction.distance(
@@ -394,7 +396,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                                 nodes.get(id).item.vector()
                         );
 
-                        candidates.add(new NodeIdAndDistance<>(id, dist, distanceComparator));
+                        candidates.add(new NodeIdAndDistance<>(id, dist, maxValueDistanceComparator));
                     });
 
                     getNeighborsByHeuristic2(candidates, bestN);
@@ -508,7 +510,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         List<SearchResult<TItem, TDistance>> results = new ArrayList<>(topCandidates.size());
         while (!topCandidates.isEmpty()) {
             NodeIdAndDistance<TDistance> pair = topCandidates.poll();
-            results.add(0, new SearchResult<>(nodes.get(pair.nodeId).item, pair.distance, distanceComparator));
+            results.add(0, new SearchResult<>(nodes.get(pair.nodeId).item, pair.distance, maxValueDistanceComparator));
         }
 
         return results;
@@ -528,7 +530,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             if (!entryPointNode.deleted) {
                 TDistance distance = distanceFunction.distance(destination, entryPointNode.item.vector());
-                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance, distanceComparator);
+                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, distance, maxValueDistanceComparator);
 
                 topCandidates.add(pair);
                 lowerBound = distance;
@@ -536,7 +538,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             } else {
                 lowerBound = MaxValueComparator.maxValue();
-                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, lowerBound, distanceComparator);
+                NodeIdAndDistance<TDistance> pair = new NodeIdAndDistance<>(entryPointNode.id, lowerBound, maxValueDistanceComparator);
                 candidateSet.add(pair);
             }
 
@@ -572,7 +574,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                             if (topCandidates.size() < k || gt(lowerBound, candidateDistance)) {
 
                                 NodeIdAndDistance<TDistance> candidatePair =
-                                        new NodeIdAndDistance<>(candidateId, candidateDistance, distanceComparator);
+                                        new NodeIdAndDistance<>(candidateId, candidateDistance, maxValueDistanceComparator);
 
                                 candidateSet.add(candidatePair);
 
@@ -730,13 +732,14 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         writeMutableObjectIntMap(oos, lookup);
         writeMutableObjectLongMap(oos, deletedItemVersions);
         writeNodesArray(oos, nodes);
-        oos.writeInt(entryPoint.id);
+        oos.writeInt(entryPoint == null ? -1 : entryPoint.id);
     }
 
     @SuppressWarnings("unchecked")
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
         this.distanceFunction = (DistanceFunction<TVector, TDistance>) ois.readObject();
         this.distanceComparator = (Comparator<TDistance>) ois.readObject();
+        this.maxValueDistanceComparator = new MaxValueComparator<>(distanceComparator);
         this.itemIdSerializer = (ObjectSerializer<TId>) ois.readObject();
         this.itemSerializer = (ObjectSerializer<TItem>) ois.readObject();
 
@@ -752,7 +755,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.lookup = readMutableObjectIntMap(ois, itemIdSerializer);
         this.deletedItemVersions = readMutableObjectLongMap(ois, itemIdSerializer);
         this.nodes = readNodesArray(ois, itemSerializer, maxM0, maxM);
-        this.entryPoint = nodes.get(ois.readInt());
+
+        int entrypointNodeId = ois.readInt();
+        this.entryPoint = entrypointNodeId == -1 ? null : nodes.get(entrypointNodeId);
+
         this.globalLock = new ReentrantLock();
         this.stampedLock = new StampedLock();
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
@@ -1005,11 +1011,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     private boolean lt(TDistance x, TDistance y) {
-        return distanceComparator.compare(x, y) < 0;
+        return maxValueDistanceComparator.compare(x, y) < 0;
     }
 
     private boolean gt(TDistance x, TDistance y) {
-        return distanceComparator.compare(x, y) > 0;
+        return maxValueDistanceComparator.compare(x, y) > 0;
     }
 
     class ExactIndex implements Index<TId, TVector, TItem, TDistance> {
@@ -1046,7 +1052,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 TDistance distance = distanceFunction.distance(node.item.vector(), vector);
 
-                SearchResult<TItem, TDistance> searchResult = new SearchResult<>(node.item, distance, distanceComparator);
+                SearchResult<TItem, TDistance> searchResult = new SearchResult<>(node.item, distance, maxValueDistanceComparator);
                 queue.add(searchResult);
 
                 if (queue.size() > k) {
