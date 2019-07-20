@@ -27,37 +27,38 @@ import java.util.concurrent.atomic.AtomicLong;
  * @param <TItem> Type of items stored in the index
  * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
  */
-public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
+public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>, TDistance,
+        TApproximativeIndex extends Index<TId, TVector, TItem, TDistance>,
+        TGroundTruthIndex extends Index<TId, TVector, TItem, TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
     public static final int DEFAULT_NUM_SAMPLES = 1000;
 
-    private final Index<TId, TVector, TItem, TDistance> delegate;
-    private final Index<TId, TVector, TItem, TDistance> groundTruth;
+    private final TApproximativeIndex approximativeIndex;
+    private final TGroundTruthIndex groundTruthIndex;
     private final int sampleFrequency;
 
     private AtomicLong searchCount = new AtomicLong();
 
     private final MovingAverageAccuracyCalculator accuracyEvaluator;
 
-
     /**
      * Constructs a new StatisticsDecorator.
      *
-     * @param delegate the approximative index
-     * @param groundTruth the brute force index
+     * @param approximativeIndex the approximative index
+     * @param groundTruthIndex the brute force index
      * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
-     *                                    will be compared with those of the groundTruth to establish the the runtime
+     *                                    will be compared with those of the groundTruthIndex to establish the the runtime
      *                                    precision of the index.
      * @param numSamples number of samples to calculate the moving average over
      */
-    public StatisticsDecorator(Index<TId, TVector, TItem, TDistance> delegate,
-                               Index<TId, TVector, TItem, TDistance> groundTruth,
+    public StatisticsDecorator(TApproximativeIndex approximativeIndex,
+                               TGroundTruthIndex groundTruthIndex,
                                int maxPrecisionSampleFrequency,
                                int numSamples) {
 
-        this.delegate = delegate;
-        this.groundTruth = groundTruth;
+        this.approximativeIndex = approximativeIndex;
+        this.groundTruthIndex = groundTruthIndex;
         this.sampleFrequency = maxPrecisionSampleFrequency;
 
         this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, numSamples);
@@ -72,16 +73,16 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      * Constructs a new StatisticsDecorator. Statistics will be calulated over the last
      * {@link StatisticsDecorator#DEFAULT_NUM_SAMPLES} number of collected datapoints.
      *
-     * @param delegate the approximative index
-     * @param groundTruth the brute force index
+     * @param approximativeIndex the approximative index
+     * @param groundTruthIndex the brute force index
      * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
-     *                                    will be compared with those of the groundTruth to establish the the runtime
+     *                                    will be compared with those of the groundTruthIndex to establish the the runtime
      *                                    precision of the index.
      */
-    public StatisticsDecorator(Index<TId, TVector, TItem, TDistance> delegate,
-                               Index<TId, TVector, TItem, TDistance> groundTruth,
+    public StatisticsDecorator(TApproximativeIndex approximativeIndex,
+                               TGroundTruthIndex groundTruthIndex,
                                int maxPrecisionSampleFrequency) {
-        this(delegate, groundTruth, maxPrecisionSampleFrequency, DEFAULT_NUM_SAMPLES);
+        this(approximativeIndex, groundTruthIndex, maxPrecisionSampleFrequency, DEFAULT_NUM_SAMPLES);
     }
 
     /**
@@ -89,7 +90,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean add(TItem item) {
-        return delegate.add(item);
+        return approximativeIndex.add(item);
     }
 
     /**
@@ -97,7 +98,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean remove(TId id, long version) {
-        return delegate.remove(id, version);
+        return approximativeIndex.remove(id, version);
     }
 
     /**
@@ -105,7 +106,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public int size() {
-        return delegate.size();
+        return approximativeIndex.size();
     }
 
     /**
@@ -113,7 +114,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public Optional<TItem> get(TId id) {
-        return delegate.get(id);
+        return approximativeIndex.get(id);
     }
 
     /**
@@ -121,7 +122,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public Collection<TItem> items() {
-        return delegate.items();
+        return approximativeIndex.items();
     }
 
     /**
@@ -129,7 +130,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
-        List<SearchResult<TItem, TDistance>> searchResults = delegate.findNearest(vector, k);
+        List<SearchResult<TItem, TDistance>> searchResults = approximativeIndex.findNearest(vector, k);
 
         if (searchCount.getAndIncrement() % sampleFrequency == 0) {
             accuracyEvaluator.offer(new RequestArgumentsAndResults(vector, k, searchResults));
@@ -143,7 +144,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void addAll(Collection<TItem> items) throws InterruptedException {
-        delegate.addAll(items);
+        approximativeIndex.addAll(items);
     }
 
     /**
@@ -151,7 +152,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void addAll(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
-        delegate.addAll(items, listener);
+        approximativeIndex.addAll(items, listener);
     }
 
     /**
@@ -159,7 +160,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
-        delegate.addAll(items, numThreads, listener, progressUpdateInterval);
+        approximativeIndex.addAll(items, numThreads, listener, progressUpdateInterval);
     }
 
     /**
@@ -167,7 +168,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
-        return delegate.findNeighbors(id, k);
+        return approximativeIndex.findNeighbors(id, k);
     }
 
     /**
@@ -175,7 +176,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        delegate.save(out);
+        approximativeIndex.save(out);
     }
 
     /**
@@ -183,7 +184,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void save(File file) throws IOException {
-        delegate.save(file);
+        approximativeIndex.save(file);
     }
 
     /**
@@ -191,7 +192,25 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void save(Path path) throws IOException {
-        delegate.save(path);
+        approximativeIndex.save(path);
+    }
+
+    /**
+     * Returns the approximative index.
+     *
+     * @return the approximative index
+     */
+    public TApproximativeIndex getApproximativeIndex() {
+        return approximativeIndex;
+    }
+
+    /**
+     * Returns the groundtruth index.
+     *
+     * @return the groundtruth index
+     */
+    public TGroundTruthIndex getGroundTruthIndex() {
+        return groundTruthIndex;
     }
 
     /**
@@ -199,7 +218,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      *
      * @return the collected statistics for this index
      */
-    public IndexStats stats() {
+    public IndexStats getStats() {
         return new IndexStats(accuracyEvaluator.getAveragePrecision());
     }
 
@@ -226,7 +245,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
                     RequestArgumentsAndResults item = queue.poll(500, TimeUnit.MILLISECONDS);
 
                     if (item != null) {
-                        List<SearchResult<TItem, TDistance>> expectedResults = groundTruth.findNearest(item.vector, item.k);
+                        List<SearchResult<TItem, TDistance>> expectedResults = groundTruthIndex.findNearest(item.vector, item.k);
 
                         int correct = expectedResults.stream().mapToInt(r -> item.searchResults.contains(r) ? 1 : 0).sum();
                         double precision = (double) correct / (double) expectedResults.size();

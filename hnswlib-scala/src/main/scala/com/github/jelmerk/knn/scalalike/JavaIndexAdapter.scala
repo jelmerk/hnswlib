@@ -8,39 +8,103 @@ import scala.collection.JavaConverters._
 
 import com.github.jelmerk.knn.{ProgressListener => JProgressListener, Index => JIndex}
 
+/**
+  * Adapts the interface of a java Index to that of the scala index.
+  *
+  * @param delegate scala class this adapter class delegates to
+  * @tparam TId Type of the external identifier of an item
+  * @tparam TVector Type of the vector to perform distance calculation on
+  * @tparam TItem Type of items stored in the index
+  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+
+  */
 @SerialVersionUID(1L)
-class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: Index[TId, TVector, TItem, TDistance])
+class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: Index[TId, TVector, TItem, TDistance])
   extends JIndex[TId, TVector, TItem, TDistance] {
 
+  /**
+    * @inheritdoc
+    */
   override def add(item: TItem): Boolean = delegate.add(item)
 
+  /**
+    * @inheritdoc
+    */
   override def remove(id: TId, version: Long): Boolean = delegate.remove(id, version)
 
+  /**
+    * @inheritdoc
+    */
   override def size(): Int = delegate.size
 
+  /**
+    * @inheritdoc
+    */
   override def get(id: TId): Optional[TItem] = delegate.get(id) match {
     case Some(value) => Optional.of(value);
     case _ => Optional.empty()
   }
 
+  /**
+    * @inheritdoc
+    */
   override def items(): JCollection[TItem] = delegate.iterator.toSeq.asJavaCollection
 
+  /**
+    * @inheritdoc
+    */
   override def findNearest(vector: TVector, k: Int): JList[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asJava
 
+  /**
+    * @inheritdoc
+    */
   override def addAll(items: JCollection[TItem]): Unit = delegate.addAll(items.asScala)
 
+  /**
+    * @inheritdoc
+    */
   override def addAll(items: JCollection[TItem], progressListener: JProgressListener): Unit =
-    delegate.addAll(items.asScala, listener = (workDone, max) => progressListener.updateProgress(workDone, max))
+    delegate.addAll(items.asScala, listener = new JavaProgressListenerAdapter(progressListener))
 
+  /**
+    * @inheritdoc
+    */
   override def addAll(items: JCollection[TItem], numThreads: Int, progressListener: JProgressListener, progressUpdateInterval: Int): Unit =
-    delegate.addAll(items.asScala, numThreads, (workDone, max) => progressListener.updateProgress(workDone, max), progressUpdateInterval)
+    delegate.addAll(items.asScala, numThreads, new JavaProgressListenerAdapter(progressListener), progressUpdateInterval)
 
+  /**
+    * @inheritdoc
+    */
   override def findNeighbors(id: TId, k: Int): JList[SearchResult[TItem, TDistance]] = delegate.findNeighbors(id, k).asJava
 
+  /**
+    * @inheritdoc
+    */
   override def save(out: OutputStream): Unit = delegate.save(out)
 
+  /**
+    * @inheritdoc
+    */
   override def save(file: File): Unit = delegate.save(file)
 
+  /**
+    * @inheritdoc
+    */
   override def save(path: Path): Unit = super.save(path)
+}
+
+/**
+  * Adapts the interface of a java progress listener to that of a scala progress listener
+  *
+  * @param delegate the java progress listener to delegate to
+  */
+class JavaProgressListenerAdapter(val delegate: JProgressListener) extends ProgressListener {
+
+  /**
+    * @inheritdoc
+    */
+  override def apply(workDone: Int, max: Int): Unit = {
+    delegate.updateProgress(workDone, max)
+  }
 }
