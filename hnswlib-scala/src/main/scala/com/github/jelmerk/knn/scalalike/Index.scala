@@ -46,7 +46,7 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterab
     * @param progressUpdateInterval after indexing this many items progress will be reported
     */
   def addAll(items: Iterable[TItem],
-             numThreads: Int = Runtime.getRuntime.availableProcessors,
+             numThreads: Int = sys.runtime.availableProcessors,
              listener: ProgressListener = (_, _) => (),
              progressUpdateInterval: Int = DefaultProgressUpdateInterval): Unit
 
