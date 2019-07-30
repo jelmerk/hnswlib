@@ -70,6 +70,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private BitSet excludedCandidates;
 
+    private ExactView exactView;
+
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
         this.maxItemCount = builder.maxItemCount;
@@ -102,6 +104,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 Runtime.getRuntime().availableProcessors());
 
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
+
+        this.exactView = new ExactView();
     }
 
     /**
@@ -611,7 +615,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return read only view on top of this index that uses pairwise comparision when doing distance search
      */
     public Index<TId, TVector, TItem, TDistance> asExactIndex() {
-        return new ExactIndex();
+        return exactView;
     }
 
     /**
@@ -765,6 +769,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 Runtime.getRuntime().availableProcessors());
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
         this.locks = new HashMap<>();
+        this.exactView = new ExactView();
     }
 
     private void writeMutableObjectIntMap(ObjectOutputStream oos, MutableObjectIntMap<TId> map) throws IOException {
@@ -1018,7 +1023,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return maxValueDistanceComparator.compare(x, y) > 0;
     }
 
-    class ExactIndex implements Index<TId, TVector, TItem, TDistance> {
+    class ExactView implements Index<TId, TVector, TItem, TDistance> {
         @Override
         public int size() {
             return HnswIndex.this.size();
