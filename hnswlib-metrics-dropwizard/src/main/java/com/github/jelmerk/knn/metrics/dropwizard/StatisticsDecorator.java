@@ -1,22 +1,22 @@
-package com.github.jelmerk.knn.statistics;
+package com.github.jelmerk.knn.metrics.dropwizard;
 
+import com.codahale.metrics.*;
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
 import com.github.jelmerk.knn.ProgressListener;
 import com.github.jelmerk.knn.SearchResult;
-import org.eclipse.collections.impl.list.mutable.primitive.DoubleArrayList;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Serializable;
-import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static com.codahale.metrics.MetricRegistry.name;
 
 /**
  * Decorator on top of an index that will collect statistics about the index. Such as the precision of the results
@@ -32,57 +32,84 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         TGroundTruthIndex extends Index<TId, TVector, TItem, TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
-    public static final int DEFAULT_NUM_SAMPLES = 1000;
+    private final Timer addTimer;
+    private final Timer removeTimer;
+    private final Timer sizeTimer;
+    private final Timer getTimer;
+    private final Timer findNearestTimer;
+    private final Timer addAllTimer;
+    private final Timer saveTimer;
+
+    private final Histogram accuracyHistogram;
 
     private final TApproximativeIndex approximativeIndex;
     private final TGroundTruthIndex groundTruthIndex;
+
     private final int sampleFrequency;
 
     private AtomicLong searchCount = new AtomicLong();
 
-    private final MovingAverageAccuracyCalculator accuracyEvaluator;
+    private final AccuracyTestThread accuracyEvaluator;
 
     /**
-     * Constructs a new StatisticsDecorator.
+     * Constructs a new com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator.
      *
+     * @param metricRegistry metric registry to publish the metric in
+     * @param clazz the first element of the name
+     * @param indexName name of the index. Will be used as part of the metric path
      * @param approximativeIndex the approximative index
      * @param groundTruthIndex the brute force index
-     * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
-     *                                    will be compared with those of the groundTruthIndex to establish the the runtime
-     *                                    precision of the index.
-     * @param numSamples number of samples to calculate the moving average over
+     * @param maxAccuracySampleFrequency at most every maxAccuracySampleFrequency requests compare the results of the
+     *                                   approximate index with those of the ground truth index to establish the runtime
+     *                                   accuracy of the index
      */
-    public StatisticsDecorator(TApproximativeIndex approximativeIndex,
+    public StatisticsDecorator(MetricRegistry metricRegistry,
+                               Class<?> clazz,
+                               String indexName,
+                               TApproximativeIndex approximativeIndex,
                                TGroundTruthIndex groundTruthIndex,
-                               int maxPrecisionSampleFrequency,
-                               int numSamples) {
+                               int maxAccuracySampleFrequency) {
 
         this.approximativeIndex = approximativeIndex;
         this.groundTruthIndex = groundTruthIndex;
-        this.sampleFrequency = maxPrecisionSampleFrequency;
+        this.sampleFrequency = maxAccuracySampleFrequency;
 
-        this.accuracyEvaluator = new MovingAverageAccuracyCalculator(1, numSamples);
+        this.accuracyEvaluator = new AccuracyTestThread(1);
 
         Thread thread = new Thread(accuracyEvaluator);
         thread.setName("accuracyEvaluator");
         thread.setDaemon(true);
         thread.start();
+
+        this.addTimer = metricRegistry.timer(name(clazz, indexName, "add"));
+        this.removeTimer = metricRegistry.timer(name(clazz, indexName, "remove"));
+        this.sizeTimer = metricRegistry.timer(name(clazz, indexName, "size"));
+        this.getTimer = metricRegistry.timer(name(clazz, indexName, "get"));
+        this.findNearestTimer = metricRegistry.timer(name(clazz, indexName, "findNearest"));
+        this.addAllTimer = metricRegistry.timer(name(clazz, indexName, "addAll"));
+        this.saveTimer = metricRegistry.timer(name(clazz, indexName,"save"));
+        this.accuracyHistogram = metricRegistry.histogram(name(clazz, indexName, "accuracy"));
+
+        metricRegistry.register(name(clazz, indexName, "size"), (Gauge<Integer>) approximativeIndex::size);
+
     }
 
     /**
-     * Constructs a new StatisticsDecorator. Statistics will be calulated over the last
-     * {@link StatisticsDecorator#DEFAULT_NUM_SAMPLES} number of collected datapoints.
+     * Constructs a new com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator.
      *
+     * @param indexName name of the index. Will be used as part of the metric path
      * @param approximativeIndex the approximative index
      * @param groundTruthIndex the brute force index
      * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
      *                                    will be compared with those of the groundTruthIndex to establish the the runtime
      *                                    precision of the index.
      */
-    public StatisticsDecorator(TApproximativeIndex approximativeIndex,
+    public StatisticsDecorator(String indexName,
+                               TApproximativeIndex approximativeIndex,
                                TGroundTruthIndex groundTruthIndex,
                                int maxPrecisionSampleFrequency) {
-        this(approximativeIndex, groundTruthIndex, maxPrecisionSampleFrequency, DEFAULT_NUM_SAMPLES);
+        this(SharedMetricRegistries.getDefault(), StatisticsDecorator.class, indexName, approximativeIndex,
+                groundTruthIndex, maxPrecisionSampleFrequency);
     }
 
     /**
@@ -90,7 +117,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean add(TItem item) {
-        return approximativeIndex.add(item);
+        final Timer.Context context = addTimer.time();
+        try {
+            return approximativeIndex.add(item);
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -98,7 +130,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean remove(TId id, long version) {
-        return approximativeIndex.remove(id, version);
+        final Timer.Context context = removeTimer.time();
+        try {
+            return approximativeIndex.remove(id, version);
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -106,7 +143,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public int size() {
-        return approximativeIndex.size();
+        final Timer.Context context = sizeTimer.time();
+        try {
+            return approximativeIndex.size();
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -114,7 +156,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public Optional<TItem> get(TId id) {
-        return approximativeIndex.get(id);
+        final Timer.Context context = getTimer.time();
+        try {
+            return approximativeIndex.get(id);
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -130,12 +177,18 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
-        List<SearchResult<TItem, TDistance>> searchResults = approximativeIndex.findNearest(vector, k);
+        List<SearchResult<TItem, TDistance>> searchResults;
+
+        final Timer.Context context = findNearestTimer.time();
+        try {
+            searchResults = approximativeIndex.findNearest(vector, k);
+        } finally {
+            context.stop();
+        }
 
         if (searchCount.getAndIncrement() % sampleFrequency == 0) {
             accuracyEvaluator.offer(new RequestArgumentsAndResults(vector, k, searchResults));
         }
-
         return searchResults;
     }
 
@@ -143,32 +196,13 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      * {@inheritDoc}
      */
     @Override
-    public void addAll(Collection<TItem> items) throws InterruptedException {
-        approximativeIndex.addAll(items);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addAll(Collection<TItem> items, ProgressListener listener) throws InterruptedException {
-        approximativeIndex.addAll(items, listener);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
     public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
-        approximativeIndex.addAll(items, numThreads, listener, progressUpdateInterval);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public List<SearchResult<TItem, TDistance>> findNeighbors(TId id, int k) {
-        return approximativeIndex.findNeighbors(id, k);
+        final Timer.Context context = addAllTimer.time();
+        try {
+            approximativeIndex.addAll(items, numThreads, listener, progressUpdateInterval);
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -176,23 +210,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        approximativeIndex.save(out);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void save(File file) throws IOException {
-        approximativeIndex.save(file);
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void save(Path path) throws IOException {
-        approximativeIndex.save(path);
+        final Timer.Context context = saveTimer.time();
+        try {
+            approximativeIndex.save(out);
+        } finally {
+            context.stop();
+        }
     }
 
     /**
@@ -213,29 +236,14 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         return groundTruthIndex;
     }
 
-    /**
-     * Returns the collected statistics for this index.
-     *
-     * @return the collected statistics for this index
-     */
-    public IndexStats getStats() {
-        return new IndexStats(accuracyEvaluator.getAveragePrecision());
-    }
+    class AccuracyTestThread implements Runnable {
 
-    class MovingAverageAccuracyCalculator implements Runnable {
-
-        private final int samples;
         private final ArrayBlockingQueue<RequestArgumentsAndResults> queue;
-        private final DoubleArrayList results;
 
         private volatile boolean running = true;
-        private volatile double averagePrecision;
 
-        MovingAverageAccuracyCalculator(int maxBacklog, int numSamples) {
-            this.samples = numSamples;
-
+        AccuracyTestThread(int maxBacklog) {
             this.queue  = new ArrayBlockingQueue<>(maxBacklog);
-            this.results = new DoubleArrayList(numSamples);
         }
 
         @Override
@@ -243,34 +251,21 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
             try {
                 while (running) {
                     RequestArgumentsAndResults item = queue.poll(500, TimeUnit.MILLISECONDS);
-
                     if (item != null) {
                         List<SearchResult<TItem, TDistance>> expectedResults = groundTruthIndex.findNearest(item.vector, item.k);
 
                         int correct = expectedResults.stream().mapToInt(r -> item.searchResults.contains(r) ? 1 : 0).sum();
                         double precision = (double) correct / (double) expectedResults.size();
-
-                        if (results.size() >= samples) {
-                            results.removeAtIndex(0);
-                        }
-
-                        results.add(precision);
-
-                        averagePrecision = results.sum() / results.size();
+                        accuracyHistogram.update(Math.round(precision * 100));
                     }
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-               // just die
             }
         }
 
         boolean offer(RequestArgumentsAndResults requestAndResults) {
             return queue.offer(requestAndResults); // won't block if we can't keep up but will return false
-        }
-
-        public double getAveragePrecision() {
-            return averagePrecision;
         }
 
         void shutdown() {

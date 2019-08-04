@@ -3,10 +3,10 @@ import java.io.File
 import com.github.jelmerk.knn.FloatDistanceFunctions
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
+import com.github.jelmerk.knn.scalalike.metrics.dropwizard.StatisticsDecorator
 
 import scala.io.Source
 import scala.util.Random
-import com.github.jelmerk.knn.scalalike.statistics.StatisticsDecorator
 
 case class FastTextWord(id: String, vector: Array[Float], expired: Boolean)
   extends Item[String, Array[Float]]
