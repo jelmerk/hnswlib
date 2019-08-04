@@ -5,13 +5,13 @@
     <parent>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-parent-pom</artifactId>
-        <version>0.0.16</version>
+        <version>0.0.17-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-scala_2.12</artifactId>
+    <artifactId>hnswlib-scala_2.11</artifactId>
 
     <description>Scala integration</description>
 

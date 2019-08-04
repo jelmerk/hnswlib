@@ -49,13 +49,13 @@ Using Maven:
     <dependency>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-core</artifactId>
-        <version>0.0.15</version>
+        <version>0.0.16</version>
     </dependency>
 
 Using sbt:
 
 
-    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.15"
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.16"
 
 Spark
 -----
