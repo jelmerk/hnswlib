@@ -3,7 +3,6 @@ package com.github.jelmerk.knn.metrics.dropwizard;
 import com.codahale.metrics.*;
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
-import com.github.jelmerk.knn.ProgressListener;
 import com.github.jelmerk.knn.SearchResult;
 
 import java.io.IOException;
@@ -34,10 +33,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
     private final Timer addTimer;
     private final Timer removeTimer;
-    private final Timer sizeTimer;
     private final Timer getTimer;
     private final Timer findNearestTimer;
-    private final Timer addAllTimer;
     private final Timer saveTimer;
 
     private final Histogram accuracyHistogram;
@@ -83,10 +80,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
         this.addTimer = metricRegistry.timer(name(clazz, indexName, "add"));
         this.removeTimer = metricRegistry.timer(name(clazz, indexName, "remove"));
-        this.sizeTimer = metricRegistry.timer(name(clazz, indexName, "size"));
         this.getTimer = metricRegistry.timer(name(clazz, indexName, "get"));
         this.findNearestTimer = metricRegistry.timer(name(clazz, indexName, "findNearest"));
-        this.addAllTimer = metricRegistry.timer(name(clazz, indexName, "addAll"));
         this.saveTimer = metricRegistry.timer(name(clazz, indexName,"save"));
         this.accuracyHistogram = metricRegistry.histogram(name(clazz, indexName, "accuracy"));
 
@@ -143,12 +138,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public int size() {
-        final Timer.Context context = sizeTimer.time();
-        try {
-            return approximativeIndex.size();
-        } finally {
-            context.stop();
-        }
+        return approximativeIndex.size();
     }
 
     /**
@@ -190,19 +180,6 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
             accuracyEvaluator.offer(new RequestArgumentsAndResults(vector, k, searchResults));
         }
         return searchResults;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval) throws InterruptedException {
-        final Timer.Context context = addAllTimer.time();
-        try {
-            approximativeIndex.addAll(items, numThreads, listener, progressUpdateInterval);
-        } finally {
-            context.stop();
-        }
     }
 
     /**
