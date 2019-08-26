@@ -4,7 +4,6 @@ import java.io.{File, InputStream}
 import java.nio.file.Path
 
 import com.github.jelmerk.knn.hnsw.{JavaObjectSerializer, HnswIndex => JHnswIndex}
-import com.github.jelmerk.knn.{DistanceFunction => JDistanceFunction}
 import com.github.jelmerk.knn.scalalike._
 
 object HnswIndex {
@@ -98,7 +97,7 @@ object HnswIndex {
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
     val builder = JHnswIndex
-      .newBuilder(new DistanceFunctionAdapter[TVector, TDistance](distanceFunction), distanceOrdering, maxItemCount)
+      .newBuilder(new ScalaDistanceFunctionAdapter[TVector, TDistance](distanceFunction), distanceOrdering, maxItemCount)
       .withM(m)
       .withEf(ef)
       .withEfConstruction(efConstruction)
@@ -112,20 +111,6 @@ object HnswIndex {
 
   }
 
-}
-
-/**
-  * Adapts a scala function to [[DistanceFunction]]
-  *
-  * @param scalaFunction scala function to delegate to
-  *
-  * @tparam TVector Type of the vector to perform distance calculation on
-  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-  */
-class DistanceFunctionAdapter[TVector, TDistance](val scalaFunction: DistanceFunction[TVector, TDistance])
-    extends JDistanceFunction[TVector, TDistance] {
-
-  override def distance(u: TVector, v: TVector): TDistance = scalaFunction(u, v)
 }
 
 /**
@@ -148,7 +133,7 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
     * This distance function.
     */
   val distanceFunction: DistanceFunction[TVector, TDistance] = delegate
-    .getDistanceFunction.asInstanceOf[DistanceFunctionAdapter[TVector, TDistance]].scalaFunction
+    .getDistanceFunction.asInstanceOf[ScalaDistanceFunctionAdapter[TVector, TDistance]].scalaFunction
 
   /**
     * The ordering used to compare distances

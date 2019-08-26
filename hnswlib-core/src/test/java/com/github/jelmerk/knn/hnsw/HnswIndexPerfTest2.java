@@ -1,7 +1,7 @@
 package com.github.jelmerk.knn.hnsw;
 
 
-import com.github.jelmerk.knn.FloatDistanceFunctions;
+import com.github.jelmerk.knn.DistanceFunctions;
 import com.github.jelmerk.knn.Item;
 
 import java.io.File;
@@ -46,7 +46,7 @@ public class HnswIndexPerfTest2 {
         int m = 15;
 
         HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
-                .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
+                .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, items.size())
                     .withM(m)
                     .build();
 

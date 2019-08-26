@@ -2,48 +2,23 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>hnswlib-examples-spark</artifactId>
+
     <parent>
         <groupId>com.github.jelmerk</groupId>
-        <artifactId>hnswlib-parent-pom</artifactId>
+        <artifactId>hnswlib-examples-parent-pom</artifactId>
         <version>0.0.18-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
 
-    <modelVersion>4.0.0</modelVersion>
+    <properties>
+        <scala.version>2.12.7</scala.version>
+        <scala.binary.version>2.12</scala.binary.version>
+    </properties>
 
-    <artifactId>hnswlib-scala_2.12</artifactId>
-
-    <description>Scala integration</description>
-
-    <dependencies>
-
-        <dependency>
-            <groupId>org.scala-lang</groupId>
-            <artifactId>scala-library</artifactId>
-            <version>${scala.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-metrics-dropwizard</artifactId>
-            <version>${project.version}</version>
-            <optional>true</optional>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-spark</artifactId>
-            <version>${project.version}</version>
-            <optional>true</optional>
-        </dependency>
-
-    </dependencies>
+    <description>Examples for using spark</description>
 
     <build>
         <sourceDirectory>src/main/scala</sourceDirectory>
@@ -111,55 +86,25 @@
         </plugins>
     </build>
 
-    <profiles>
+    <dependencies>
+        <dependency>
+            <groupId>com.github.jelmerk</groupId>
+            <artifactId>hnswlib-scala_${scala.binary.version}</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
-        <profile>
-            <id>scala-2.11</id>
-            <activation>
-                <property>
-                    <name>!scala-2.12</name>
-                </property>
-            </activation>
+        <dependency>
+            <groupId>com.github.jelmerk</groupId>
+            <artifactId>hnswlib-metrics-dropwizard</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
-            <properties>
-                <scala.version>2.11.12</scala.version>
-                <scala.binary.version>2.11</scala.binary.version>
-            </properties>
+        <dependency>
+            <groupId>org.scala-lang</groupId>
+            <artifactId>scala-library</artifactId>
+            <version>${scala.version}</version>
+        </dependency>
 
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-mllib-local_2.11</artifactId>
-                    <version>2.3.0</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-
-        <profile>
-            <id>scala-2.12</id>
-            <activation>
-                <property>
-                    <name>scala-2.12</name>
-                </property>
-            </activation>
-
-            <properties>
-                <scala.version>2.12.7</scala.version>
-                <scala.binary.version>2.12</scala.binary.version>
-            </properties>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-mllib-local_2.12</artifactId>
-                    <version>2.3.0</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
-
-        </profile>
-
-    </profiles>
+    </dependencies>
 
 </project>

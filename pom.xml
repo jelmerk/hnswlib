@@ -60,6 +60,7 @@
         <module>hnswlib-metrics-dropwizard</module>
         <module>hnswlib-scala</module>
         <module>hnswlib-spark</module>
+        <module>hnswlib-examples</module>
     </modules>
 
     <build>

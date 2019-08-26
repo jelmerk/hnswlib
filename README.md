@@ -17,7 +17,7 @@ Java API:
 
 
     Index<String, float[], Word, Float> index = HnswIndex
-        .newBuilder(FloatDistanceFunctions::cosineDistance, words.size())
+        .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
             .withM(10)
             .build();
 
@@ -92,7 +92,7 @@ Here's an example of how to do this :
 
           val items = it.toSeq
           
-          val index = HnswIndex[String, Vector, Word, Double](cosineDistance, items.size, m = m)
+          val index = HnswIndex[String, Vector, Word, Double](floatCosineDistance, items.size, m = m)
           index.addAll(items.map(_._2))
           
           Iterator(items.head._1 -> index)
@@ -180,7 +180,7 @@ Frequently asked questions
                 MemoryMeter meter = new MemoryMeter();
 
                 Index<String, float[], MyItem, Float> index = HnswIndex
-                    .newBuilder(FloatDistanceFunctions::cosineDistance, items.size())
+                    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, items.size())
                         .withM(16)
                         .build();
 
@@ -203,7 +203,7 @@ Frequently asked questions
   
   
         HnswIndex<String, float[], Word, Float> hnswIndex = HnswIndex
-                .newBuilder(FloatDistanceFunctions::cosineDistance, words.size())
+                .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
                 .build();
         hnswIndex.addAll(words);
 

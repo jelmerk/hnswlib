@@ -1,7 +1,7 @@
 package com.github.jelmerk.knn.hnsw;
 
 
-import com.github.jelmerk.knn.FloatDistanceFunctions;
+import com.github.jelmerk.knn.DistanceFunctions;
 import com.github.jelmerk.knn.Item;
 
 import java.io.*;
@@ -98,7 +98,7 @@ public class HnswIndexPerfTest {
         int m = 10;
 
         HnswIndex<Integer, float[], MyItem, Float> index = HnswIndex
-                .newBuilder(FloatDistanceFunctions::innerProduct, items.size())
+                .newBuilder(DistanceFunctions.FLOAT_INNER_PRODUCT, items.size())
                 .withCustomSerializers(new IdSerializer(), new ItemSerializer())
                 .withM(m)
                 .build();
