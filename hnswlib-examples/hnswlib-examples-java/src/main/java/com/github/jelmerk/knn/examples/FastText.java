@@ -1,9 +1,5 @@
 package com.github.jelmerk.knn.examples;
 
-import com.github.jelmerk.knn.DistanceFunctions;
-import com.github.jelmerk.knn.SearchResult;
-import com.github.jelmerk.knn.hnsw.HnswIndex;
-
 import java.io.*;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -14,11 +10,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
-import static com.github.jelmerk.knn.util.VectorUtils.normalize;
+import com.github.jelmerk.knn.DistanceFunctions;
+import com.github.jelmerk.knn.SearchResult;
+import com.github.jelmerk.knn.hnsw.HnswIndex;
+
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
+import static com.github.jelmerk.knn.util.VectorUtils.normalize;
+
 /**
- * Example application that will download the english fast-text word vectors and insert them into a hnsw index.
+ * Example application that will download the english fast-text word vectors insert them into a hnsw index and lets
+ * you query them.
  */
 public class FastText {
 
@@ -57,10 +59,20 @@ public class FastText {
 
         System.out.printf("Creating index with %d words took %d millis which is %d minutes.%n", index.size(), duration, MILLISECONDS.toMinutes(duration));
 
-        List<SearchResult<Word, Float>> nearest = index.findNeighbors("bike", 10);
+        Console console = System.console();
 
-        for (SearchResult<Word, Float> result : nearest) {
-            System.out.printf("%s %.4f%n", result.item().id(), result.distance());
+        while (true) {
+            System.out.println("Enter an english word : ");
+
+            String input = console.readLine();
+
+            List<SearchResult<Word, Float>> nearest = index.findNeighbors(input, 10);
+
+            System.out.println("Most similar words : ");
+
+            for (SearchResult<Word, Float> result : nearest) {
+                System.out.printf("%s %.4f%n", result.item().id(), result.distance());
+            }
         }
     }
 
@@ -74,8 +86,7 @@ public class FastText {
     private static List<Word> loadWordVectors(Path path) throws IOException {
         System.out.printf("Loading words from %s%n", path);
 
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(new GZIPInputStream(Files.newInputStream(path)), StandardCharsets.UTF_8))) {
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new GZIPInputStream(Files.newInputStream(path)), StandardCharsets.UTF_8))) {
             return reader.lines()
                     .skip(1)
                     .map(line -> {

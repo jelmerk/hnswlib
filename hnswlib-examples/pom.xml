@@ -19,7 +19,6 @@
     <modules>
         <module>hnswlib-examples-java</module>
         <module>hnswlib-examples-scala</module>
-        <module>hnswlib-examples-spark</module>
     </modules>
 
 </project>
