@@ -46,7 +46,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private int maxM;
     private int maxM0;
     private double levelLambda;
-    private int ef;
+    private volatile int ef;
     private int efConstruction;
     private boolean removeEnabled;
 
@@ -106,6 +106,10 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
 
         this.exactView = new ExactView();
+    }
+
+    public void setEf(int ef) {
+        this.ef = ef;
     }
 
     /**

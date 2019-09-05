@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
 import com.github.jelmerk.knn.DistanceFunctions;
+import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.SearchResult;
 import com.github.jelmerk.knn.hnsw.HnswIndex;
 
@@ -19,7 +20,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static com.github.jelmerk.knn.util.VectorUtils.normalize;
 
 /**
- * Example application that will download the english fast-text word vectors insert them into a hnsw index and lets
+ * Example application that downloads the english fast-text word vectors, inserts them into an hnsw index and lets
  * you query them.
  */
 public class FastText {
@@ -42,37 +43,53 @@ public class FastText {
 
         System.out.println("Constructing index.");
 
-        int m = 16;
-
-        HnswIndex<String, float[], Word, Float> index = HnswIndex
+        HnswIndex<String, float[], Word, Float> hnswIndex = HnswIndex
                 .newBuilder(DistanceFunctions.FLOAT_INNER_PRODUCT, words.size())
-                .withM(m)
+                .withM(16)
+                .withEf(200)
+                .withEfConstruction(200)
                 .build();
 
         long start = System.currentTimeMillis();
 
-        index.addAll(words, (workDone, max) -> System.out.printf("Added %d out of %d words to the index.%n", workDone, max));
+        hnswIndex.addAll(words, (workDone, max) -> System.out.printf("Added %d out of %d words to the index.%n", workDone, max));
 
         long end = System.currentTimeMillis();
 
         long duration = end - start;
 
-        System.out.printf("Creating index with %d words took %d millis which is %d minutes.%n", index.size(), duration, MILLISECONDS.toMinutes(duration));
+        System.out.printf("Creating index with %d words took %d millis which is %d minutes.%n", hnswIndex.size(), duration, MILLISECONDS.toMinutes(duration));
+
+        Index<String, float[], Word, Float> groundTruthIndex = hnswIndex.asExactIndex();
 
         Console console = System.console();
+
+        int k = 10;
 
         while (true) {
             System.out.println("Enter an english word : ");
 
             String input = console.readLine();
 
-            List<SearchResult<Word, Float>> nearest = index.findNeighbors(input, 10);
+            List<SearchResult<Word, Float>> approximateResults = hnswIndex.findNeighbors(input, k);
 
-            System.out.println("Most similar words : ");
+            List<SearchResult<Word, Float>> groundTruthResults = groundTruthIndex.findNeighbors(input, k);
 
-            for (SearchResult<Word, Float> result : nearest) {
+            System.out.println("Most similar words found using HNSW index : %n%n");
+
+            for (SearchResult<Word, Float> result : approximateResults) {
                 System.out.printf("%s %.4f%n", result.item().id(), result.distance());
             }
+
+            System.out.printf("%nMost similar words found using exact index: %n%n");
+
+            for (SearchResult<Word, Float> result : groundTruthResults) {
+                System.out.printf("%s %.4f%n", result.item().id(), result.distance());
+            }
+
+            int correct = groundTruthResults.stream().mapToInt(r -> approximateResults.contains(r) ? 1 : 0).sum();
+
+            System.out.printf("%nAccuracy : %.4f%n%n", correct / (double) groundTruthResults.size());
         }
     }
 

@@ -41,8 +41,13 @@
             <artifactId>hnswlib-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-    </dependencies>
 
+        <dependency>
+            <groupId>com.github.jelmerk</groupId>
+            <artifactId>hnswlib-utils</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
 
 
 </project>

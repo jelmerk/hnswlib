@@ -51,25 +51,5 @@ package object scalalike {
     * Calculates inner product.
     */
   val doubleInnerProduct: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_INNER_PRODUCT.distance
-//
-//  /**
-//    * Calculates cosine distance.
-//    */
-//  val denseVectorCosineDistance: DistanceFunction[Vector, Double] = SparkDistanceFunctions.DENSE_VECTOR_COSINE_DISTANCE.distance
-//
-//  /**
-//    * Calculates inner product.
-//    */
-//  val denseVectorInnerProduct: DistanceFunction[Vector, Double] = SparkDistanceFunctions.DENSE_VECTOR_INNER_PRODUCT.distance
-//
-//  /**
-//    * Calculates cosine distance.
-//    */
-//  val sparseVectorCosineDistance: DistanceFunction[Vector, Double] = SparkDistanceFunctions.SPARSE_VECTOR_COSINE_DISTANCE.distance
-//
-//  /**
-//    * Calculates inner product.
-//    */
-//  val sparseVectorInnerProduct: DistanceFunction[Vector, Double] = SparkDistanceFunctions.SPARSE_VECTOR_INNER_PRODUCT.distance
 
 }

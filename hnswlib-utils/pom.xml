@@ -4,7 +4,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-core</artifactId>
+    <artifactId>hnswlib-utils</artifactId>
 
     <parent>
         <groupId>com.github.jelmerk</groupId>
@@ -13,21 +13,9 @@
         <relativePath>..</relativePath>
     </parent>
 
-    <description>Core java library</description>
+    <description>Utilities for dealing with vectors</description>
 
     <dependencies>
-        <dependency>
-            <groupId>org.eclipse.collections</groupId>
-            <artifactId>eclipse-collections</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-utils</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>

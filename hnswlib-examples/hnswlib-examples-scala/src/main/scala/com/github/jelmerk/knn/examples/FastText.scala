@@ -13,7 +13,7 @@ import com.github.jelmerk.knn.scalalike.hnsw._
 @SerialVersionUID(1L) case class Word(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
 /**
-  * Example application that will download the english fast-text word vectors insert them into a hnsw index and lets
+  * Example application that downloads the english fast-text word vectors, inserts them into an hnsw index and lets
   * you query them.
   */
 object FastText extends App {
@@ -26,27 +26,43 @@ object FastText extends App {
     inputFilePath <- Some(inputFile).filter(f => Files.exists(f)).orElse(Some(downloadFile(url, inputFile)))
     words <- Some(loadWords(inputFilePath))
   } {
-
     println("Constructing index.")
 
-    val index = HnswIndex[String, Array[Float], Word, Float](floatCosineDistance, words.size, m = 16)
+    val hnswIndex = HnswIndex[String, Array[Float], Word, Float](floatCosineDistance, words.size, m = 16,  ef = 200, efConstruction = 200)
 
-    index.addAll(words, listener = (workDone: Int, max: Int) => {
+    hnswIndex.addAll(words, listener = (workDone: Int, max: Int) =>
       println(s"Added $workDone out of $max words to the index.")
-    })
+    )
+
+    val groundTruthIndex = hnswIndex.asExactIndex
+
+    val k = 10
 
     while(true) {
       println("Enter an english word : ")
 
       val input = StdIn.readLine()
 
-      println("Most similar words : ")
+      println("Most similar words found using HNSW index :\n")
 
-      index.findNeighbors(input, k = 10).foreach { case SearchResult(word, distance) =>
+      val approximateResults = hnswIndex.findNeighbors(input, k)
+
+      approximateResults.foreach { case SearchResult(word, distance) =>
         println(f"$word $distance#.4f")
       }
-    }
 
+      println("%nMost similar words found using exact index :\n")
+
+      val groundTruthResults = groundTruthIndex.findNeighbors(input, k)
+
+      groundTruthResults.foreach { case SearchResult(word, distance) =>
+        println(f"$word $distance#.4f")
+      }
+
+      val accuracy = groundTruthResults.count(approximateResults.contains) / groundTruthResults.size.toDouble
+
+      println(f"%nAccuracy : $accuracy#.4f%n")
+    }
   }
 
   def loadWords(path: Path) = {
