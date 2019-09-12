@@ -5,8 +5,7 @@ from pyspark import keyword_only
 
 
 @inherit_doc
-class Hnsw(JavaEstimator, HasFeaturesCol, HasLabelCol, HasPredictionCol,
-           HasInputCols, HasThresholds, HasSeed, HasWeightCol):
+class Hnsw(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine"):
@@ -22,7 +21,7 @@ class Hnsw(JavaEstimator, HasFeaturesCol, HasLabelCol, HasPredictionCol,
                                     "has the same meaning as ef, but controls the index time / index precision")
         self.numPartitions = Param(self, "numPartitions", "number of partitions")
         self.k = Param(self, "k", "number of neighbors to find")
-        self.k = Param(self, "distanceFunction", "distance function to use, one of cosine, inner-product")
+        self.distanceFunction = Param(self, "distanceFunction", "distance function to use, one of cosine, inner-product")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine")

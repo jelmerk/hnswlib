@@ -4,7 +4,6 @@ import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.mllib.linalg.VectorUDT
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
@@ -22,9 +21,9 @@ case class Neighbor(id: String, distance: Float)
 
 object Udfs {
 
-  val topK: UserDefinedFunction = udf { (neighbors: Seq[Seq[Neighbor]], k: Int) => neighbors.flatten.sortBy(_.distance).take(k) }
-
   val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
+
+  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Array[Double] => vector.map(_.toFloat) }
 }
 
 trait HnswModelParams extends Params {
@@ -166,11 +165,20 @@ class HnswModel(override val uid: String, numPartitions: Int, indices: DataFrame
     import dataset.sparkSession.implicits._
     import CustomEncoders._
 
+    val identifierType = dataset.schema(getIdentifierCol).dataType
+
     implicit val partitionAndIndexEncoder: Encoder[(Int, String, Array[Float], HnswIndex[String, Array[Float], IndexItem, Float])] =
       Encoders.tuple(Encoders.scalaInt, Encoders.STRING, ExpressionEncoder[Array[Float]](), indexEncoder)
 
-    dataset.select(col(getIdentifierCol), vectorToFloatArray(col(getVectorCol)))
-      .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
+    val vectorCol = dataset.schema(getVectorCol).dataType match {
+      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
+      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
+      case _ => col(getVectorCol)
+    }
+
+    dataset.select(col(getIdentifierCol).cast(StringType), vectorCol)
+      .withColumn("partition", explode(array(0 until numPartitions map lit: _*))) // manual partitioning because cross joins are disallowed by default..
+      .repartition($"partition")
       .join(indices, Seq("partition"))
       .as[(Int, String, Array[Float], HnswIndex[String, Array[Float], IndexItem, Float])]
       .map { case (_, id, vector, index) =>
@@ -179,17 +187,25 @@ class HnswModel(override val uid: String, numPartitions: Int, indices: DataFrame
           .take(getK)
 
         id -> neighbors
-
       }
+      .groupByKey(_._1)
+      .mapGroups { case (id, iterator) => (id, iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)) }
       .toDF(getIdentifierCol, getNeighborsCol)
-      .groupBy(getIdentifierCol)
-      .agg(topK(collect_list(col(getNeighborsCol)), lit(getK)).as(getNeighborsCol))
+      .select(
+        col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
+        col(getNeighborsCol).cast(ArrayType(StructType(Seq(
+          StructField("id", identifierType),
+          StructField("distance", FloatType)
+        )))).as(getNeighborsCol)
+      )
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    val identifierType = schema(getIdentifierCol).dataType
+
     StructType(Seq(
-      StructField(getIdentifierCol, StringType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", StringType), StructField("distance", FloatType)))))
+      StructField(getIdentifierCol, identifierType),
+      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", identifierType), StructField("distance", FloatType)))))
     ))
   }
 }
@@ -234,8 +250,14 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
     implicit val partitionAndIndexEncoder: Encoder[(Int, HnswIndex[String, Array[Float], IndexItem, Float])] =
       Encoders.tuple(Encoders.scalaInt, indexEncoder)
 
-    val indices = dataset.select(col(getIdentifierCol).as("id"),
-                                 vectorToFloatArray(col(getVectorCol)).as("vector")).as[IndexItem]
+    val vectorCol = dataset.schema(getVectorCol).dataType match {
+      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol))
+      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
+      case _ => col(getVectorCol)
+    }
+
+    val indices = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
+                                 vectorCol.as("vector")).as[IndexItem]
       .map { item => PartitionAndIndexItem(item.id.hashCode % getNumPartitions, item) }
       .repartition($"partition")
       .mapPartitions { it =>
@@ -262,16 +284,14 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
     copyValues(model)
   }
 
-
   override def copy(extra: ParamMap): Estimator[HnswModel] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
-    checkColumnType(schema, getIdentifierCol, StringType)
-    checkColumnType(schema, getVectorCol, new VectorUDT)
+    val identifierType = schema(getIdentifierCol).dataType
 
     StructType(Seq(
-      StructField(getIdentifierCol, StringType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", StringType), StructField("distance", FloatType)))))
+      StructField(getIdentifierCol, identifierType),
+      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", identifierType), StructField("distance", FloatType)))))
     ))
   }
 
@@ -281,9 +301,4 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
     case _ => throw new IllegalArgumentException(s"$getDistanceFunction is not a valid distance function.")
   }
 
-  private def checkColumnType(schema: StructType, colName: String, dataType: DataType): Unit = {
-    val actualDataType = schema(colName).dataType
-    require(actualDataType.equals(dataType),
-      s"Column $colName must be of type $dataType but was actually $actualDataType.")
-  }
 }
