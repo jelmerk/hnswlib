@@ -13,11 +13,7 @@ import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.storage.StorageLevel
-
-case class PartitionAndIndexItem(partition: Int, item: IndexItem)
 
 case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
@@ -142,12 +138,6 @@ trait HnswParams extends HnswModelParams {
     neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector", distanceFunction -> "cosine")
 }
 
-object CustomEncoders {
-
-  implicit val indexEncoder: Encoder[HnswIndex[String, Array[Float], IndexItem, Float]] =
-    Encoders.javaSerialization[HnswIndex[String, Array[Float], IndexItem, Float]]
-
-}
 
 class HnswModel(override val uid: String,
                 numPartitions: Int,
@@ -171,12 +161,9 @@ class HnswModel(override val uid: String,
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
-    import CustomEncoders._
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
-    implicit val partitionAndIndexEncoder: Encoder[(Int, String, Array[Float], HnswIndex[String, Array[Float], IndexItem, Float])] =
-      Encoders.tuple(Encoders.scalaInt, Encoders.STRING, ExpressionEncoder[Array[Float]](), indexEncoder)
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
       case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
@@ -190,7 +177,8 @@ class HnswModel(override val uid: String,
       .rdd
       .map { case (id, vector, partition) => (partition, (id, vector)) }
       .partitionBy(partitioner)
-      .cogroup(indices).flatMap { case (_, (itemsIter, indicesIter)) =>
+      .cogroup(indices, partitioner)
+      .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
           itemsIter.map { case (id, vector) =>
             val neighbors = index.findNearest(vector, getK + 1)
@@ -228,7 +216,6 @@ class HnswModel(override val uid: String,
 
 class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParams {
 
-  import CustomEncoders._
   import Udfs._
 
   def this() = this(Identifiable.randomUID("hnsw"))
@@ -260,12 +247,8 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
   def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
 
   override def fit(dataset: Dataset[_]): HnswModel = {
-    // TODO i think fit should do nothing
 
     import dataset.sparkSession.implicits._
-
-    implicit val partitionAndIndexEncoder: Encoder[(Int, HnswIndex[String, Array[Float], IndexItem, Float])] =
-      Encoders.tuple(Encoders.scalaInt, indexEncoder)
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
       case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol))
@@ -276,7 +259,7 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
     val indicesRdd = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
-                                 vectorCol.as("vector")).as[IndexItem]
+                                    vectorCol.as("vector")).as[IndexItem]
       .map { item => (item.id.hashCode % getNumPartitions, item) }
       .rdd
       .partitionBy(partitioner)
@@ -297,7 +280,7 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
             efConstruction = getEfConstruction
           )
 
-          index.addAll(items, progressUpdateInterval = 100,  listener = (workDone, max) => logInfo(s"Indexed $workDone of $max items"))
+          index.addAll(items, progressUpdateInterval = 1000,  listener = (workDone, max) => logInfo(s"Indexed $workDone of $max items"))
 
           logInfo(s"Done indexing ${pairs.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
