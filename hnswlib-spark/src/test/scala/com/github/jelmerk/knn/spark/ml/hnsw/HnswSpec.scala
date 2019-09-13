@@ -1,6 +1,7 @@
 package com.github.jelmerk.knn.spark.ml.hnsw
 
 import com.holdenkarau.spark.testing.DatasetSuiteBase
+import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
@@ -13,6 +14,8 @@ class Person(val name: String) extends Serializable
 
 class HnswSpec extends FunSuite with DatasetSuiteBase {
 
+//  override def conf: SparkConf = super.conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+
   test("vector input row") {
 
     val sqlCtx = sqlContext
@@ -20,7 +23,8 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
 
     val input = sc.parallelize(Seq(
       VectorInputRow(1, Vectors.dense(0.0110, 0.2341)),
-      VectorInputRow(2, Vectors.dense(0.2300, 0.3891))
+      VectorInputRow(2, Vectors.dense(0.2300, 0.3891)),
+      VectorInputRow(3, Vectors.dense(0.4300, 0.9891))
     )).toDS
 
     val hnsw = new Hnsw()

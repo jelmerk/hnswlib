@@ -1,5 +1,7 @@
 package com.github.jelmerk.knn.spark.ml.hnsw
 
+import java.net.InetAddress
+
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -9,6 +11,8 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
+import org.apache.spark.Partitioner
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.storage.StorageLevel
@@ -145,7 +149,11 @@ object CustomEncoders {
 
 }
 
-class HnswModel(override val uid: String, numPartitions: Int, indices: DataFrame)
+class HnswModel(override val uid: String,
+                numPartitions: Int,
+                partitioner: Partitioner,
+                indices: RDD[(Int, HnswIndex[String, Array[Float], IndexItem, Float])])
+
   extends Model[HnswModel] with HnswModelParams {
 
   import Udfs._
@@ -157,7 +165,7 @@ class HnswModel(override val uid: String, numPartitions: Int, indices: DataFrame
   def setK(value: Int): this.type = set(k, value)
 
   override def copy(extra: ParamMap): HnswModel = {
-    val copied = new HnswModel(uid, numPartitions, indices)
+    val copied = new HnswModel(uid, numPartitions, partitioner, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -176,20 +184,28 @@ class HnswModel(override val uid: String, numPartitions: Int, indices: DataFrame
       case _ => col(getVectorCol)
     }
 
-    dataset.select(col(getIdentifierCol).cast(StringType), vectorCol)
-      .withColumn("partition", explode(array(0 until numPartitions map lit: _*))) // manual partitioning because cross joins are disallowed by default..
-      .repartition($"partition")
-      .join(indices, Seq("partition"))
-      .as[(Int, String, Array[Float], HnswIndex[String, Array[Float], IndexItem, Float])]
-      .map { case (_, id, vector, index) =>
-        val neighbors = index.findNearest(vector, getK + 1)
-          .collect { case SearchResult(item, distance) if item.id != id => Neighbor(item.id, distance) }
-          .take(getK)
+    dataset.select(col(getIdentifierCol).cast(StringType), vectorCol.as(getVectorCol))
+      .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
+      .as[(String, Array[Float], Int)]
+      .rdd
+      .map { case (id, vector, partition) => (partition, (id, vector)) }
+      .partitionBy(partitioner)
+      .cogroup(indices).flatMap { case (_, (itemsIter, indicesIter)) =>
+        indicesIter.headOption.map { index =>
+          itemsIter.map { case (id, vector) =>
+            val neighbors = index.findNearest(vector, getK + 1)
+              .collect { case SearchResult(item, distance) if item.id != id => Neighbor(item.id, distance) }
+              .take(getK)
 
-        id -> neighbors
+            id -> neighbors
+          }
+        }.getOrElse(Iterator.empty)
       }
-      .groupByKey(_._1)
-      .mapGroups { case (id, iterator) => (id, iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)) }
+      .groupBy(_._1)
+      .map { case (id, iterator) =>
+        val closestNeighbors = iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)
+        id -> closestNeighbors
+      }
       .toDF(getIdentifierCol, getNeighborsCol)
       .select(
         col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
@@ -244,6 +260,7 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
   def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
 
   override def fit(dataset: Dataset[_]): HnswModel = {
+    // TODO i think fit should do nothing
 
     import dataset.sparkSession.implicits._
 
@@ -256,31 +273,39 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
       case _ => col(getVectorCol)
     }
 
-    val indices = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
+    val partitioner = new PartitionIdPassthrough(getNumPartitions)
+
+    val indicesRdd = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
                                  vectorCol.as("vector")).as[IndexItem]
-      .map { item => PartitionAndIndexItem(item.id.hashCode % getNumPartitions, item) }
-      .repartition($"partition")
-      .mapPartitions { it =>
+      .map { item => (item.id.hashCode % getNumPartitions, item) }
+      .rdd
+      .partitionBy(partitioner)
+      .mapPartitions( it =>
         if (it.hasNext) {
-          val items = it.toSeq
+
+          val pairs = it.toList
+          val partition = pairs.head._1
+          val items = pairs.map(_._2)
+
+          logInfo(s"Indexing ${pairs.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = HnswIndex[String, Array[Float], IndexItem, Float](
             distanceFunction = distanceFunctionByName(getDistanceFunction),
-            maxItemCount = items.size,
+            maxItemCount = pairs.size,
             m = getM,
             ef = getEf,
             efConstruction = getEfConstruction
           )
 
-          index.addAll(items.map(_.item))
+          index.addAll(items, progressUpdateInterval = 100,  listener = (workDone, max) => logInfo(s"Indexed $workDone of $max items"))
 
-          Iterator.single(items.head.partition -> index)
+          logInfo(s"Done indexing ${pairs.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
+
+          Iterator.single(partition -> index)
         } else Iterator.empty
-      }
-      .toDF("partition", "index")
-      .persist(StorageLevel.MEMORY_ONLY)
+      , preservesPartitioning = true)
 
-    val model = new HnswModel(uid, getNumPartitions, indices).setParent(this)
+    val model = new HnswModel(uid, getNumPartitions, partitioner, indicesRdd).setParent(this)
     copyValues(model)
   }
 
@@ -300,5 +325,8 @@ class Hnsw(override val uid: String) extends Estimator[HnswModel] with HnswParam
     case "inner-product" => floatInnerProduct
     case _ => throw new IllegalArgumentException(s"$getDistanceFunction is not a valid distance function.")
   }
+}
 
+class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
+  override def getPartition(key: Any): Int = key.asInstanceOf[Int]
 }
