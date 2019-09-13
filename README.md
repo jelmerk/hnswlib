@@ -63,68 +63,39 @@ Spark
 The easiest way to use this library with spark is to simply collect your data on the driver node and index it there. 
 This does mean you'll have to allocate a lot of cores and memory to the driver.
 
-Alternatively you can shard the index across multiple executors and parallelise the indexing / querying. This may be 
-faster if you have many executors at your disposal or if your dataset won't fit on the driver
-Here's an example of how to do this :
+Alternatively you can use the hnswlib-spark / hnswlib-pyspark modulesto shard the index across multiple executors 
+and parallelise the indexing / querying. This may be  faster if you have many executors at your disposal or if your 
+dataset won't fit on the driver
 
+Scala example :
 
-    case class RelatedItem(id: String, relatedId: String, similarity: Float)
-
-    class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
-      override def getPartition(key: Any): Int = key.asInstanceOf[Int]
-    }
+    import com.github.jelmerk.knn.spark.ml.hnsw.Hnsw
     
-    // needs to use java serialization
-    conf.set("spark.serializer", "org.apache.spark.serializer.JavaSerializer")
+    val hnsw = new Hnsw()
+          .setIdentityCol("row_id")
+          .setVectorCol("anchor")
+          .setNumPartitions(100)
+          .setM(64)
+          .setEf(5)
+          .setEfConstruction(200)
+          .setK(5)
+          .setDistanceFunction("cosine")
+          
+    val model = hnsw.fit(testData)
     
-    ..
- 
-    val k = 10
-    val m = 48
-    val numPartitions = 50
-
-    val partitionedItems = items
-      .map { item => Math.abs(item.id.hashCode) % numPartitions -> item }
-      .partitionBy(new PartitionIdPassthrough(numPartitions))
-
-    val indices = partitionedItems
-        .mapPartitions { it =>
-
-          val items = it.toSeq
-          
-          val index = HnswIndex[String, Vector, Word, Double](floatCosineDistance, items.size, m = m)
-          index.addAll(items.map(_._2))
-          
-          Iterator(items.head._1 -> index)
-        }
-        .cache()
-
-    val itemOnAllPartitions = items
-      .flatMap(item => 0 until numPartitions map { partition => partition -> item } )
-      .partitionBy(new PartitionIdPassthrough(numPartitions))
-
-    val nearest = indices.join(itemOnAllPartitions)
-      .flatMap { case (_, (index, MyItem(id, vector))) =>
-        index.findNearest(vector, k + 1).collect {
-          case SearchResult(Word(relatedId, _), score) if relatedId != id =>
-            RelatedItem(id, relatedId, score)
-        }
-        .take(k)
-      }
-      
-    val result = nearest.groupBy(_.id).map { case (id, relatedItems) =>
-
-      val relatedIds = relatedItems.toSeq
-        .sortBy(_.similarity)
-        .map(_.relatedId)
-        .take(k)
-
-      id +: relatedIds mkString "\t"
-    }
+    model.transform(testData).write.mode(SaveMode.Overwrite).parquet("/path/to/output")
 
 
-If you are using spark mllib and are using its vector type you can use the distance functions defined in the
-hnswlib-spark module of this project.
+Python example :
+
+    from pyspark_hnsw.ml.hnsw import Hnsw
+    
+    hnsw = Hnsw(identifierCol = 'row_id', vectorCol = 'anchor', distanceFunction = 'cosine', m = 64, ef = 5, k = 5, efConstruction = 200, numPartitions = 100)
+    
+    model = hnsw.fit(df)
+    
+    model.transform(df).write.parquet('/path/to/output', mode='overwrite')
+
 
 Frequently asked questions
 --------------------------

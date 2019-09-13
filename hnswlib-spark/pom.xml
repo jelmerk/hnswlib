@@ -11,7 +11,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-spark</artifactId>
+    <artifactId>hnswlib-spark_2.11</artifactId>
 
     <description>Spark integrations</description>
 
