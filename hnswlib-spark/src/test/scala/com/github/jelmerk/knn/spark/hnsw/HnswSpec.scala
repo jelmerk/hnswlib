@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark.ml.hnsw
+package com.github.jelmerk.knn.spark.hnsw
 
 import com.holdenkarau.spark.testing.DatasetSuiteBase
 import org.apache.spark.SparkConf
@@ -14,7 +14,7 @@ class Person(val name: String) extends Serializable
 
 class HnswSpec extends FunSuite with DatasetSuiteBase {
 
-//  override def conf: SparkConf = super.conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+  override def conf: SparkConf = super.conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
 
   test("vector input row") {
 

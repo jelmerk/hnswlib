@@ -69,7 +69,7 @@ dataset won't fit on the driver
 
 Scala example :
 
-    import com.github.jelmerk.knn.spark.ml.hnsw.Hnsw
+    import com.github.jelmerk.knn.spark.hnsw.Hnsw
     
     val hnsw = new Hnsw()
           .setIdentityCol("row_id")
@@ -88,7 +88,7 @@ Scala example :
 
 Python example :
 
-    from pyspark_hnsw.ml.hnsw import Hnsw
+    from pyspark_hnsw.hnsw import Hnsw
     
     hnsw = Hnsw(identifierCol = 'row_id', vectorCol = 'anchor', distanceFunction = 'cosine', m = 64, ef = 5, k = 5, efConstruction = 200, numPartitions = 100)
     

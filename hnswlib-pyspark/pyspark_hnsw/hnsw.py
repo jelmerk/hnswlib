@@ -10,7 +10,7 @@ class Hnsw(JavaEstimator):
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine"):
         super(Hnsw, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.ml.hnsw.Hnsw", self.uid)
+        self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.hnsw.Hnsw", self.uid)
 
         self.identifierCol = Param(self, "identifierCol", "the column name for the row identifier")
         self.vectorCol = Param(self, "vectorCol", "the column name for the vector")

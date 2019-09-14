@@ -1,10 +1,10 @@
-package com.github.jelmerk.knn.spark.ml.bruteforce
+package com.github.jelmerk.knn.spark.bruteforce
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
-import com.github.jelmerk.knn.spark.ml._
+import com.github.jelmerk.knn.spark._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 

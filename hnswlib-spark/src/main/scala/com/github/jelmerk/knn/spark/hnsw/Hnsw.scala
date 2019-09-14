@@ -1,10 +1,10 @@
-package com.github.jelmerk.knn.spark.ml.hnsw
+package com.github.jelmerk.knn.spark.hnsw
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
-import com.github.jelmerk.knn.spark.ml._
+import com.github.jelmerk.knn.spark._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 

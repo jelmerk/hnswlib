@@ -10,7 +10,7 @@ class BruteForce(JavaEstimator):
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  numPartitions=1, k=5, distanceFunction="cosine"):
         super(BruteForce, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.ml.bruteforce.BruteForce", self.uid)
+        self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.bruteforce.BruteForce", self.uid)
 
         self.identifierCol = Param(self, "identifierCol", "the column name for the row identifier")
         self.vectorCol = Param(self, "vectorCol", "the column name for the vector")

@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark.ml
+package com.github.jelmerk.knn.spark
 
 import java.net.InetAddress
 
@@ -106,7 +106,7 @@ abstract class KnnModel[MODEL <: Model[MODEL]](override val uid: String,
 
   extends Model[MODEL] with KnnModelParams {
 
-  import com.github.jelmerk.knn.spark.ml.Udfs._
+  import com.github.jelmerk.knn.spark.Udfs._
 
   /** @group setParam */
   def setNeighborsCol(value: String): this.type = set(neighborsCol, value)
