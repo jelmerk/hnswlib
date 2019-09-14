@@ -38,6 +38,8 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
 
     val result = model.transform(input)
 
+    result.explain()
+
     result.printSchema()
 
     result.show()
