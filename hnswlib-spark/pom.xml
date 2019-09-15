@@ -29,8 +29,43 @@
 
         <dependency>
             <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-scala_2.12</artifactId>
+            <artifactId>hnswlib-scala_${scala.binary.version}</artifactId>
             <version>${project.version}</version>
+        </dependency>
+
+        <!-- workaround for https://github.com/holdenk/spark-testing-base/issues/148 -->
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-hive_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.scala-lang</groupId>
+                    <artifactId>scalap</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.spark</groupId>
+            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
+            <version>${spark.version}</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.scalatest</groupId>
+            <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <version>3.0.1</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.holdenkarau</groupId>
+            <artifactId>spark-testing-base_${scala.binary.version}</artifactId>
+            <version>2.3.1_0.10.0</version>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -138,37 +173,6 @@
                 <scala.binary.version>2.11</scala.binary.version>
             </properties>
 
-            <dependencies>
-                <!-- workaround for https://github.com/holdenk/spark-testing-base/issues/148 -->
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-hive_2.11</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.scalatest</groupId>
-                    <artifactId>scalatest_${scala.binary.version}</artifactId>
-                    <version>3.0.1</version>
-                    <scope>test</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>com.holdenkarau</groupId>
-                    <artifactId>spark-testing-base_${scala.binary.version}</artifactId>
-                    <version>2.3.1_0.10.0</version>
-                    <scope>test</scope>
-                </dependency>
-
-            </dependencies>
         </profile>
 
         <profile>
@@ -183,30 +187,6 @@
                 <scala.version>2.12.7</scala.version>
                 <scala.binary.version>2.12</scala.binary.version>
             </properties>
-
-            <dependencies>
-                <dependency>
-                    <groupId>org.scalatest</groupId>
-                    <artifactId>scalatest_${scala.binary.version}</artifactId>
-                    <version>3.0.1</version>
-                    <scope>test</scope>
-                </dependency>
-
-                <!-- workaround for https://github.com/holdenk/spark-testing-base/issues/148 -->
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-hive_${scala.binary.version}</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-
-                <dependency>
-                    <groupId>org.apache.spark</groupId>
-                    <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-                    <version>${spark.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-            </dependencies>
 
         </profile>
 
