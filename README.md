@@ -55,7 +55,7 @@ Using Maven:
 Using sbt:
 
 
-    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.18"
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.19"
 
 Spark
 -----
@@ -69,11 +69,11 @@ dataset won't fit on the driver
 
 You will need to reference this module by passing the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.18'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.19'
 
 If you want to use pyspark you will need to install the python module with
 
-    pip install -v --user pyspark-hnsw
+    pip install pyspark-hnsw
 
 Scala example :
 
