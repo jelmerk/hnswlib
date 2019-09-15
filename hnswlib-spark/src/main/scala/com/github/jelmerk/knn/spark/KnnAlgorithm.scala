@@ -21,8 +21,14 @@ case class Neighbor(id: String, distance: Float)
 
 object Udfs {
 
+  /**
+    * Convert a dense vector to a float array.
+    */
   val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
 
+  /**
+    * Convert a double array to a float array
+    */
   val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Array[Double] => vector.map(_.toFloat) }
 }
 
