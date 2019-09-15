@@ -3,7 +3,7 @@ package com.github.jelmerk.knn.scalalike
 import com.github.jelmerk.knn.{DistanceFunction => JDistanceFunction}
 
 /**
-  * Adapts a scala function to [[JDistanceFunction]]
+  * Adapts a scala function to the java DistanceFunction interface
   *
   * @param scalaFunction scala function to delegate to
   *

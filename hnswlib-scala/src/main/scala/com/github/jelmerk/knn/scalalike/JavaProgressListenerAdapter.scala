@@ -10,9 +10,6 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener}
 @SerialVersionUID(1L)
 class JavaProgressListenerAdapter(val delegate: JProgressListener) extends ProgressListener {
 
-  /**
-    * @inheritdoc
-    */
   override def apply(workDone: Int, max: Int): Unit = {
     delegate.updateProgress(workDone, max)
   }

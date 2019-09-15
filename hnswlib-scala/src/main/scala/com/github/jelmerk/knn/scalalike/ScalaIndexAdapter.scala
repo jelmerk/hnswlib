@@ -19,14 +19,8 @@ import com.github.jelmerk.knn.{Index => JIndex}
 class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: JIndex[TId, TVector, TItem, TDistance])
   extends Index[TId, TVector, TItem, TDistance] {
 
-  /**
-    * @inheritdoc
-    */
   override def add(item: TItem): Boolean = delegate.add(item)
 
-  /**
-    * @inheritdoc
-    */
   override def addAll(items: Iterable[TItem],
                       numThreads: Int = Runtime.getRuntime.availableProcessors,
                       listener: ProgressListener = (_, _) => (),
@@ -35,56 +29,26 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](va
       .addAll(items.asJavaCollection, numThreads, new ScalaProgressListenerAdapter(listener), progressUpdateInterval)
   }
 
-  /**
-    * @inheritdoc
-    */
   override def remove(id: TId, version: Long): Boolean = delegate.remove(id, version)
 
-  /**
-    * @inheritdoc
-    */
   override def size: Int = delegate.size
 
-  /**
-    * @inheritdoc
-    */
   override def apply(id: TId): TItem = get(id).getOrElse(throw new NoSuchElementException)
 
-  /**
-    * @inheritdoc
-    */
   override def get(id: TId): Option[TItem] = Option(delegate.get(id).orElse(null.asInstanceOf[TItem]))
 
-  /**
-    * @inheritdoc
-    */
   override def iterator: Iterator[TItem] = delegate.items().asScala.iterator
 
-  /**
-    * @inheritdoc
-    */
   override def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asScala
 
-  /**
-    * @inheritdoc
-    */
   override def findNeighbors(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
     delegate.findNeighbors(id, k).asScala
 
-  /**
-    * @inheritdoc
-    */
   override def save(out: OutputStream): Unit = delegate.save(out)
 
-  /**
-    * @inheritdoc
-    */
   override def save(file: File): Unit = delegate.save(file)
 
-  /**
-    * @inheritdoc
-    */
   override def save(path: Path): Unit = delegate.save(path)
 
 }

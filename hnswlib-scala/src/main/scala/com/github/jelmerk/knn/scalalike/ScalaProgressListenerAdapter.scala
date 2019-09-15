@@ -9,8 +9,5 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener}
 @SerialVersionUID(1L)
 class ScalaProgressListenerAdapter(val delegate: ProgressListener) extends JProgressListener {
 
-  /**
-    * @inheritdoc
-    */
   override def updateProgress(workDone: Int, max: Int): Unit = delegate(workDone, max)
 }

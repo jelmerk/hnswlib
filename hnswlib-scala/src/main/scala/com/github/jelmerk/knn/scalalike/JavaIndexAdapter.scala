@@ -22,75 +22,36 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener, Index => J
 class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: Index[TId, TVector, TItem, TDistance])
   extends JIndex[TId, TVector, TItem, TDistance] {
 
-  /**
-    * @inheritdoc
-    */
   override def add(item: TItem): Boolean = delegate.add(item)
 
-  /**
-    * @inheritdoc
-    */
   override def remove(id: TId, version: Long): Boolean = delegate.remove(id, version)
 
-  /**
-    * @inheritdoc
-    */
   override def size(): Int = delegate.size
 
-  /**
-    * @inheritdoc
-    */
   override def get(id: TId): Optional[TItem] = delegate.get(id) match {
     case Some(value) => Optional.of(value);
     case _ => Optional.empty()
   }
 
-  /**
-    * @inheritdoc
-    */
   override def items(): JCollection[TItem] = delegate.iterator.toSeq.asJavaCollection
 
-  /**
-    * @inheritdoc
-    */
   override def findNearest(vector: TVector, k: Int): JList[SearchResult[TItem, TDistance]] =
     delegate.findNearest(vector, k).asJava
 
-  /**
-    * @inheritdoc
-    */
   override def addAll(items: JCollection[TItem]): Unit = delegate.addAll(items.asScala)
 
-  /**
-    * @inheritdoc
-    */
   override def addAll(items: JCollection[TItem], progressListener: JProgressListener): Unit =
     delegate.addAll(items.asScala, listener = new JavaProgressListenerAdapter(progressListener))
 
-  /**
-    * @inheritdoc
-    */
   override def addAll(items: JCollection[TItem], numThreads: Int, progressListener: JProgressListener, progressUpdateInterval: Int): Unit =
     delegate.addAll(items.asScala, numThreads, new JavaProgressListenerAdapter(progressListener), progressUpdateInterval)
 
-  /**
-    * @inheritdoc
-    */
   override def findNeighbors(id: TId, k: Int): JList[SearchResult[TItem, TDistance]] = delegate.findNeighbors(id, k).asJava
 
-  /**
-    * @inheritdoc
-    */
   override def save(out: OutputStream): Unit = delegate.save(out)
 
-  /**
-    * @inheritdoc
-    */
   override def save(file: File): Unit = delegate.save(file)
 
-  /**
-    * @inheritdoc
-    */
   override def save(path: Path): Unit = super.save(path)
 }
 
