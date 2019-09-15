@@ -27,12 +27,16 @@ Releasing a new version to maven central is a bit cumbersome because maven does 
    
    finally revert the change to the pom
        
-7. to release hnswlib-spark for scala 2.12
+7. to release hnswlib-spark for other versions
 
-   in hnswlib-spark/pom.xml change the artifact id from hnswlib-spark_2.11 to hnswlib-spark_2.12 in
+   in hnswlib-spark/pom.xml change the artifact id from hnswlib-spark_2.3.0_2.11 to hnswlib-spark_2.4.0_2.11
    
-   then he hnswlib-spark folder run mvn clean deploy -Dscala-2.12 -DperformRelease=true
+   then he hnswlib-spark folder run mvn clean deploy -Dscala-2.11 -Dspark-2.4 -DperformRelease=true
    
+   in hnswlib-spark/pom.xml change the artifact id from hnswlib-spark_2.4.0_2.11 to hnswlib-spark_2.4.0_2.12
+   
+   then he hnswlib-spark folder run mvn clean deploy -Dscala-2.12 -Dspark-2.4 -DperformRelease=true
+
    finally revert the change to the pom
    
 8. release the pyspark module with

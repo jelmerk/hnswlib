@@ -11,7 +11,7 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>hnswlib-spark_2.11</artifactId>
+    <artifactId>hnswlib-spark_2.3.0_2.11</artifactId>
 
     <description>Spark integrations</description>
 
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>com.holdenkarau</groupId>
             <artifactId>spark-testing-base_${scala.binary.version}</artifactId>
-            <version>2.3.1_0.10.0</version>
+            <version>${spark.version}_0.12.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -111,7 +111,6 @@
                         <arg>-nobootcp</arg>
                         <arg>-target:jvm-1.8</arg>
                         <arg>-deprecation</arg>
-                        <arg>-optimise</arg>
                         <arg>-unchecked</arg>
                         <arg>-uniqid</arg>
                         <arg>-encoding</arg>
@@ -159,7 +158,6 @@
     </build>
 
     <profiles>
-
         <profile>
             <id>scala-2.11</id>
             <activation>
@@ -187,7 +185,30 @@
                 <scala.version>2.12.7</scala.version>
                 <scala.binary.version>2.12</scala.binary.version>
             </properties>
+        </profile>
 
+        <profile>
+            <id>spark-2.3</id>
+            <activation>
+                <property>
+                    <name>!spark-2.4</name>
+                </property>
+            </activation>
+            <properties>
+                <spark.version>2.3.0</spark.version>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>spark-2.4</id>
+            <activation>
+                <property>
+                    <name>spark-2.4</name>
+                </property>
+            </activation>
+            <properties>
+                <spark.version>2.4.0</spark.version>
+            </properties>
         </profile>
 
     </profiles>
