@@ -53,7 +53,14 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
     neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector", distanceFunction -> "cosine")
 }
 
-
+/**
+  * Model produced by a `Hnsw`.
+  *
+  * @param uid identifier
+  * @param numPartitions how many partitions
+  * @param partitioner the partitioner used to parition the data
+  * @param indices rdd that holds the indices that are used to do the search
+  */
 class HnswModel(override val uid: String,
                 numPartitions: Int,
                 partitioner: Partitioner,
@@ -68,6 +75,11 @@ class HnswModel(override val uid: String,
 
 }
 
+/**
+  * Nearest neighbor search using the approximative hnsw algorithm.
+  *
+  * @param uid identifier
+  */
 class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with HnswParams {
 
   def this() = this(Identifiable.randomUID("hnsw"))

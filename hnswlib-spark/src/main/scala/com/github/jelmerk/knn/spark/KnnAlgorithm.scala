@@ -99,6 +99,15 @@ trait KnnAlgorithmParams extends KnnModelParams {
 }
 
 
+/**
+  * Base class for nearest neighbor search models.
+  *
+  * @param uid identifier
+  * @param numPartitions how many partitions
+  * @param partitioner the partitioner used to parition the data
+  * @param indices rdd that holds the indices that are used to do the search
+  * @tparam TModel model type
+  */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                 numPartitions: Int,
                 partitioner: Partitioner,
@@ -240,12 +249,27 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
   override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)
 
-  def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float]
+  /**
+    * Create the index used to do the nearest neighbor search.
+    *
+    * @param maxItemCount maximum number of items the index can hold
+    * @return create an index
+    */
+  protected def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float]
 
-  def createModel(uid: String,
-                 numPartitions: Int,
-                 partitioner: Partitioner,
-                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
+  /**
+    * Creates the model to be returned from fitting the data.
+    *
+    * @param uid identifier
+    * @param numPartitions how many partitions
+    * @param partitioner the partitioner used to parition the data
+    * @param indices rdd that holds the indices that are used to do the search
+    * @return model
+    */
+  protected def createModel(uid: String,
+                            numPartitions: Int,
+                            partitioner: Partitioner,
+                            indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "cosine" => floatCosineDistance
@@ -255,6 +279,11 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
 }
 
+/**
+  * Partitioner that uses precomputed partitions
+  *
+  * @param numPartitions number of partitions
+  */
 class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
   override def getPartition(key: Any): Int = key.asInstanceOf[Int]
 }

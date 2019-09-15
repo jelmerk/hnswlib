@@ -8,6 +8,14 @@ import com.github.jelmerk.knn.spark._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 
+/**
+  * Model produced by a `BruteForce`.
+  *
+  * @param uid identifier
+  * @param numPartitions how many partitions
+  * @param partitioner the partitioner used to parition the data
+  * @param indices rdd that holds the indices that are used to do the search
+  */
 class BruteForceModel(override val uid: String,
                       numPartitions: Int,
                       partitioner: Partitioner,
@@ -22,6 +30,12 @@ class BruteForceModel(override val uid: String,
 
 }
 
+/**
+  * Nearest neighbor search using a brute force approach. This will be very slow. It is in most cases not recommended
+  * for production use. But can be used to determine the accuracy of an approximative index.
+  *
+  * @param uid identifier
+  */
 class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel](uid)  {
 
   def this() = this(Identifiable.randomUID("brute_force"))
