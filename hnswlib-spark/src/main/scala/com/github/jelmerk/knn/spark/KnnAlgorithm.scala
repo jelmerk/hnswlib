@@ -226,7 +226,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
           logInfo(s"Indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = createIndex(items.size)
-          index.addAll(items, progressUpdateInterval = 1000,  listener = (workDone, max) => logInfo(s"Indexed $workDone of $max items"))
+          index.addAll(items, progressUpdateInterval = 5000,  listener = (workDone, max) => logDebug(s"Indexed $workDone of $max items"))
 
           logInfo(s"Done indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
