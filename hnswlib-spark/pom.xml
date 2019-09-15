@@ -24,20 +24,20 @@
         <dependency>
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
-            <version>${scala.version}</version>
+            <version>2.11.12</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.jelmerk</groupId>
-            <artifactId>hnswlib-scala_${scala.binary.version}</artifactId>
-            <version>${project.version}</version>
+            <artifactId>hnswlib-scala_2.11</artifactId>
+            <version>0.0.19-SNAPSHOT</version>
         </dependency>
 
         <!-- workaround for https://github.com/holdenk/spark-testing-base/issues/148 -->
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-hive_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <artifactId>spark-hive_2.11</artifactId>
+            <version>2.3.0</version>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -49,22 +49,22 @@
 
         <dependency>
             <groupId>org.apache.spark</groupId>
-            <artifactId>spark-mllib_${scala.binary.version}</artifactId>
-            <version>${spark.version}</version>
+            <artifactId>spark-mllib_2.11</artifactId>
+            <version>2.3.0</version>
             <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_${scala.binary.version}</artifactId>
+            <artifactId>scalatest_2.11</artifactId>
             <version>3.0.1</version>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>com.holdenkarau</groupId>
-            <artifactId>spark-testing-base_${scala.binary.version}</artifactId>
-            <version>${spark.version}_0.12.0</version>
+            <artifactId>spark-testing-base_2.11</artifactId>
+            <version>2.3.0_0.12.0</version>
             <scope>test</scope>
         </dependency>
 
@@ -102,7 +102,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <scalaVersion>${scala.version}</scalaVersion>
+                    <scalaVersion>2.11.12</scalaVersion>
                     <sendJavaToScalac>false</sendJavaToScalac>
                     <jvmArgs>
                         <jvmArg>-Xmx512m</jvmArg>
@@ -157,59 +157,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>scala-2.11</id>
-            <activation>
-                <property>
-                    <name>!scala-2.12</name>
-                </property>
-            </activation>
-
-            <properties>
-                <scala.version>2.11.12</scala.version>
-                <scala.binary.version>2.11</scala.binary.version>
-            </properties>
-
-        </profile>
-
-        <profile>
-            <id>scala-2.12</id>
-            <activation>
-                <property>
-                    <name>scala-2.12</name>
-                </property>
-            </activation>
-
-            <properties>
-                <scala.version>2.12.7</scala.version>
-                <scala.binary.version>2.12</scala.binary.version>
-            </properties>
-        </profile>
-
-        <profile>
-            <id>spark-2.3</id>
-            <activation>
-                <property>
-                    <name>!spark-2.4</name>
-                </property>
-            </activation>
-            <properties>
-                <spark.version>2.3.0</spark.version>
-            </properties>
-        </profile>
-
-        <profile>
-            <id>spark-2.4</id>
-            <activation>
-                <property>
-                    <name>spark-2.4</name>
-                </property>
-            </activation>
-            <properties>
-                <spark.version>2.4.0</spark.version>
-            </properties>
-        </profile>
-
-    </profiles>
 </project>
