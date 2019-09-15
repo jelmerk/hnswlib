@@ -94,17 +94,3 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val
   override def save(path: Path): Unit = super.save(path)
 }
 
-/**
-  * Adapts the interface of a java progress listener to that of a scala progress listener
-  *
-  * @param delegate the java progress listener to delegate to
-  */
-class JavaProgressListenerAdapter(val delegate: JProgressListener) extends ProgressListener {
-
-  /**
-    * @inheritdoc
-    */
-  override def apply(workDone: Int, max: Int): Unit = {
-    delegate.updateProgress(workDone, max)
-  }
-}

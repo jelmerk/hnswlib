@@ -1,8 +1,6 @@
 package com.github.jelmerk.knn
 
 import com.github.jelmerk.knn.{ DistanceFunctions => JDistanceFunctions }
-//import com.github.jelmerk.knn.spark.{ DistanceFunctions => SparkDistanceFunctions }
-//import org.apache.spark.ml.linalg.Vector
 
 package object scalalike {
 

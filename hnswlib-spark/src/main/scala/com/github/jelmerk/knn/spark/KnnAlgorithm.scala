@@ -99,12 +99,12 @@ trait KnnAlgorithmParams extends KnnModelParams {
 }
 
 
-abstract class KnnModel[MODEL <: Model[MODEL]](override val uid: String,
+abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                 numPartitions: Int,
                 partitioner: Partitioner,
                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
 
-  extends Model[MODEL] with KnnModelParams {
+  extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._
 
@@ -169,7 +169,7 @@ abstract class KnnModel[MODEL <: Model[MODEL]](override val uid: String,
   }
 }
 
-abstract class KnnAlgorithm[MODEL <: Model[MODEL]](override val uid: String) extends Estimator[MODEL] with KnnAlgorithmParams {
+abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) extends Estimator[TModel] with KnnAlgorithmParams {
 
   import Udfs._
 
@@ -190,7 +190,7 @@ abstract class KnnAlgorithm[MODEL <: Model[MODEL]](override val uid: String) ext
   /** @group setParam */
   def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
 
-  override def fit(dataset: Dataset[_]): MODEL = {
+  override def fit(dataset: Dataset[_]): TModel = {
 
     import dataset.sparkSession.implicits._
 
@@ -238,14 +238,14 @@ abstract class KnnAlgorithm[MODEL <: Model[MODEL]](override val uid: String) ext
     ))
   }
 
-  override def copy(extra: ParamMap): Estimator[MODEL] = defaultCopy(extra)
+  override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)
 
   def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float]
 
   def createModel(uid: String,
                  numPartitions: Int,
                  partitioner: Partitioner,
-                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): MODEL
+                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "cosine" => floatCosineDistance

@@ -4,7 +4,7 @@ import java.io.{File, OutputStream}
 import java.nio.file.Path
 
 import scala.collection.JavaConverters._
-import com.github.jelmerk.knn.{Index => JIndex, ProgressListener => JProgressListener}
+import com.github.jelmerk.knn.{Index => JIndex}
 
 /**
   * Adapts the interface of a scala Index to that of the java index.
@@ -87,17 +87,4 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](va
     */
   override def save(path: Path): Unit = delegate.save(path)
 
-}
-
-/**
-  * Adapts the interface of a scala progress listener to that of a java progress listener
-  *
-  * @param delegate the scala progress listener to delegate to
-  */
-class ScalaProgressListenerAdapter(val delegate: ProgressListener) extends JProgressListener {
-
-  /**
-    * @inheritdoc
-    */
-  override def updateProgress(workDone: Int, max: Int): Unit = delegate(workDone, max)
 }
