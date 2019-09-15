@@ -213,7 +213,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         return groundTruthIndex;
     }
 
-    class AccuracyTestThread implements Runnable {
+    private class AccuracyTestThread implements Runnable {
 
         private final ArrayBlockingQueue<RequestArgumentsAndResults> queue;
 
@@ -250,10 +250,10 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         }
     }
 
-    class RequestArgumentsAndResults {
-        TVector vector;
-        int k;
-        List<SearchResult<TItem, TDistance>> searchResults;
+    private class RequestArgumentsAndResults {
+        final TVector vector;
+        final int k;
+        final List<SearchResult<TItem, TDistance>> searchResults;
 
         RequestArgumentsAndResults(TVector vector, int k, List<SearchResult<TItem, TDistance>> searchResults) {
             this.vector = vector;
