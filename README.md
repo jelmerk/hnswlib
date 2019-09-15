@@ -49,7 +49,7 @@ Using Maven:
     <dependency>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-core</artifactId>
-        <version>0.0.19-SNAPSHOT</version>
+        <version>0.0.19</version>
     </dependency>
 
 Using sbt:
