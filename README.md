@@ -49,13 +49,13 @@ Using Maven:
     <dependency>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-core</artifactId>
-        <version>0.0.17</version>
+        <version>0.0.19-SNAPSHOT</version>
     </dependency>
 
 Using sbt:
 
 
-    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.17"
+    "com.github.jelmerk" %% "hnswlib-scala" % "0.0.18"
 
 Spark
 -----
@@ -63,9 +63,17 @@ Spark
 The easiest way to use this library with spark is to simply collect your data on the driver node and index it there. 
 This does mean you'll have to allocate a lot of cores and memory to the driver.
 
-Alternatively you can use the hnswlib-spark / hnswlib-pyspark modulesto shard the index across multiple executors 
+Alternatively you can use the hnswlib-spark / hnswlib-pyspark modules to shard the index across multiple executors 
 and parallelise the indexing / querying. This may be  faster if you have many executors at your disposal or if your 
 dataset won't fit on the driver
+
+You will need to reference this module by passing the following argument to spark
+
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.18'
+
+If you want to use pyspark you will need to install the python module with
+
+    pip install -v --user pyspark-hnsw
 
 Scala example :
 
