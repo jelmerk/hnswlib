@@ -9,13 +9,13 @@
     <parent>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-examples-parent-pom</artifactId>
-        <version>0.0.18-SNAPSHOT</version>
+        <version>0.0.18</version>
         <relativePath>..</relativePath>
     </parent>
 
     <properties>
-        <scala.version>2.12.7</scala.version>
-        <scala.binary.version>2.12</scala.binary.version>
+        <scala.version>2.11.12</scala.version>
+        <scala.binary.version>2.11</scala.binary.version>
     </properties>
 
     <description>Examples for the scala integration </description>
