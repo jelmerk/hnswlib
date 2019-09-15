@@ -13,10 +13,21 @@ import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
 
-
+/**
+  * Item in an nearest neighbor search index
+  *
+  * @param id item identifier
+  * @param vector item vector
+  */
 case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
-case class Neighbor(id: String, distance: Float)
+/**
+  * Neighbor of an item
+  *
+  * @param neighbor identifies the neighbor
+  * @param distance distance to the item
+  */
+case class Neighbor(neighbor: String, distance: Float)
 
 
 object Udfs {
@@ -168,7 +179,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .select(
         col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
         col(getNeighborsCol).cast(ArrayType(StructType(Seq(
-          StructField("id", identifierType),
+          StructField("neighbor", identifierType),
           StructField("distance", FloatType)
         )))).as(getNeighborsCol)
       )
@@ -179,7 +190,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     StructType(Seq(
       StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", identifierType), StructField("distance", FloatType)))))
+      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
     ))
   }
 }
@@ -249,7 +260,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
     StructType(Seq(
       StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("id", identifierType), StructField("distance", FloatType)))))
+      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
     ))
   }
 
