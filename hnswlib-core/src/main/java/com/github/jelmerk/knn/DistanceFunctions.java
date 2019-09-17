@@ -10,10 +10,11 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates cosine distance on a float array.
+         * Calculates cosine distance.
          *
          * @param u Left vector.
          * @param v Right vector.
+         *
          * @return Cosine distance between u and v.
          */
         @Override
@@ -44,7 +45,8 @@ public final class DistanceFunctions {
          *
          * @param u Left vector.
          * @param v Right vector.
-         * @return Cosine distance between u and v.
+         *
+         * @return Inner product between u and v.
          */
         @Override
         public Float distance(float[] u, float[] v) {
@@ -63,10 +65,11 @@ public final class DistanceFunctions {
     static class FloatEuclideanDistance implements DistanceFunction<float[], Float> {
 
         /**
-         * Calculates euclidean distance on a float array.
+         * Calculates euclidean distance.
          *
          * @param u Left vector.
          * @param v Right vector.
+         *
          * @return Euclidean distance between u and v.
          */
         @Override
@@ -81,6 +84,31 @@ public final class DistanceFunctions {
     }
 
     /**
+     * Implementation of {@link DistanceFunction} that calculates the canberra distance on a float array.
+     */
+    static class FloatCanberraDistance implements DistanceFunction<float[], Float> {
+
+        /**
+         * Calculates the canberra distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Canberra distance between u and v.
+         */
+        @Override
+        public Float distance(float[] u, float[] v) {
+            float distance = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                distance += Math.abs(u[i] - v[i]) / (Math.abs(u[i]) + Math.abs(v[i]));
+            }
+
+            return distance;
+        }
+    }
+
+    /**
      * Implementation of {@link DistanceFunction} that calculates the cosine distance on a double array.
      */
     static class DoubleCosineDistance implements DistanceFunction<double[], Double> {
@@ -88,10 +116,11 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates cosine distance on a float array.
+         * Calculates cosine distance.
          *
          * @param u Left vector.
          * @param v Right vector.
+         *
          * @return Cosine distance between u and v.
          */
         @Override
@@ -122,6 +151,7 @@ public final class DistanceFunctions {
          *
          * @param u Left vector.
          * @param v Right vector.
+         *
          * @return Cosine distance between u and v.
          */
         @Override
@@ -141,10 +171,11 @@ public final class DistanceFunctions {
     static class DoubleEuclideanDistance implements DistanceFunction<double[], Double> {
 
         /**
-         * Calculates euclidean distance on a double array.
+         * Calculates euclidean distance.
          *
          * @param u Left vector.
          * @param v Right vector.
+         *
          * @return Euclidean distance between u and v.
          */
         @Override
@@ -158,38 +189,73 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the canberra distance on a float array.
+     */
+    static class DoubleCanberraDistance implements DistanceFunction<double[], Double> {
+
+        /**
+         * Calculates canberra distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Canberra distance between u and v.
+         */
+        @Override
+        public Double distance(double[] u, double[] v) {
+            double distance = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                distance += Math.abs(u[i] - v[i]) / (Math.abs(u[i]) + Math.abs(v[i]));
+            }
+
+            return distance;
+        }
+    }
+
     private DistanceFunctions() {
     }
 
     /**
-     * Calculates cosine distance on a float array.
+     * Calculates cosine distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_COSINE_DISTANCE = new FloatCosineDistance();
 
     /**
-     * Calculates inner product distance on a float array.
+     * Calculates inner product distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_INNER_PRODUCT = new FloatInnerProduct();
 
     /**
-     * Calculates euclidean distance on a float array.
+     * Calculates euclidean distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_EUCLIDEAN_DISTANCE = new FloatEuclideanDistance();
 
     /**
-     * Calculates cosine distance on a float array.
+     * Calculates canberra distance.
+     */
+    public static final DistanceFunction<float[], Float> FLOAT_CANBERRA_DISTANCE = new FloatCanberraDistance();
+
+    /**
+     * Calculates cosine distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_COSINE_DISTANCE = new DoubleCosineDistance();
 
     /**
-     * Calculates inner product distance on a float array.
+     * Calculates inner product distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_INNER_PRODUCT = new DoubleInnerProduct();
 
     /**
-     * Calculates euclidean distance on a double array.
+     * Calculates euclidean distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_EUCLIDEAN_DISTANCE = new DoubleEuclideanDistance();
+
+    /**
+     * Calculates canberra distance.
+     */
+    public static final DistanceFunction<double[], Double> DOUBLE_CANBERRA_DISTANCE = new DoubleCanberraDistance();
 
 
 }

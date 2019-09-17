@@ -79,7 +79,7 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "cosine", "inner-product", "euclidean"
+    * Param for the distance function to use. One of "canberra",  "cosine", "euclidean", "inner-product"
     * Default: "cosine"
     *
     * @group param
@@ -289,6 +289,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
                             indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
+    case "canberra" => floatCanberraDistance
     case "cosine" => floatCosineDistance
     case "euclidean" => floatEuclideanDistance
     case "inner-product" => floatInnerProduct

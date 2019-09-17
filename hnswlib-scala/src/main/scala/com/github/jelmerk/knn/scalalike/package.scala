@@ -13,14 +13,15 @@ package object scalalike {
   type Item[TId, TVector] = com.github.jelmerk.knn.Item[TId, TVector]
 
   /**
-    * Result of a nearest neighbour search
+    * Result of a nearest neighbour search.
+    *
     * @tparam TItem type of the item returned
     * @tparam TDistance type of the distance returned by the configured distance function
     */
   type SearchResult[TItem, TDistance] = com.github.jelmerk.knn.SearchResult[TItem, TDistance]
 
   /**
-    * Calculates distance between 2 vectors
+    * Calculates the distance between 2 vectors
     */
   type DistanceFunction[TVector, TDistance] = (TVector, TVector) => TDistance
 
@@ -31,33 +32,43 @@ package object scalalike {
   type ProgressListener = (Int, Int) => Unit
 
   /**
-    * Calculates cosine distance.
+    * Calculates the cosine distance.
     */
   val floatCosineDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_COSINE_DISTANCE.distance
 
   /**
-    * Calculates inner product.
+    * Calculates the inner product.
     */
   val floatInnerProduct: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_INNER_PRODUCT.distance
 
   /**
-    * Calculates euclidean distance.
+    * Calculates the euclidean distance.
     */
   val floatEuclideanDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance
 
   /**
-    * Calculates cosine distance.
+    * Calculates the canberra distance.
+    */
+  val floatCanberraDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_CANBERRA_DISTANCE.distance
+
+  /**
+    * Calculates the cosine distance.
     */
   val doubleCosineDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_COSINE_DISTANCE.distance
 
   /**
-    * Calculates inner product.
+    * Calculates the inner product.
     */
   val doubleInnerProduct: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_INNER_PRODUCT.distance
 
   /**
-    * Calculates euclidean distance.
+    * Calculates the euclidean distance.
     */
   val doubleEuclideanDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance
+
+  /**
+    * Calculates the canberra distance.
+    */
+  val doubleCanberraDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_CANBERRA_DISTANCE.distance
 
 }
