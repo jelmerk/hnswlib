@@ -6,7 +6,17 @@ Work in progress java implementation of the [the Hierarchical Navigable Small Wo
 
 The index is thread safe, serializable, supports adding items to the index incrementally and has experimental support for deletes. 
 
-It's flexible interface makes it easy to apply it to use it with any type of data and distance metric
+It's flexible interface makes it easy to apply it to use it with any type of data and distance metric.
+ 
+The following distance metrics are currently pre-packaged :
+
+- bray curtis distance
+- canberra distance
+- correlation distance
+- cosine distance
+- euclidean distance
+- inner-product distance
+- manhattan distance
 
 It comes with a scala wrapper that should feel native to scala developers
 
