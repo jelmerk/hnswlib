@@ -64,6 +64,8 @@ public final class DistanceFunctions {
      */
     static class FloatEuclideanDistance implements DistanceFunction<float[], Float> {
 
+        private static final long serialVersionUID = 1L;
+
         /**
          * Calculates euclidean distance.
          *
@@ -87,6 +89,8 @@ public final class DistanceFunctions {
      * Implementation of {@link DistanceFunction} that calculates the canberra distance.
      */
     static class FloatCanberraDistance implements DistanceFunction<float[], Float> {
+
+        private static final long serialVersionUID = 1L;
 
         /**
          * Calculates the canberra distance.
@@ -113,6 +117,8 @@ public final class DistanceFunctions {
      */
     static class FloatBrayCurtisDistance implements DistanceFunction<float[], Float> {
 
+        private static final long serialVersionUID = 1L;
+
         /**
          * Calculates the Bray Curtis distance.
          *
@@ -133,6 +139,48 @@ public final class DistanceFunctions {
             }
 
             return sumn / sump;
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the correlation distance.
+     */
+    static class FloatCorrelationDistance implements DistanceFunction<float[], Float> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates the correlation distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Correlation distance between u and v.
+         */
+        @Override
+        public Float distance(float[] u, float[] v) {
+            float x = 0;
+            float y = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                x += -u[i];
+                y += -v[i];
+            }
+
+            x /= u.length;
+            y /= v.length;
+
+            float num = 0;
+            float den1 = 0;
+            float den2 = 0;
+            for (int i = 0; i < u.length; i++) {
+                num += (u[i] + x) * (v[i] + y);
+
+                den1 += Math.abs(Math.pow(u[i] + x, 2));
+                den2 += Math.abs(Math.pow(v[i] + x, 2));
+            }
+
+            return 1f - (num / ((float) Math.sqrt(den1) * (float) Math.sqrt(den2)));
         }
     }
 
@@ -198,6 +246,8 @@ public final class DistanceFunctions {
      */
     static class DoubleEuclideanDistance implements DistanceFunction<double[], Double> {
 
+        private static final long serialVersionUID = 1L;
+
         /**
          * Calculates euclidean distance.
          *
@@ -221,6 +271,8 @@ public final class DistanceFunctions {
      * Implementation of {@link DistanceFunction} that calculates the canberra distance.
      */
     static class DoubleCanberraDistance implements DistanceFunction<double[], Double> {
+
+        private static final long serialVersionUID = 1L;
 
         /**
          * Calculates canberra distance.
@@ -247,6 +299,8 @@ public final class DistanceFunctions {
      */
     static class DoubleBrayCurtisDistance implements DistanceFunction<double[], Double> {
 
+        private static final long serialVersionUID = 1L;
+
         /**
          * Calculates the Bray Curtis distance.
          *
@@ -266,6 +320,49 @@ public final class DistanceFunctions {
             }
 
             return sumn / sump;
+        }
+    }
+
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the correlation distance.
+     */
+    static class DoubleCorrelationDistance implements DistanceFunction<double[], Double> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates the correlation distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Correlation distance between u and v.
+         */
+        @Override
+        public Double distance(double[] u, double[] v) {
+            double x = 0;
+            double y = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                x += -u[i];
+                y += -v[i];
+            }
+
+            x /= u.length;
+            y /= v.length;
+
+            double num = 0;
+            double den1 = 0;
+            double den2 = 0;
+            for (int i = 0; i < u.length; i++) {
+                num += (u[i] + x) * (v[i] + y);
+
+                den1 += Math.abs(Math.pow(u[i] + x, 2));
+                den2 += Math.abs(Math.pow(v[i] + x, 2));
+            }
+
+            return 1 - (num / (Math.sqrt(den1) * Math.sqrt(den2)));
         }
     }
 
@@ -298,6 +395,11 @@ public final class DistanceFunctions {
     public static final DistanceFunction<float[], Float> FLOAT_BRAY_CURTIS_DISTANCE = new FloatBrayCurtisDistance();
 
     /**
+     * Calculates the correlation distance.
+     */
+    public static final DistanceFunction<float[], Float> FLOAT_CORRELATION_DISTANCE = new FloatCorrelationDistance();
+
+    /**
      * Calculates the cosine distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_COSINE_DISTANCE = new DoubleCosineDistance();
@@ -321,5 +423,11 @@ public final class DistanceFunctions {
      * Calculates the bray curtis distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_BRAY_CURTIS_DISTANCE = new DoubleBrayCurtisDistance();
+
+    /**
+     * Calculates the correlation distance.
+     */
+    public static final DistanceFunction<double[], Double> DOUBLE_CORRELATION_DISTANCE = new DoubleCorrelationDistance();
+
 
 }

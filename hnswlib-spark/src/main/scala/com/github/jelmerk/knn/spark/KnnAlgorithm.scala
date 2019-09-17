@@ -79,7 +79,7 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "euclidean", "inner-product"
+    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean", "inner-product"
     * Default: "cosine"
     *
     * @group param
@@ -278,7 +278,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     *
     * @param uid identifier
     * @param numPartitions how many partitions
-    * @param partitioner the partitioner used to parition the data
+    * @param partitioner the partitioner used to partition the data
     * @param indices rdd that holds the indices that are used to do the search
     * @return model
     */
@@ -290,6 +290,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "bray-curtis" => floatBrayCurtisDistance
     case "canberra" => floatCanberraDistance
+    case "correlation" => floatCorrelationDistance
     case "cosine" => floatCosineDistance
     case "euclidean" => floatEuclideanDistance
     case "inner-product" => floatInnerProduct
