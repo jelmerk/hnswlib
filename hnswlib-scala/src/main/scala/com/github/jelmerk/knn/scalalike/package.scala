@@ -62,6 +62,11 @@ package object scalalike {
   val floatCorrelationDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_CORRELATION_DISTANCE.distance
 
   /**
+    * Calculates the manhattan distance.
+    */
+  val floatManhattanDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_MANHATTAN_DISTANCE.distance
+
+  /**
     * Calculates the cosine distance.
     */
   val doubleCosineDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_COSINE_DISTANCE.distance
@@ -87,7 +92,12 @@ package object scalalike {
   val doubleBrayCurtisDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_BRAY_CURTIS_DISTANCE.distance
 
   /**
-    * Calculates the bray curtis distance.
+    * Calculates the bray correlation distance.
     */
   val doubleCorrelationDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_CORRELATION_DISTANCE.distance
+
+  /**
+    * Calculates the manhattan distance.
+    */
+  val doubleManhattanDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_MANHATTAN_DISTANCE.distance
 }

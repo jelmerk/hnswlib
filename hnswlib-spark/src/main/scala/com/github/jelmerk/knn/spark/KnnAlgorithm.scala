@@ -79,7 +79,7 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean", "inner-product"
+    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean", "inner-product", "manhattan"
     * Default: "cosine"
     *
     * @group param
@@ -294,6 +294,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     case "cosine" => floatCosineDistance
     case "euclidean" => floatEuclideanDistance
     case "inner-product" => floatInnerProduct
+    case "manhattan" => floatManhattanDistance
     case _ => throw new IllegalArgumentException(s"$getDistanceFunction is not a valid distance function.")
   }
 

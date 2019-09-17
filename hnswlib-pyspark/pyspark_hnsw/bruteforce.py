@@ -18,7 +18,7 @@ class BruteForce(JavaEstimator):
         self.numPartitions = Param(self, "numPartitions", "number of partitions")
         self.k = Param(self, "k", "number of neighbors to find")
         self.distanceFunction = Param(self, "distanceFunction",
-                                      "distance function, one of bray-curtis, canberra, cosine, correlation, euclidean, inner-product")
+                                      "distance function, one of bray-curtis, canberra, cosine, correlation, euclidean, inner-product, manhattan")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
                          distanceFunction="cosine")

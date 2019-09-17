@@ -185,6 +185,31 @@ public final class DistanceFunctions {
     }
 
     /**
+     * Implementation of {@link DistanceFunction} that calculates the manhattan distance.
+     */
+    static class FloatManhattanDistance implements DistanceFunction<float[], Float> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates the Bray Curtis distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Bray Curtis distance between u and v.
+         */
+        @Override
+        public Float distance(float[] u, float[] v) {
+            float sum = 0;
+            for (int i = 0; i < u.length; i++) {
+                sum += Math.abs(u[i] - v[i]);
+            }
+            return sum;
+        }
+    }
+
+    /**
      * Implementation of {@link DistanceFunction} that calculates the cosine distance.
      */
     static class DoubleCosineDistance implements DistanceFunction<double[], Double> {
@@ -366,6 +391,31 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the manhattan distance.
+     */
+    static class DoubleManhattanDistance implements DistanceFunction<double[], Double> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates the Bray Curtis distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Bray Curtis distance between u and v.
+         */
+        @Override
+        public Double distance(double[] u, double[] v) {
+            double sum = 0;
+            for (int i = 0; i < u.length; i++) {
+                sum += Math.abs(u[i] - v[i]);
+            }
+            return sum;
+        }
+    }
+
     private DistanceFunctions() {
     }
 
@@ -400,6 +450,11 @@ public final class DistanceFunctions {
     public static final DistanceFunction<float[], Float> FLOAT_CORRELATION_DISTANCE = new FloatCorrelationDistance();
 
     /**
+     * Calculates the manhattan distance.
+     */
+    public static final DistanceFunction<float[], Float> FLOAT_MANHATTAN_DISTANCE = new FloatManhattanDistance();
+
+    /**
      * Calculates the cosine distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_COSINE_DISTANCE = new DoubleCosineDistance();
@@ -428,6 +483,12 @@ public final class DistanceFunctions {
      * Calculates the correlation distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_CORRELATION_DISTANCE = new DoubleCorrelationDistance();
+
+    /**
+     * Calculates the manhattan distance.
+     */
+    public static final DistanceFunction<double[], Double> DOUBLE_MANHATTAN_DISTANCE = new DoubleManhattanDistance();
+
 
 
 }
