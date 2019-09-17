@@ -52,6 +52,11 @@ package object scalalike {
   val floatCanberraDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_CANBERRA_DISTANCE.distance
 
   /**
+    * Calculates the bray curtis distance.
+    */
+  val floatBrayCurtisDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_BRAY_CURTIS_DISTANCE.distance
+
+  /**
     * Calculates the cosine distance.
     */
   val doubleCosineDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_COSINE_DISTANCE.distance
@@ -71,4 +76,8 @@ package object scalalike {
     */
   val doubleCanberraDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_CANBERRA_DISTANCE.distance
 
+  /**
+    * Calculates the bray curtis distance.
+    */
+  val doubleBrayCurtisDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_BRAY_CURTIS_DISTANCE.distance
 }

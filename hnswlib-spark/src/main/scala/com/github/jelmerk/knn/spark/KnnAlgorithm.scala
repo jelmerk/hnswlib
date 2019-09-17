@@ -79,7 +79,7 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "canberra",  "cosine", "euclidean", "inner-product"
+    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "euclidean", "inner-product"
     * Default: "cosine"
     *
     * @group param
@@ -144,7 +144,6 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
     import dataset.sparkSession.implicits._
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
-
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
       case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
@@ -289,6 +288,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
                             indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
+    case "bray-curtis" => floatBrayCurtisDistance
     case "canberra" => floatCanberraDistance
     case "cosine" => floatCosineDistance
     case "euclidean" => floatEuclideanDistance

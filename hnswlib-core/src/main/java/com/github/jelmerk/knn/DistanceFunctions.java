@@ -3,7 +3,7 @@ package com.github.jelmerk.knn;
 public final class DistanceFunctions {
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the cosine distance on a float array.
+     * Implementation of {@link DistanceFunction} that calculates the cosine distance.
      */
     static class FloatCosineDistance implements DistanceFunction<float[], Float> {
 
@@ -34,7 +34,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the inner product on a float array.
+     * Implementation of {@link DistanceFunction} that calculates the inner product.
      */
     static class FloatInnerProduct implements DistanceFunction<float[], Float> {
 
@@ -60,7 +60,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the euclidean distance on a float array.
+     * Implementation of {@link DistanceFunction} that calculates the euclidean distance.
      */
     static class FloatEuclideanDistance implements DistanceFunction<float[], Float> {
 
@@ -84,7 +84,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the canberra distance on a float array.
+     * Implementation of {@link DistanceFunction} that calculates the canberra distance.
      */
     static class FloatCanberraDistance implements DistanceFunction<float[], Float> {
 
@@ -109,7 +109,35 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the cosine distance on a double array.
+     * Implementation of {@link DistanceFunction} that calculates the Bray Curtis distance.
+     */
+    static class FloatBrayCurtisDistance implements DistanceFunction<float[], Float> {
+
+        /**
+         * Calculates the Bray Curtis distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Bray Curtis distance between u and v.
+         */
+        @Override
+        public Float distance(float[] u, float[] v) {
+
+            float sump = 0;
+            float sumn = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                sumn += Math.abs(u[i] - v[i]);
+                sump += Math.abs(u[i] + v[i]);
+            }
+
+            return sumn / sump;
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the cosine distance.
      */
     static class DoubleCosineDistance implements DistanceFunction<double[], Double> {
 
@@ -140,7 +168,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the inner product on a double array.
+     * Implementation of {@link DistanceFunction} that calculates the inner product.
      */
     static class DoubleInnerProduct implements DistanceFunction<double[], Double> {
 
@@ -166,7 +194,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the euclidean distance on a double array.
+     * Implementation of {@link DistanceFunction} that calculates the euclidean distance.
      */
     static class DoubleEuclideanDistance implements DistanceFunction<double[], Double> {
 
@@ -190,7 +218,7 @@ public final class DistanceFunctions {
     }
 
     /**
-     * Implementation of {@link DistanceFunction} that calculates the canberra distance on a float array.
+     * Implementation of {@link DistanceFunction} that calculates the canberra distance.
      */
     static class DoubleCanberraDistance implements DistanceFunction<double[], Double> {
 
@@ -214,48 +242,84 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the Bray Curtis distance.
+     */
+    static class DoubleBrayCurtisDistance implements DistanceFunction<double[], Double> {
+
+        /**
+         * Calculates the Bray Curtis distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Bray Curtis distance between u and v.
+         */
+        @Override
+        public Double distance(double[] u, double[] v) {
+            double sump = 0;
+            double sumn = 0;
+
+            for (int i = 0; i < u.length; i++) {
+                sumn += Math.abs(u[i] - v[i]);
+                sump += Math.abs(u[i] + v[i]);
+            }
+
+            return sumn / sump;
+        }
+    }
+
     private DistanceFunctions() {
     }
 
     /**
-     * Calculates cosine distance.
+     * Calculates the cosine distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_COSINE_DISTANCE = new FloatCosineDistance();
 
     /**
-     * Calculates inner product distance.
+     * Calculates the inner product distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_INNER_PRODUCT = new FloatInnerProduct();
 
     /**
-     * Calculates euclidean distance.
+     * Calculates the euclidean distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_EUCLIDEAN_DISTANCE = new FloatEuclideanDistance();
 
     /**
-     * Calculates canberra distance.
+     * Calculates the canberra distance.
      */
     public static final DistanceFunction<float[], Float> FLOAT_CANBERRA_DISTANCE = new FloatCanberraDistance();
 
     /**
-     * Calculates cosine distance.
+     * Calculates the bray curtis distance.
+     */
+    public static final DistanceFunction<float[], Float> FLOAT_BRAY_CURTIS_DISTANCE = new FloatBrayCurtisDistance();
+
+    /**
+     * Calculates the cosine distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_COSINE_DISTANCE = new DoubleCosineDistance();
 
     /**
-     * Calculates inner product distance.
+     * Calculates the inner product.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_INNER_PRODUCT = new DoubleInnerProduct();
 
     /**
-     * Calculates euclidean distance.
+     * Calculates the euclidean distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_EUCLIDEAN_DISTANCE = new DoubleEuclideanDistance();
 
     /**
-     * Calculates canberra distance.
+     * Calculates the canberra distance.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_CANBERRA_DISTANCE = new DoubleCanberraDistance();
 
+    /**
+     * Calculates the bray curtis distance.
+     */
+    public static final DistanceFunction<double[], Double> DOUBLE_BRAY_CURTIS_DISTANCE = new DoubleBrayCurtisDistance();
 
 }
