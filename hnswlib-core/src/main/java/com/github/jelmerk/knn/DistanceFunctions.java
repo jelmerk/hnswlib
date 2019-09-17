@@ -2,6 +2,9 @@ package com.github.jelmerk.knn;
 
 public final class DistanceFunctions {
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the cosine distance on a float array.
+     */
     static class FloatCosineDistance implements DistanceFunction<float[], Float> {
 
         private static final long serialVersionUID = 1L;
@@ -29,6 +32,9 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the inner product on a float array.
+     */
     static class FloatInnerProduct implements DistanceFunction<float[], Float> {
 
         private static final long serialVersionUID = 1L;
@@ -51,6 +57,32 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the euclidean distance on a float array.
+     */
+    static class FloatEuclideanDistance implements DistanceFunction<float[], Float> {
+
+        /**
+         * Calculates euclidean distance on a float array.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         * @return Euclidean distance between u and v.
+         */
+        @Override
+        public Float distance(float[] u, float[] v) {
+            float sum = 0;
+            for (int i = 0; i < u.length; i++) {
+                float dp = u[i] - v[i];
+                sum += dp * dp;
+            }
+            return 1f / ((float) Math.sqrt(sum) + 1f);
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the cosine distance on a double array.
+     */
     static class DoubleCosineDistance implements DistanceFunction<double[], Double> {
 
         private static final long serialVersionUID = 1L;
@@ -78,6 +110,9 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the inner product on a double array.
+     */
     static class DoubleInnerProduct implements DistanceFunction<double[], Double> {
 
         private static final long serialVersionUID = 1L;
@@ -100,6 +135,29 @@ public final class DistanceFunctions {
         }
     }
 
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the euclidean distance on a double array.
+     */
+    static class DoubleEuclideanDistance implements DistanceFunction<double[], Double> {
+
+        /**
+         * Calculates euclidean distance on a double array.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         * @return Euclidean distance between u and v.
+         */
+        @Override
+        public Double distance(double[] u, double[] v) {
+            double sum = 0;
+            for (int i = 0; i < u.length; i++) {
+                double dp = u[i] - v[i];
+                sum += dp * dp;
+            }
+            return 1d / (Math.sqrt(sum) + 1d);
+        }
+    }
+
     private DistanceFunctions() {
     }
 
@@ -114,6 +172,11 @@ public final class DistanceFunctions {
     public static final DistanceFunction<float[], Float> FLOAT_INNER_PRODUCT = new FloatInnerProduct();
 
     /**
+     * Calculates euclidean distance on a float array.
+     */
+    public static final DistanceFunction<float[], Float> FLOAT_EUCLIDEAN_DISTANCE = new FloatEuclideanDistance();
+
+    /**
      * Calculates cosine distance on a float array.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_COSINE_DISTANCE = new DoubleCosineDistance();
@@ -122,5 +185,11 @@ public final class DistanceFunctions {
      * Calculates inner product distance on a float array.
      */
     public static final DistanceFunction<double[], Double> DOUBLE_INNER_PRODUCT = new DoubleInnerProduct();
+
+    /**
+     * Calculates euclidean distance on a double array.
+     */
+    public static final DistanceFunction<double[], Double> DOUBLE_EUCLIDEAN_DISTANCE = new DoubleEuclideanDistance();
+
 
 }

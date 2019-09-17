@@ -41,6 +41,11 @@ package object scalalike {
   val floatInnerProduct: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_INNER_PRODUCT.distance
 
   /**
+    * Calculates euclidean distance.
+    */
+  val floatEuclideanDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance
+
+  /**
     * Calculates cosine distance.
     */
   val doubleCosineDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_COSINE_DISTANCE.distance
@@ -49,5 +54,10 @@ package object scalalike {
     * Calculates inner product.
     */
   val doubleInnerProduct: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_INNER_PRODUCT.distance
+
+  /**
+    * Calculates euclidean distance.
+    */
+  val doubleEuclideanDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance
 
 }
