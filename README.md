@@ -10,12 +10,12 @@ It's flexible interface makes it easy to apply it to use it with any type of dat
  
 The following distance metrics are currently pre-packaged :
 
-- bray curtis distance
+- bray curtis dissimilarity
 - canberra distance
 - correlation distance
 - cosine distance
 - euclidean distance
-- inner-product distance
+- inner product
 - manhattan distance
 
 It comes with a scala wrapper that should feel native to scala developers
