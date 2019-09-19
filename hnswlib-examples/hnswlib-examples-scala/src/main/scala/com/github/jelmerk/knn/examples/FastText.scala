@@ -51,7 +51,7 @@ object FastText extends App {
         println(f"$word $distance#.4f")
       }
 
-      println("%nMost similar words found using exact index :\n")
+      println("\nMost similar words found using exact index :\n")
 
       val groundTruthResults = groundTruthIndex.findNeighbors(input, k)
 
