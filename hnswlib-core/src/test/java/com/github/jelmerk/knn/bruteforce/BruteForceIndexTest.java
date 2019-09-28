@@ -59,6 +59,8 @@ public class BruteForceIndexTest {
         index.add(item1);
         assertThat(index.remove(item1.id(), item1.version()), is(true));
         assertThat(index.size(), is(0));
+        assertThat(index.items().size(), is(0));
+        assertThat(index.get(item1.id()), is(Optional.empty()));
     }
 
     @Test

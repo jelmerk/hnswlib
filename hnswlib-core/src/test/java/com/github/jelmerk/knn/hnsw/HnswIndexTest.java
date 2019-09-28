@@ -1,131 +1,168 @@
 package com.github.jelmerk.knn.hnsw;
 
-import com.github.jelmerk.knn.DistanceFunctions;
-import com.github.jelmerk.knn.SearchResult;
+import com.github.jelmerk.knn.*;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.*;
-import java.util.*;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.stream.Collectors;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
 
-import static org.junit.Assert.assertEquals;
+import static org.hamcrest.CoreMatchers.hasItems;
+import static org.hamcrest.CoreMatchers.is;
+import static org.junit.Assert.assertThat;
 
 public class HnswIndexTest {
 
-    private float floatError = 0.000000596f;
+    private HnswIndex<String, float[], TestItem, Float> index;
 
-    private List<TestItem> items;
+    private int maxItemCount = 100;
+    private int m = 12;
+    private int efConstruction = 250;
+    private int ef = 20;
+    private DistanceFunction<float[], Float> distanceFunction = DistanceFunctions.FLOAT_COSINE_DISTANCE;
+
+    private TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
+    private TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
+    private TestItem item3 = new TestItem("3", new float[] { 0.4300f, 0.9891f }, 10);
 
     @Before
-    public void setUp() throws Exception {
-        this.items = readTextFile("/vectors.txt").stream()
-                .map(l -> {
-                        String[] tokens = l.split("\t");
-
-                        float[] floats = new float[tokens.length];
-
-                        for (int i = 0; i < tokens.length; i++) {
-                            floats[i] = Float.parseFloat(tokens[i]);
-                        }
-
-                        return new TestItem(UUID.randomUUID().toString(), floats);
-                })
-                .collect(Collectors.toList());
-    }
-
-    @Test
-    public void testReplace() {
-
-        ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-
-        ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
-
-
-        writeLock.lock();
-        writeLock.lock();
-
-
-        HnswIndex<String, float[], TestItem, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, 1)
+    public void setUp() {
+        index = HnswIndex
+                .newBuilder(distanceFunction, maxItemCount)
+                .withM(m)
+                .withEfConstruction(efConstruction)
+                .withEf(ef)
                 .withRemoveEnabled()
                 .build();
-
-        index.add(items.get(0));
-        index.add(items.get(0));
-    }
-
-
-    @Test
-    public void testKnnSearch() throws Exception{
-
-        HnswIndex<String, float[], TestItem, Float> index = HnswIndex
-                .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, items.size())
-                    .withRemoveEnabled()
-                    .build();
-
-
-
-        for (TestItem item : items) {
-            index.add(item);
-            index.add(item);
-        }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        index.save(baos);
-        index = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
-
-        for (TestItem item : this.items) {
-
-            List<SearchResult<TestItem, Float>> result = index.findNearest(item.vector(), 20);
-
-            SearchResult<TestItem, Float> best = result.iterator().next();
-
-            assertEquals(20, result.size());
-            assertEquals(0, best.distance(), floatError);
-        }
-
     }
 
     @Test
-    public void testSerialization() throws Exception {
-
-        ObjectSerializer<String> itemIdSerializer = new JavaObjectSerializer<>();
-        ObjectSerializer<TestItem> itemSerializer = new JavaObjectSerializer<>();
-
-        HnswIndex<String, float[], TestItem, Float> original = HnswIndex
-                .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, items.size())
-                    .withCustomSerializers(itemIdSerializer, itemSerializer)
-                    .build();
-
-        System.out.println(items.size());
-
-        for (TestItem item : items) {
-            original.add(item);
-        }
-
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        original.save(baos);
-        baos.flush();
-
-        System.out.println(baos.toByteArray().length); // 129280
-                                                       // 129075
-
-        HnswIndex<String, float[], TestItem, Float> loaded = HnswIndex.load(new ByteArrayInputStream(baos.toByteArray()));
-
-//        assertEquals(original.print(), loaded.print());
+    public void returnM() {
+        assertThat(index.getM(), is(m));
     }
 
-    private List<String> readTextFile(String path) throws IOException {
-        try(BufferedReader reader = new BufferedReader(new InputStreamReader(getClass().getResourceAsStream(path)))) {
-            String line;
+    @Test
+    public void returnEf() {
+        assertThat(index.getEf(), is(ef));
+    }
 
-            List<String> result = new ArrayList<>();
-            while((line = reader.readLine()) != null) {
-                result.add(line);
-            }
-            return result;
-        }
+    @Test
+    public void returnEfConstruction() {
+        assertThat(index.getEfConstruction(), is(efConstruction));
+    }
+
+    @Test
+    public void returnMaxItemCount() {
+        assertThat(index.getMaxItemCount(), is(maxItemCount));
+    }
+
+    @Test
+    public void returnDistanceFunction() {
+        assertThat(index.getDistanceFunction(), is(distanceFunction));
+    }
+
+    @Test
+    public void returnsSize() {
+        assertThat(index.size(), is(0));
+        index.add(item1);
+        assertThat(index.size(), is(1));
+    }
+
+    @Test
+    public void addAndGet() {
+        assertThat(index.get(item1.id()), is(Optional.empty()));
+        index.add(item1);
+        assertThat(index.get(item1.id()), is(Optional.of(item1)));
+    }
+
+    @Test
+    public void returnsItems() {
+        assertThat(index.items().isEmpty(), is(true));
+        index.add(item1);
+        assertThat(index.items().size(), is(1));
+        assertThat(index.items(), hasItems(item1));
+    }
+
+    @Test
+    public void removeItem() {
+        index.add(item1);
+
+        assertThat(index.remove(item1.id(), item1.version()), is(true));
+
+        assertThat(index.size(), is(0));
+        assertThat(index.items().size(), is(0));
+        assertThat(index.get(item1.id()), is(Optional.empty()));
+
+        assertThat(index.asExactIndex().size(), is(0));
+        assertThat(index.asExactIndex().items().size(), is(0));
+        assertThat(index.asExactIndex().get(item1.id()), is(Optional.empty()));
+    }
+
+    @Test
+    public void addNewerItem() {
+        TestItem newerItem = new TestItem(item1.id(), new float[0], item1.version() + 1);
+
+        index.add(item1);
+        index.add(newerItem);
+
+        assertThat(index.size(), is(1));
+        assertThat(index.get(item1.id()), is(Optional.of(newerItem)));
+    }
+
+    @Test
+    public void addOlderItem() {
+        TestItem olderItem = new TestItem(item1.id(), new float[0], item1.version() - 1);
+
+        index.add(item1);
+        index.add(olderItem);
+
+        assertThat(index.size(), is(1));
+        assertThat(index.get(item1.id()), is(Optional.of(item1)));
+    }
+
+    @Test
+    public void removeUnknownItem() {
+        assertThat(index.remove("foo", 0), is(false));
+    }
+
+    @Test
+    public void removeWithOldVersionIgnored() {
+        index.add(item1);
+
+        assertThat(index.remove(item1.id(), item1.version() - 1), is(false));
+        assertThat(index.size(), is(1));
+    }
+
+    @Test
+    public void findNearest() throws InterruptedException {
+        index.addAll(Arrays.asList(item1, item2, item3));
+
+        List<SearchResult<TestItem, Float>> nearest = index.findNearest(item1.vector(), 10);
+
+        assertThat(nearest, is(Arrays.asList(
+                new SearchResult<>(item1, 0f, Comparator.naturalOrder()),
+                new SearchResult<>(item3, 0.06521261f, Comparator.naturalOrder()),
+                new SearchResult<>(item2, 0.11621308f, Comparator.naturalOrder())
+        )));
+    }
+
+    @Test
+    public void saveAndLoadIndex() throws IOException {
+        ByteArrayOutputStream in = new ByteArrayOutputStream();
+
+        index.add(item1);
+        index.save(in);
+
+        in.flush();
+
+        HnswIndex<String, float[], TestItem, Float> loadedIndex =
+                HnswIndex.load(new ByteArrayInputStream(in.toByteArray()));
+
+        assertThat(loadedIndex.size(), is(1));
     }
 }
