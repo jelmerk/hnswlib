@@ -5,4 +5,5 @@ setup(
     version="0.20",
     zip_safe=True,
     packages=find_packages(),
+    extras_require={'test': ['pytest', 'findspark']},
 )

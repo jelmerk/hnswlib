@@ -4,10 +4,10 @@ import com.github.jelmerk.knn.Item;
 
 import java.io.Serializable;
 
-public class TestItem implements Item<String, float[]>, Serializable {
+public class TestItem implements Item<String, float[]> {
 
     private final String id;
-    private float[] vector;
+    private final float[] vector;
 
     public TestItem(String id, float[] vector) {
         this.id = id;
@@ -24,7 +24,4 @@ public class TestItem implements Item<String, float[]>, Serializable {
         return vector;
     }
 
-    public void setVector(float[] vector) {
-        this.vector = vector;
-    }
 }
