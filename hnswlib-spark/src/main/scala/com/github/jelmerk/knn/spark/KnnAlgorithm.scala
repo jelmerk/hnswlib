@@ -104,13 +104,6 @@ trait KnnModelParams extends Params {
     * */
   def getK: Int = $(k)
 
-
-  /**
-    *
-    * @return
-    */
-  def includeSelf: Boolean
-
 }
 
 trait KnnAlgorithmParams extends KnnModelParams {

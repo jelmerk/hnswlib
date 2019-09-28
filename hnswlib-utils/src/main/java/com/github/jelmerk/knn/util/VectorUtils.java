@@ -1,5 +1,8 @@
 package com.github.jelmerk.knn.util;
 
+/**
+ * Misc utility methods for dealing with vectors.
+ */
 public final class VectorUtils {
 
     private VectorUtils() {
