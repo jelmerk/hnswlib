@@ -97,8 +97,19 @@ trait KnnModelParams extends Params {
     */
   val k = new IntParam(this, "k", "number of neighbors to find", ParamValidators.gt(0))
 
-  /** @group getParam */
+  /**
+    * Number of results to return as part of the knn search.
+    *
+    * @group getParam
+    * */
   def getK: Int = $(k)
+
+
+  /**
+    *
+    * @return
+    */
+  def includeSelf: Boolean
 
 }
 
@@ -133,6 +144,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._
+
+  /** @group setParam */
+  def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
   def setNeighborsCol(value: String): this.type = set(neighborsCol, value)

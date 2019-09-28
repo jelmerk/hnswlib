@@ -13,7 +13,7 @@ public interface Item<TId, TVector> extends Serializable {
     /**
      * Returns the identifier of this item.
      *
-     * @return the idenifier of this item
+     * @return the identifier of this item
      */
     TId id();
 
