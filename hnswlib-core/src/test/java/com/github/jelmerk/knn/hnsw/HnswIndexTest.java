@@ -7,10 +7,7 @@ import org.junit.Test;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
@@ -148,6 +145,31 @@ public class HnswIndexTest {
                 new SearchResult<>(item1, 0f, Comparator.naturalOrder()),
                 new SearchResult<>(item3, 0.06521261f, Comparator.naturalOrder()),
                 new SearchResult<>(item2, 0.11621308f, Comparator.naturalOrder())
+        )));
+    }
+
+    @Test
+    public void findNeighbors() throws InterruptedException {
+        index.addAll(Arrays.asList(item1, item2, item3));
+
+        List<SearchResult<TestItem, Float>> nearest = index.findNeighbors(item1.id(), 10);
+
+        assertThat(nearest, is(Arrays.asList(
+                new SearchResult<>(item3, 0.06521261f, Comparator.naturalOrder()),
+                new SearchResult<>(item2, 0.11621308f, Comparator.naturalOrder())
+        )));
+    }
+
+    @Test
+    public void addAllCallsProgressListener() throws InterruptedException {
+        List<ProgressUpdate> updates = new ArrayList<>();
+
+        index.addAll(Arrays.asList(item1, item2, item3), 1,
+                (workDone, max) -> updates.add(new ProgressUpdate(workDone, max)), 2);
+
+        assertThat(updates, is(Arrays.asList(
+                new ProgressUpdate(2, 3),
+                new ProgressUpdate(3, 3)  // emitted because its the last element
         )));
     }
 

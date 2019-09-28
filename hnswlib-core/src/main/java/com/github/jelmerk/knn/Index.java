@@ -86,7 +86,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param items the items to add to the index
      * @param numThreads number of threads to use for parallel indexing
      * @param listener listener to report progress to
-     * @param progressUpdateInterval after indexing this many items progress will be reported
+     * @param progressUpdateInterval after indexing this many items progress will be reported. The last element will always be reported regardless of this setting.
      * @throws InterruptedException thrown when the thread doing the indexing is interrupted
      */
     default void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval)
@@ -96,6 +96,8 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         ExecutorService executorService = Executors.newFixedThreadPool(numThreads,
                 new NamedThreadFactory("indexer-%d"));
+
+        int numItems = items.size();
 
         AtomicInteger workDone = new AtomicInteger();
 
@@ -114,7 +116,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                             int done = workDone.incrementAndGet();
 
-                            if (done % progressUpdateInterval == 0) {
+                            if (done % progressUpdateInterval == 0 || numItems == done) {
                                 listener.updateProgress(done, items.size());
                             }
 
