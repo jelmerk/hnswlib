@@ -1,14 +1,14 @@
-package com.github.jelmerk.knn;
+package com.github.jelmerk.knn.util;
 
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 
-class NamedThreadFactory implements ThreadFactory {
+public class NamedThreadFactory implements ThreadFactory {
 
     private final String namingPattern;
     private final AtomicInteger counter;
 
-    NamedThreadFactory(String namingPattern) {
+    public NamedThreadFactory(String namingPattern) {
         this.namingPattern = namingPattern;
         this.counter = new AtomicInteger(0);
     }

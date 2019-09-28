@@ -1,5 +1,7 @@
 package com.github.jelmerk.knn;
 
+import com.github.jelmerk.knn.util.NamedThreadFactory;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -13,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
- * Read write K-nearest neighbors search index.
+ * K-nearest neighbors search index.
  *
  * @param <TId> Type of the external identifier of an item
  * @param <TVector> Type of the vector to perform distance calculation on

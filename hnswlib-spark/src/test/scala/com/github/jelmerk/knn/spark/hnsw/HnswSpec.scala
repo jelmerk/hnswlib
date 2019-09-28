@@ -14,7 +14,7 @@ case class ArrayInputRow(id: String, vector: Array[Float])
 case class ArrayOutputRowNeighbor(neighbor: String, distance: Float)
 case class ArrayOutputRow(id: String, neighbors: Seq[ArrayOutputRowNeighbor])
 
-class HnswSpec extends FunSuite with DatasetSuiteBase with OptionValues {
+class HnswSpec extends FunSuite with DatasetSuiteBase {
 
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
