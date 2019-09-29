@@ -178,9 +178,8 @@ class HnswIndexTest {
         ByteArrayOutputStream in = new ByteArrayOutputStream();
 
         index.add(item1);
-        index.save(in);
 
-        in.flush();
+        index.save(in);
 
         HnswIndex<String, float[], TestItem, Float> loadedIndex =
                 HnswIndex.load(new ByteArrayInputStream(in.toByteArray()));
