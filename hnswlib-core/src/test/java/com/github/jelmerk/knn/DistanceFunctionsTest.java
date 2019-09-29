@@ -13,73 +13,75 @@ class DistanceFunctionsTest {
     private double[] doubleVector1 = new double[] { 0.01d, 0.02d, 0.03d };
     private double[] doubleVector2 = new double[] { 0.03d, 0.02d, 0.01d };
 
+    private double error = 1e-4;
+
     @Test
     void floatCosineDistance() {
-        assertThat(DistanceFunctions.FLOAT_COSINE_DISTANCE.distance(floatVector1, floatVector2), is(0.28571433f));
+        assertThat((double) DistanceFunctions.FLOAT_COSINE_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.28571433, error));
     }
 
     @Test
     void floatInnerProduct() {
-        assertThat(DistanceFunctions.FLOAT_INNER_PRODUCT.distance(floatVector1, floatVector2), is(0.999f));
+        assertThat((double) DistanceFunctions.FLOAT_INNER_PRODUCT.distance(floatVector1, floatVector2), closeTo(0.999, error));
     }
 
     @Test
     void floatEuclideanDistance() {
-        assertThat(DistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance(floatVector1, floatVector2), is(0.9724937f));
+        assertThat((double) DistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.9724937f, error));
     }
 
     @Test
     void floatCanberraDistance() {
-        assertThat(DistanceFunctions.FLOAT_CANBERRA_DISTANCE.distance(floatVector1, floatVector2), is(1f));
+        assertThat((double) DistanceFunctions.FLOAT_CANBERRA_DISTANCE.distance(floatVector1, floatVector2), closeTo(1, error));
     }
 
     @Test
     void floatBrayCurtisDistance() {
-        assertThat(DistanceFunctions.FLOAT_BRAY_CURTIS_DISTANCE.distance(floatVector1, floatVector2), is(0.33333334f));
+        assertThat((double) DistanceFunctions.FLOAT_BRAY_CURTIS_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.3333333, error));
     }
 
     @Test
     void floatCorrelationDistance() {
-        assertThat(DistanceFunctions.FLOAT_CORRELATION_DISTANCE.distance(floatVector1, floatVector2), is(2f));
+        assertThat((double) DistanceFunctions.FLOAT_CORRELATION_DISTANCE.distance(floatVector1, floatVector2), closeTo(2, error));
     }
 
     @Test
     void floatManhattanDistance() {
-        assertThat(DistanceFunctions.FLOAT_MANHATTAN_DISTANCE.distance(floatVector1, floatVector2), is(0.04F));
+        assertThat((double) DistanceFunctions.FLOAT_MANHATTAN_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.04, error));
     }
 
     @Test
     void doubleCosineDistance() {
-        assertThat(DistanceFunctions.DOUBLE_COSINE_DISTANCE.distance(doubleVector1, doubleVector2), is(0.2857142857142858d));
+        assertThat(DistanceFunctions.DOUBLE_COSINE_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.2857142857142858, error));
     }
 
     @Test
     void doubleInnerProduct() {
-        assertThat(DistanceFunctions.DOUBLE_INNER_PRODUCT.distance(doubleVector1, doubleVector2), is(0.999d));
+        assertThat(DistanceFunctions.DOUBLE_INNER_PRODUCT.distance(doubleVector1, doubleVector2), closeTo(0.999, error));
     }
 
     @Test
     void doubleEuclideanDistance() {
-        assertThat(DistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance(doubleVector1, doubleVector2), is(0.9724937237315234d));
+        assertThat(DistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.9724937237315234, error));
     }
 
     @Test
     void doubleCanberraDistance() {
-        assertThat(DistanceFunctions.DOUBLE_CANBERRA_DISTANCE.distance(doubleVector1, doubleVector2), is(0.9999999999999998d));
+        assertThat(DistanceFunctions.DOUBLE_CANBERRA_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(1, error));
     }
 
     @Test
     void doubleBrayCurtisDistance() {
-        assertThat(DistanceFunctions.DOUBLE_BRAY_CURTIS_DISTANCE.distance(doubleVector1, doubleVector2), is(0.3333333333333333d));
+        assertThat(DistanceFunctions.DOUBLE_BRAY_CURTIS_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.3333333333333333, error));
     }
 
     @Test
     void doubleCorrelationDistance() {
-        assertThat(DistanceFunctions.DOUBLE_CORRELATION_DISTANCE.distance(doubleVector1, doubleVector2), is(2d));
+        assertThat(DistanceFunctions.DOUBLE_CORRELATION_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(2, error));
     }
 
     @Test
     void doubleManhattanDistance() {
-        assertThat(DistanceFunctions.DOUBLE_MANHATTAN_DISTANCE.distance(doubleVector1, doubleVector2), is(0.039999999999999994d));
+        assertThat(DistanceFunctions.DOUBLE_MANHATTAN_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.04, error));
     }
 }
