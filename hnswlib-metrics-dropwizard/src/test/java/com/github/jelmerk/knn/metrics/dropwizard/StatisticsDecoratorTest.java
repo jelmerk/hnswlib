@@ -3,11 +3,13 @@ package com.github.jelmerk.knn.metrics.dropwizard;
 import com.codahale.metrics.MetricRegistry;
 import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.SearchResult;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.MockitoJUnitRunner;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -15,12 +17,13 @@ import java.util.*;
 
 import static org.awaitility.Awaitility.*;
 import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
 import static org.mockito.BDDMockito.*;
 import static com.codahale.metrics.MetricRegistry.name;
 
-@RunWith(MockitoJUnitRunner.class)
-public class StatisticsDecoratorTest {
+import static org.hamcrest.MatcherAssert.assertThat;
+
+@ExtendWith(MockitoExtension.class)
+class StatisticsDecoratorTest {
 
     @Mock
     private Index<String, float[], TestItem, Float> approximativeIndex;
@@ -41,36 +44,36 @@ public class StatisticsDecoratorTest {
 
     private StatisticsDecorator<String, float[], TestItem, Float, Index<String, float[], TestItem, Float>, Index<String, float[], TestItem, Float>> decorator;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         this.metricRegistry = new MetricRegistry();
         this.decorator = new StatisticsDecorator<>(metricRegistry, StatisticsDecoratorTest.class,
                 indexName, approximativeIndex, groundTruthIndex, maxAccuracySampleFrequency);
     }
 
     @Test
-    public void timesAdd() {
+    void timesAdd() {
         decorator.add(item1);
         verify(approximativeIndex).add(item1);
         assertThat(metricRegistry.timer(name(getClass(), indexName, "add")).getCount(), is(1L));
     }
 
     @Test
-    public void timesRemove() {
+    void timesRemove() {
         decorator.remove(item1.id(), item1.version());
         verify(approximativeIndex).remove(item1.id(), item1.version());
         assertThat(metricRegistry.timer(name(getClass(), indexName, "remove")).getCount(), is(1L));
     }
 
     @Test
-    public void returnsSize() {
+    void returnsSize() {
         int size = 10;
         given(approximativeIndex.size()).willReturn(size);
         assertThat(decorator.size(), is(size));
     }
 
     @Test
-    public void timesGet() {
+    void timesGet() {
         Optional<TestItem> getResult = Optional.of(this.item1);
         given(approximativeIndex.get(this.item1.id())).willReturn(getResult);
         assertThat(decorator.get(this.item1.id()), is(getResult));
@@ -78,14 +81,14 @@ public class StatisticsDecoratorTest {
     }
 
     @Test
-    public void returnsItems() {
+    void returnsItems() {
         List<TestItem> items = Collections.singletonList(item1);
         given(approximativeIndex.items()).willReturn(items);
         assertThat(decorator.items(), is(items));
     }
 
     @Test
-    public void timesFindNearest() {
+    void timesFindNearest() {
         List<SearchResult<TestItem, Float>> searchResults = Collections.singletonList(new SearchResult<>(item1, 0.1f, Comparator.naturalOrder()));
 
         given(approximativeIndex.findNearest(item1.vector(), k)).willReturn(searchResults);
@@ -94,7 +97,7 @@ public class StatisticsDecoratorTest {
     }
 
     @Test
-    public void measuresFindNearestAccuracy() {
+    void measuresFindNearestAccuracy() {
         List<SearchResult<TestItem, Float>> approximateResults = Collections.singletonList(
                 new SearchResult<>(item1, 0.1f, Comparator.naturalOrder())
         );
@@ -112,7 +115,7 @@ public class StatisticsDecoratorTest {
     }
 
     @Test
-    public void timesSave() throws IOException {
+    void timesSave() throws IOException {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         decorator.save(baos);
         assertThat(metricRegistry.timer(name(getClass(), indexName, "save")).getCount(), is(1L));
@@ -120,12 +123,12 @@ public class StatisticsDecoratorTest {
     }
 
     @Test
-    public void returnsApproximativeIndex() {
+    void returnsApproximativeIndex() {
         assertThat(decorator.getApproximativeIndex(), is(approximativeIndex));
     }
 
     @Test
-    public void returnsGroundTruthIndex() {
+    void returnsGroundTruthIndex() {
         assertThat(decorator.getGroundTruthIndex(), is(groundTruthIndex));
     }
 }

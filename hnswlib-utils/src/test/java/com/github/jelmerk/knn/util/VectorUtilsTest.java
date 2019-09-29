@@ -1,9 +1,9 @@
 package com.github.jelmerk.knn.util;
 
-import static org.hamcrest.CoreMatchers.*;
-import static org.junit.Assert.*;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
+import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static com.github.jelmerk.knn.util.VectorUtils.*;
 
 public class VectorUtilsTest {
