@@ -22,6 +22,8 @@ class HnswIndexTest {
     private int efConstruction = 250;
     private int ef = 20;
     private DistanceFunction<float[], Float> distanceFunction = DistanceFunctions.FLOAT_COSINE_DISTANCE;
+    private ObjectSerializer<String> itemIdSerializer = new JavaObjectSerializer<>();
+    private ObjectSerializer<TestItem> itemSerializer = new JavaObjectSerializer<>();
 
     private TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
     private TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
@@ -31,6 +33,7 @@ class HnswIndexTest {
     void setUp() {
         index = HnswIndex
                     .newBuilder(distanceFunction, maxItemCount)
+                    .withCustomSerializers(itemIdSerializer, itemSerializer)
                     .withM(m)
                     .withEfConstruction(efConstruction)
                     .withEf(ef)
@@ -60,8 +63,14 @@ class HnswIndexTest {
 
     @Test
     void returnDistanceFunction() {
-        assertThat(index.getDistanceFunction(), is(distanceFunction));
+        assertThat(index.getDistanceFunction(), is(sameInstance(distanceFunction)));
     }
+
+    @Test
+    void returnsItemIdSerializer() { assertThat(index.getItemIdSerializer(), is(sameInstance(itemIdSerializer))); }
+
+    @Test
+    void returnsItemSerializer() { assertThat(index.getItemSerializer(), is(sameInstance(itemSerializer))); }
 
     @Test
     void returnsSize() {

@@ -2,6 +2,7 @@ package com.github.jelmerk.knn.scalalike.hnsw
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
+import com.github.jelmerk.knn.hnsw.JavaObjectSerializer
 import com.github.jelmerk.knn.scalalike._
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
@@ -39,6 +40,29 @@ class HnswIndexSpec extends FunSuite {
   test("retrieve distanceFunction") {
     val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
     index.distanceFunction should be (floatCosineDistance)
+  }
+
+  test("retrieve removeEnabled") {
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, removeEnabled = true)
+    index.removeEnabled should be (true)
+  }
+
+  test("retrieve distance ordering") {
+    val ordering = Ordering[Float]
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)(ordering)
+    index.distanceOrdering should be theSameInstanceAs ordering
+  }
+
+  test("retrieve itemIdSerializer") {
+    val itemIdSerializer = new JavaObjectSerializer[String]
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, itemIdSerializer = itemIdSerializer)
+    index.itemIdSerializer should be theSameInstanceAs itemIdSerializer
+  }
+
+  test("retrieve itemSerializer") {
+    val itemSerializer = new JavaObjectSerializer[TestItem]
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, itemSerializer = itemSerializer)
+    index.itemSerializer should be theSameInstanceAs itemSerializer
   }
 
   test("optionally get non-existent item from index") {
