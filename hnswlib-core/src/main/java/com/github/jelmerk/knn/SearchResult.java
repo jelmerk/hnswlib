@@ -90,4 +90,17 @@ public class SearchResult<TItem, TDistance>
                 ", item=" + item +
                 '}';
     }
+
+    /**
+     * Convenience method for creating search results who's distances are Comparable.
+     *
+     * @param item the item
+     * @param distance the distance from the search query
+     * @param <TItem> type of the item returned
+     * @param <TDistance> type of the distance returned by the configured distance function
+     * @return new SearchResult instance
+     */
+    public static<TItem, TDistance extends Comparable<TDistance>> SearchResult<TItem, TDistance> create(TItem item, TDistance distance) {
+        return new SearchResult<>(item, distance, Comparator.naturalOrder());
+    }
 }

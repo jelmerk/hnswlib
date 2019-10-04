@@ -151,9 +151,9 @@ class HnswIndexTest {
         List<SearchResult<TestItem, Float>> nearest = index.findNearest(item1.vector(), 10);
 
         assertThat(nearest, is(Arrays.asList(
-                new SearchResult<>(item1, 0f, Comparator.naturalOrder()),
-                new SearchResult<>(item3, 0.06521261f, Comparator.naturalOrder()),
-                new SearchResult<>(item2, 0.11621308f, Comparator.naturalOrder())
+                SearchResult.create(item1, 0f),
+                SearchResult.create(item3, 0.06521261f),
+                SearchResult.create(item2, 0.11621308f)
         )));
     }
 
@@ -164,8 +164,8 @@ class HnswIndexTest {
         List<SearchResult<TestItem, Float>> nearest = index.findNeighbors(item1.id(), 10);
 
         assertThat(nearest, is(Arrays.asList(
-                new SearchResult<>(item3, 0.06521261f, Comparator.naturalOrder()),
-                new SearchResult<>(item2, 0.11621308f, Comparator.naturalOrder())
+                SearchResult.create(item3, 0.06521261f),
+                SearchResult.create(item2, 0.11621308f)
         )));
     }
 

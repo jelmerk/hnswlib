@@ -119,9 +119,9 @@ class HnswIndexSpec extends FunSuite {
     val results = index.findNearest(item1.vector, k)
 
     results should contain inOrderOnly (
-      SearchResult(item1, 0f, Ordering[Float]),
-      SearchResult(item3, 0.06521261f, Ordering[Float]),
-      SearchResult(item2, 0.11621308f, Ordering[Float])
+      SearchResult(item1, 0f),
+      SearchResult(item3, 0.06521261f),
+      SearchResult(item2, 0.11621308f)
     )
   }
 
@@ -132,8 +132,8 @@ class HnswIndexSpec extends FunSuite {
     val results = index.findNeighbors(item1.id, k)
 
     results should contain inOrderOnly (
-      SearchResult(item3, 0.06521261f, Ordering[Float]),
-      SearchResult(item2, 0.11621308f, Ordering[Float])
+      SearchResult(item3, 0.06521261f),
+      SearchResult(item2, 0.11621308f)
     )
   }
 
