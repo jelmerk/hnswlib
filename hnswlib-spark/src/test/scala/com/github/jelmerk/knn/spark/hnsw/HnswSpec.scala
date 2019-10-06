@@ -44,9 +44,9 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
       .collect()
 
     result should have size 3
-    result should contain(VectorOutputRow(2, Seq(VectorOutputRowNeighbor(3, 0.0076490045f), VectorOutputRowNeighbor(1, 0.11621308f))))
-    result should contain(VectorOutputRow(3, Seq(VectorOutputRowNeighbor(2, 0.0076490045f), VectorOutputRowNeighbor(1, 0.06521261f))))
-    result should contain(VectorOutputRow(1, Seq(VectorOutputRowNeighbor(3, 0.06521261f), VectorOutputRowNeighbor(2, 0.11621308f))))
+    result should contain(VectorOutputRow(2, Seq(VectorOutputRowNeighbor(2, 0.0f), VectorOutputRowNeighbor(3, 0.0076490045f), VectorOutputRowNeighbor(1, 0.11621308f))))
+    result should contain(VectorOutputRow(3, Seq(VectorOutputRowNeighbor(3, 0.0f), VectorOutputRowNeighbor(2, 0.0076490045f), VectorOutputRowNeighbor(1, 0.06521261f))))
+    result should contain(VectorOutputRow(1, Seq(VectorOutputRowNeighbor(1, 0.0f), VectorOutputRowNeighbor(3, 0.06521261f), VectorOutputRowNeighbor(2, 0.11621308f))))
   }
 
   test("array input row float") {

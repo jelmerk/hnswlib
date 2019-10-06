@@ -168,8 +168,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
           itemsIter.map { case (id, vector) =>
-            val neighbors = index.findNearest(vector, getK + 1)
-              .collect { case SearchResult(item, distance) if item.id != id => Neighbor(item.id, distance) }
+            val neighbors = index.findNearest(vector, getK)
+              .collect { case SearchResult(item, distance) => Neighbor(item.id, distance) }
               .take(getK)
 
             id -> neighbors
