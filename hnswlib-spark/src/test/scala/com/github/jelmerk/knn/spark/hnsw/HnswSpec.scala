@@ -72,9 +72,9 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
       .collect()
 
     result should have size 3
-    result should contain(ArrayOutputRow("2", Seq(ArrayOutputRowNeighbor("3", 0.0076490045f), ArrayOutputRowNeighbor("1", 0.11621308f))))
-    result should contain(ArrayOutputRow("3", Seq(ArrayOutputRowNeighbor("2", 0.0076490045f), ArrayOutputRowNeighbor("1", 0.06521261f))))
-    result should contain(ArrayOutputRow("1", Seq(ArrayOutputRowNeighbor("3", 0.06521261f), ArrayOutputRowNeighbor("2", 0.11621308f))))
+    result should contain(ArrayOutputRow("2", Seq(ArrayOutputRowNeighbor("2", 0.0f), ArrayOutputRowNeighbor("3", 0.0076490045f), ArrayOutputRowNeighbor("1", 0.11621308f))))
+    result should contain(ArrayOutputRow("3", Seq(ArrayOutputRowNeighbor("3", 0.0f), ArrayOutputRowNeighbor("2", 0.0076490045f), ArrayOutputRowNeighbor("1", 0.06521261f))))
+    result should contain(ArrayOutputRow("1", Seq(ArrayOutputRowNeighbor("1", 0.0f), ArrayOutputRowNeighbor("3", 0.06521261f), ArrayOutputRowNeighbor("2", 0.11621308f))))
   }
 
   test("vector input row double") {
