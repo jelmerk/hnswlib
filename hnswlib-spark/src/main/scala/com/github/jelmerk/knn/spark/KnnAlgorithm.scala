@@ -40,7 +40,7 @@ object Udfs {
   /**
     * Convert a double array to a float array
     */
-  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Array[Double] => vector.map(_.toFloat) }
+  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
 }
 
 trait KnnModelParams extends Params {
