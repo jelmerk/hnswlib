@@ -58,6 +58,16 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     boolean remove(TId id, long version);
 
     /**
+     * Check if an item is contained in this index
+     *
+     * @param id unique identifier of the item
+     * @return true if an item is contained in this index, false otherwise
+     */
+    default boolean contains(TId id) {
+        return get(id).isPresent();
+    }
+
+    /**
      * Add multiple items to the index
      *
      * @param items the items to add to the index

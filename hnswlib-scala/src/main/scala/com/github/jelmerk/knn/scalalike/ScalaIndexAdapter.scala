@@ -37,6 +37,8 @@ class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](va
 
   override def get(id: TId): Option[TItem] = Option(delegate.get(id).orElse(null.asInstanceOf[TItem]))
 
+  override def contains(id: TId): Boolean = delegate.contains(id)
+
   override def iterator: Iterator[TItem] = delegate.items().asScala.iterator
 
   override def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
