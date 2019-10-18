@@ -89,6 +89,14 @@ class HnswIndexSpec extends FunSuite {
     }
   }
 
+  test("check if item is contained in index") {
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+
+    index.contains(item1.id) should be (false)
+    index.add(item1)
+    index.contains(item1.id) should be (true)
+  }
+
   test("get items from index") {
     val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
     index.add(item1)

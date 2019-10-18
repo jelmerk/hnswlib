@@ -87,6 +87,13 @@ class HnswIndexTest {
     }
 
     @Test
+    void addAndContains() {
+        assertThat(index.contains(item1.id()), is(false));
+        index.add(item1);
+        assertThat(index.contains(item1.id()), is(true));
+    }
+
+    @Test
     void returnsItems() {
         assertThat(index.items().isEmpty(), is(true));
         index.add(item1);

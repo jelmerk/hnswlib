@@ -84,6 +84,14 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterab
   def get(id: TId): Option[TItem]
 
   /**
+    * Check if an item is contained in this index
+    *
+    * @param id unique identifier of the item
+    * @return true if an item is contained in this index, false otherwise
+    */
+  def contains(id: TId): Boolean
+
+  /**
     * Find the items closest to the passed in vector.
     *
     * @param vector the vector

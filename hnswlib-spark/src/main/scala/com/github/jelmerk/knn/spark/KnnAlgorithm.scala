@@ -2,6 +2,7 @@ package com.github.jelmerk.knn.spark
 
 import java.net.InetAddress
 
+import scala.math.abs
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -264,7 +265,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
     val indicesRdd = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
       vectorCol.as("vector")).as[IndexItem]
-      .map { item => (item.id.hashCode % getNumPartitions, item) }
+      .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
       .rdd
       .partitionBy(partitioner)
       .mapPartitions( it =>

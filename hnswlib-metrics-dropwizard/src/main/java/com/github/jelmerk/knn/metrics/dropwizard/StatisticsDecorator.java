@@ -34,6 +34,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
     private final Timer addTimer;
     private final Timer removeTimer;
     private final Timer getTimer;
+    private final Timer containsTimer;
     private final Timer findNearestTimer;
     private final Timer saveTimer;
 
@@ -81,6 +82,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         this.addTimer = metricRegistry.timer(name(clazz, indexName, "add"));
         this.removeTimer = metricRegistry.timer(name(clazz, indexName, "remove"));
         this.getTimer = metricRegistry.timer(name(clazz, indexName, "get"));
+        this.containsTimer = metricRegistry.timer(name(clazz, indexName, "contains"));
         this.findNearestTimer = metricRegistry.timer(name(clazz, indexName, "findNearest"));
         this.saveTimer = metricRegistry.timer(name(clazz, indexName,"save"));
         this.accuracyHistogram = metricRegistry.histogram(name(clazz, indexName, "accuracy"));
@@ -149,6 +151,19 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         final Timer.Context context = getTimer.time();
         try {
             return approximativeIndex.get(id);
+        } finally {
+            context.stop();
+        }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean contains(TId id) {
+        final Timer.Context context = containsTimer.time();
+        try {
+            return approximativeIndex.contains(id);
         } finally {
             context.stop();
         }

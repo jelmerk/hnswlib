@@ -25,9 +25,9 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
     import sqlCtx.implicits._
 
     val input = sc.parallelize(Seq(
-      VectorInputRow(1, Vectors.dense(0.0110f, 0.2341f)),
-      VectorInputRow(2, Vectors.dense(0.2300f, 0.3891f)),
-      VectorInputRow(3, Vectors.dense(0.4300f, 0.9891f))
+      VectorInputRow(1000000, Vectors.dense(0.0110f, 0.2341f)),
+      VectorInputRow(2000000, Vectors.dense(0.2300f, 0.3891f)),
+      VectorInputRow(3000000, Vectors.dense(0.4300f, 0.9891f))
     )).toDS
 
     val hnsw = new Hnsw()
@@ -43,9 +43,9 @@ class HnswSpec extends FunSuite with DatasetSuiteBase {
       .collect()
 
     result should have size 3
-    result should contain(VectorOutputRow(2, Seq(VectorOutputRowNeighbor(2, 0.0f), VectorOutputRowNeighbor(3, 0.0076490045f), VectorOutputRowNeighbor(1, 0.11621308f))))
-    result should contain(VectorOutputRow(3, Seq(VectorOutputRowNeighbor(3, 0.0f), VectorOutputRowNeighbor(2, 0.0076490045f), VectorOutputRowNeighbor(1, 0.06521261f))))
-    result should contain(VectorOutputRow(1, Seq(VectorOutputRowNeighbor(1, 0.0f), VectorOutputRowNeighbor(3, 0.06521261f), VectorOutputRowNeighbor(2, 0.11621308f))))
+    result should contain(VectorOutputRow(2000000, Seq(VectorOutputRowNeighbor(2000000, 0.0f), VectorOutputRowNeighbor(3000000, 0.0076490045f), VectorOutputRowNeighbor(1000000, 0.11621308f))))
+    result should contain(VectorOutputRow(3000000, Seq(VectorOutputRowNeighbor(3000000, 0.0f), VectorOutputRowNeighbor(2000000, 0.0076490045f), VectorOutputRowNeighbor(1000000, 0.06521261f))))
+    result should contain(VectorOutputRow(1000000, Seq(VectorOutputRowNeighbor(1000000, 0.0f), VectorOutputRowNeighbor(3000000, 0.06521261f), VectorOutputRowNeighbor(2000000, 0.11621308f))))
   }
 
   test("array input row") {

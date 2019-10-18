@@ -33,6 +33,8 @@ class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val
     case _ => Optional.empty()
   }
 
+  override def contains(id: TId): Boolean = delegate.contains(id)
+
   override def items(): JCollection[TItem] = delegate.iterator.toSeq.asJavaCollection
 
   override def findNearest(vector: TVector, k: Int): JList[SearchResult[TItem, TDistance]] =
