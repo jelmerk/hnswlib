@@ -3,7 +3,7 @@ package com.github.jelmerk.knn.spark.hnsw
 import com.holdenkarau.spark.testing.DatasetSuiteBase
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.scalatest.{FunSuite, OptionValues}
+import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
 case class VectorInputRow(id: Int, vector: Vector)

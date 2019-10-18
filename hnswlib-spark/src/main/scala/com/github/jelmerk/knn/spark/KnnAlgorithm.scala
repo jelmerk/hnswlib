@@ -106,21 +106,22 @@ trait KnnModelParams extends Params {
   def getK: Int = $(k)
 
   /**
-    * Param for whether or not to exclude the query row_id.
+    * Param that indicates whether to include the row identifier as a candidate neighbor
     * Default: false
     *
     * @group param
     */
   val excludeSelf = new BooleanParam(this, "excludeSelf", "whether or not to exclude the query row_id")
 
-  setDefault(excludeSelf, false)
-
   /**
-    * Number of results to return as part of the knn search.
+    * Whether to include the row identifier as a candidate neighbor.
     *
     * @group getParam
     * */
   def getExcludeSelf: Boolean = $(excludeSelf)
+
+  setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
+    distanceFunction -> "cosine", excludeSelf -> false)
 
 }
 

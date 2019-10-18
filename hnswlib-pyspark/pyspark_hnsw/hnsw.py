@@ -8,7 +8,7 @@ from pyspark import keyword_only
 class Hnsw(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine"):
+                 m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
         super(Hnsw, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.hnsw.Hnsw", self.uid)
 
@@ -23,16 +23,18 @@ class Hnsw(JavaEstimator):
         self.k = Param(self, "k", "number of neighbors to find")
         self.distanceFunction = Param(self, "distanceFunction",
                                       "distance function, one of bray-curtis, canberra, cosine, correlation, euclidean, inner-product, manhattan")
+        self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                         m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine")
+                         m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
+                         excludeSelf=false)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine"):
+                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

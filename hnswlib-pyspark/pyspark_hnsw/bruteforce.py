@@ -8,7 +8,7 @@ from pyspark import keyword_only
 class BruteForce(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 numPartitions=1, k=5, distanceFunction="cosine"):
+                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
         super(BruteForce, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.bruteforce.BruteForce", self.uid)
 
@@ -19,16 +19,17 @@ class BruteForce(JavaEstimator):
         self.k = Param(self, "k", "number of neighbors to find")
         self.distanceFunction = Param(self, "distanceFunction",
                                       "distance function, one of bray-curtis, canberra, cosine, correlation, euclidean, inner-product, manhattan")
+        self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
-                         distanceFunction="cosine")
+                         distanceFunction="cosine", excludeSelf=False)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  numPartitions=1, k=5, distanceFunction="cosine"):
+                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -38,7 +39,7 @@ class BruteForce(JavaEstimator):
 
 class BruteForceModel(JavaModel):
     """
-    Model fitted by Hnsw.
+    Model fitted by BruteForce.
     """
     def __init__(self, java_model):
         super(BruteForceModel, self).__init__(java_model)

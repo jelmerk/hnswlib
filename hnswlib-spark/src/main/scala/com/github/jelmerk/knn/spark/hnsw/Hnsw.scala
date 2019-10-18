@@ -48,9 +48,7 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   /** @group getParam */
   def getEfConstruction: Int = $(efConstruction)
 
-
-  setDefault(m -> 16, ef -> 10, efConstruction -> 200, numPartitions -> 1, k -> 5,
-    neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector", distanceFunction -> "cosine")
+  setDefault(m -> 16, ef -> 10, efConstruction -> 200)
 }
 
 /**
