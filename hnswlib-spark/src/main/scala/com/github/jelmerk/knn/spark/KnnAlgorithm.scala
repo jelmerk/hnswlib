@@ -105,6 +105,23 @@ trait KnnModelParams extends Params {
     * */
   def getK: Int = $(k)
 
+  /**
+    * Param for whether or not to exclude the query row_id.
+    * Default: false
+    *
+    * @group param
+    */
+  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether or not to exclude the query row_id")
+
+  setDefault(excludeSelf, false)
+
+  /**
+    * Number of results to return as part of the knn search.
+    *
+    * @group getParam
+    * */
+  def getExcludeSelf: Boolean = $(excludeSelf)
+
 }
 
 trait KnnAlgorithmParams extends KnnModelParams {
@@ -131,10 +148,9 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                numPartitions: Int,
-                partitioner: Partitioner,
-                indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
-
+                                                  numPartitions: Int,
+                                                  partitioner: Partitioner,
+                                                  indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._
@@ -147,6 +163,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
+
+  /** @group setParam */
+  def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
@@ -169,11 +188,17 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
           itemsIter.map { case (id, vector) =>
-            val neighbors = index.findNearest(vector, getK + 1)
-              .collect { case SearchResult(item, distance) if item.id != id => Neighbor(item.id, distance) }
-              .take(getK)
 
+            val k =
+              if (getExcludeSelf) getK
+              else getK + 1
+
+            val neighbors = index.findNearest(vector, k)
+              .collect { case SearchResult(item, distance)
+                if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
+              .take(getK)
             id -> neighbors
+
           }
         }.getOrElse(Iterator.empty)
       }
@@ -222,6 +247,9 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
   /** @group setParam */
   def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
+
+  /** @group setParam */
+  def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
 
   override def fit(dataset: Dataset[_]): TModel = {
 
