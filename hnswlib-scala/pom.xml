@@ -36,13 +36,6 @@
             <optional>true</optional>
         </dependency>
 
-        <dependency>
-            <groupId>org.scalatest</groupId>
-            <artifactId>scalatest_2.11</artifactId>
-            <version>3.0.1</version>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -154,6 +147,15 @@
                 <scala.binary.version>2.11</scala.binary.version>
             </properties>
 
+            <dependencies>
+                <dependency>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.11</artifactId>
+                    <version>3.0.1</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+
         </profile>
 
         <profile>
@@ -168,6 +170,15 @@
                 <scala.version>2.12.7</scala.version>
                 <scala.binary.version>2.12</scala.binary.version>
             </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.12</artifactId>
+                    <version>3.0.1</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
 
         </profile>
 
