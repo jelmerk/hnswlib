@@ -146,12 +146,10 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @param indices rdd that holds the indices that are used to do the search
   * @tparam TModel model type
   */
-abstract class KnnModel[TModel <: Model[TModel]](
-                                                  override val uid: String,
+abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                                                   numPartitions: Int,
                                                   partitioner: Partitioner,
-                                                  indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]
-                                                )
+                                                  indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._

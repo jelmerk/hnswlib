@@ -19,8 +19,7 @@ import org.apache.spark.rdd.RDD
 class BruteForceModel(override val uid: String,
                       numPartitions: Int,
                       partitioner: Partitioner,
-                      indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]
-                     )
+                      indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
   extends KnnModel[BruteForceModel](uid, numPartitions, partitioner, indices) {
 
 
