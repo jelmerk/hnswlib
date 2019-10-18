@@ -79,7 +79,7 @@ dataset won't fit on the driver
 
 You will need to reference this module by passing the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.20'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.21'
 
 If you want to use pyspark you will need to install the python module with
 
