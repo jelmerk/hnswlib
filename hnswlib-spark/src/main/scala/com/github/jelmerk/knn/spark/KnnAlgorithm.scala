@@ -188,19 +188,18 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .cogroup(indices, partitioner)
       .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
-          itemsIter.map { case (id, vector) =>
-
-            val k =
+          itemsIter.par.map { case (id, vector) =>
+            val fetchSize =
               if (getExcludeSelf) getK
               else getK + 1
 
-            val neighbors = index.findNearest(vector, k)
+            val neighbors = index.findNearest(vector, fetchSize)
               .collect { case SearchResult(item, distance)
                 if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
               .take(getK)
             id -> neighbors
 
-          }
+          }.iterator
         }.getOrElse(Iterator.empty)
       }
       .groupBy(_._1)
@@ -279,7 +278,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
           logInfo(s"Indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = createIndex(items.size)
-          index.addAll(items, progressUpdateInterval = 5000,  listener = (workDone, max) => logDebug(s"Indexed $workDone of $max items"))
+          index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(s"Indexed $workDone of $max items"))
 
           logInfo(s"Done indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
 
