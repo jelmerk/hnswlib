@@ -190,8 +190,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         indicesIter.headOption.map { index =>
           itemsIter.par.map { case (id, vector) =>
             val fetchSize =
-              if (getExcludeSelf) getK
-              else getK + 1
+              if (getExcludeSelf) getK + 1
+              else getK
 
             val neighbors = index.findNearest(vector, fetchSize)
               .collect { case SearchResult(item, distance)
