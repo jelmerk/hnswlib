@@ -3,7 +3,7 @@ package com.github.jelmerk.knn;
 import java.io.Serializable;
 
 /**
- * Item that can be indexed.
+ * Indexable item.
  *
  * @param <TId> The type of the vector to perform distance calculation on
  * @param <TVector> Type of the vector to perform distance calculation on
