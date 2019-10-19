@@ -19,7 +19,7 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener, Index => J
 
   */
 @SerialVersionUID(1L)
-class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: Index[TId, TVector, TItem, TDistance])
+private[scalalike] class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: Index[TId, TVector, TItem, TDistance])
   extends JIndex[TId, TVector, TItem, TDistance] {
 
   override def add(item: TItem): Boolean = delegate.add(item)

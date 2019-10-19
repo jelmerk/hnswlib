@@ -7,7 +7,7 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener}
   * @param delegate the scala progress listener to delegate to
   */
 @SerialVersionUID(1L)
-class ScalaProgressListenerAdapter(val delegate: ProgressListener) extends JProgressListener {
+private[scalalike] class ScalaProgressListenerAdapter(val delegate: ProgressListener) extends JProgressListener {
 
   override def updateProgress(workDone: Int, max: Int): Unit = delegate(workDone, max)
 }

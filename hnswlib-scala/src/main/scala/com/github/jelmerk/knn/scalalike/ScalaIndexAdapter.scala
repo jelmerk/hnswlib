@@ -16,7 +16,7 @@ import com.github.jelmerk.knn.{Index => JIndex}
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
   */
 @SerialVersionUID(1L)
-class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: JIndex[TId, TVector, TItem, TDistance])
+private[scalalike] class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: JIndex[TId, TVector, TItem, TDistance])
   extends Index[TId, TVector, TItem, TDistance] {
 
   override def add(item: TItem): Boolean = delegate.add(item)

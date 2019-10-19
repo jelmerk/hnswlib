@@ -11,7 +11,7 @@ import com.github.jelmerk.knn.{DistanceFunction => JDistanceFunction}
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
   */
 @SerialVersionUID(1L)
-class ScalaDistanceFunctionAdapter[TVector, TDistance](val scalaFunction: DistanceFunction[TVector, TDistance])
+private[scalalike] class ScalaDistanceFunctionAdapter[TVector, TDistance](val scalaFunction: DistanceFunction[TVector, TDistance])
   extends JDistanceFunction[TVector, TDistance] {
 
   override def distance(u: TVector, v: TVector): TDistance = scalaFunction(u, v)
