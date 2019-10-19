@@ -112,7 +112,6 @@
                         <arg>-target:jvm-1.8</arg>
                         <arg>-deprecation</arg>
                         <arg>-unchecked</arg>
-                        <arg>-uniqid</arg>
                         <arg>-encoding</arg>
                         <arg>UTF-8</arg>
                         <arg>-feature</arg>
