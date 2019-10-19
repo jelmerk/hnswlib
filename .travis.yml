@@ -1,0 +1,11 @@
+sudo: required
+
+dist: xenial
+
+language: java
+
+script:
+  - mvn clean package
+
+jdk:
+  - openjdk8
