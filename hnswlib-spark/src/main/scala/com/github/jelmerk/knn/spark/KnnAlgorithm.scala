@@ -20,7 +20,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
   * @param id item identifier
   * @param vector item vector
   */
-case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+private[spark] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
 /**
   * Neighbor of an item
@@ -28,10 +28,10 @@ case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Arra
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
   */
-case class Neighbor(neighbor: String, distance: Float)
+private[spark] case class Neighbor(neighbor: String, distance: Float)
 
 
-object Udfs {
+private[spark] object Udfs {
 
   /**
     * Convert a dense vector to a float array.
@@ -341,6 +341,6 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   *
   * @param numPartitions number of partitions
   */
-class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
+private[spark] class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
   override def getPartition(key: Any): Int = key.asInstanceOf[Int]
 }
