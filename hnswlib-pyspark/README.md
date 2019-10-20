@@ -8,7 +8,7 @@ Setup
 
 Pass the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.21'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.22'
 
 Then install the python module with
 
@@ -34,7 +34,7 @@ Typically you would want to set numPartitions to the number of executors you hav
 Development
 -----------
 
-You by first running the following command in the root of the project
+You can run the integration tests by first running the following command in the root of the project
 
     mvn clean install 
 
@@ -44,7 +44,7 @@ Followed by running the following commands in the hnswlib-pyspark module
     pip install -e .[test]
     py.test
 
-The easiest way to test changes to the hnswlib codebase is to produce an egg file with
+The easiest way to test changes on a real cluster is to produce an egg file with
 
     python setup.py bdist_egg
     
