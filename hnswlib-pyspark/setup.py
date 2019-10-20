@@ -11,11 +11,14 @@ if CleanCommand is not None:
 
 setup(
     name="pyspark_hnsw",
-    url="https://github.com/jelmerk/hnswlib",
+    url="https://github.com/jelmerk/hnswlib/tree/master/hnswlib-pyspark",
     version="0.21",
     zip_safe=True,
-    packages=find_packages(),
-    extras_require={'test': ['pytest', 'findspark']},
+    packages=find_packages(exclude=['tests']),
+    extras_require={
+        'dev': ['findspark', 'pytest'],
+        'test': ['findspark', 'pytest'],
+    },
     setup_requires=['setupext_janitor'],
     cmdclass=cmd_classes,
     entry_points={

@@ -27,7 +27,7 @@ class Hnsw(JavaEstimator):
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=false)
+                         excludeSelf=False)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)

@@ -20,7 +20,8 @@ Example usage
 
     from pyspark_hnsw.hnsw import Hnsw
     
-    hnsw = Hnsw(identifierCol = 'row_id', vectorCol = 'anchor', distanceFunction = 'cosine', m = 32, ef = 5, k = 5, efConstruction = 200, numPartitions = 100, excludeSelf = False)
+    hnsw = Hnsw(identifierCol='row_id', vectorCol='features', distanceFunction='cosine', m=32, ef=5, k=5,
+                efConstruction=200, numPartitions=100, excludeSelf=False)
     
     model = hnsw.fit(df)
     
@@ -32,6 +33,16 @@ Typically you would want to set numPartitions to the number of executors you hav
 
 Development
 -----------
+
+You by first running the following command in the root of the project
+
+    mvn clean install 
+
+Followed by running the following commands in the hnswlib-pyspark module
+
+    export SPARK_HOME=/path/to/spark-2.3.0-bin-hadoop2.6
+    pip install -e .[test]
+    py.test
 
 The easiest way to test changes to the hnswlib codebase is to produce an egg file with
 
