@@ -41,8 +41,8 @@ Releasing a new version to maven central is a bit cumbersome because maven does 
    
 8. release the pyspark module with
 
-   python2.7 setup.py bdist_wheel && python2.7 -m twine upload dist/*
-   python3.7 setup.py bdist_wheel && python3.7 -m twine upload dist/*
+   python2.7 setup.py clean --all bdist_wheel && python2.7 -m twine upload dist/*
+   python3.7 setup.py clean --all bdist_wheel && python3.7 -m twine upload dist/*
     
 8. update the version number to the development version version in every pom to the new development version
 
