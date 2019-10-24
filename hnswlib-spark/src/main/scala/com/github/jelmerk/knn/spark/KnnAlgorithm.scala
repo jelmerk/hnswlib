@@ -179,7 +179,11 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       case _ => col(getVectorCol)
     }
 
-    dataset.select(col(getIdentifierCol).cast(StringType), vectorCol.as(getVectorCol))
+    dataset
+      .select(
+        col(getIdentifierCol).cast(StringType),
+        vectorCol.as(getVectorCol)
+      )
       .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
       .as[(String, Array[Float], Int)]
       .rdd
@@ -263,8 +267,11 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
-    val indicesRdd = dataset.select(col(getIdentifierCol).cast(StringType).as("id"),
-      vectorCol.as("vector")).as[IndexItem]
+    val indicesRdd = dataset
+      .select(
+        col(getIdentifierCol).cast(StringType).as("id"),
+        vectorCol.as("vector")
+      ).as[IndexItem]
       .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
       .rdd
       .partitionBy(partitioner)
