@@ -22,7 +22,9 @@ class Hnsw(JavaEstimator):
         self.numPartitions = Param(self, "numPartitions", "number of partitions")
         self.k = Param(self, "k", "number of neighbors to find")
         self.distanceFunction = Param(self, "distanceFunction",
-                                      "distance function, one of bray-curtis, canberra, cosine, correlation, euclidean, inner-product, manhattan")
+                                      "distance function, one of bray-curtis, canberra, cosine, correlation, "
+                                      "euclidean, inner-product, manhattan or the fully qualified classname "
+                                      "of a distance function")
         self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",

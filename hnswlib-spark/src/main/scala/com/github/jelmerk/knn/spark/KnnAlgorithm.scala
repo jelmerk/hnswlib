@@ -2,6 +2,8 @@ package com.github.jelmerk.knn.spark
 
 import java.net.InetAddress
 
+import scala.util.Try
+
 import scala.math.abs
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
@@ -9,7 +11,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.knn.scalalike.{DistanceFunction, _}
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -80,7 +82,8 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean", "inner-product", "manhattan"
+    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean",
+    * "inner-product", "manhattan" or the fully qualified classname of a distance function
     * Default: "cosine"
     *
     * @group param
@@ -338,7 +341,11 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     case "euclidean" => floatEuclideanDistance
     case "inner-product" => floatInnerProduct
     case "manhattan" => floatManhattanDistance
-    case _ => throw new IllegalArgumentException(s"$getDistanceFunction is not a valid distance function.")
+    case value =>
+      Try(Class.forName(value).newInstance())
+        .toOption
+        .collect { case f: DistanceFunction[Array[Float] @unchecked, Float @unchecked] => f }
+        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
   }
 
 }
