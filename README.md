@@ -20,7 +20,7 @@ The following distance metrics are currently pre-packaged :
 - inner product
 - manhattan distance
 
-It comes with [apache spark](https://spark.apache.org/) integration and a [scala](https://scala-lang.org) wrapper that should feel native to scala developers 
+It comes with [spark integration](https://github.com/jelmerk/hnswlib/tree/master/hnswlib-spark), [pyspark integration](https://github.com/jelmerk/hnswlib/tree/master/hnswlib-pyspark) and a [scala wrapper](https://github.com/jelmerk/hnswlib/tree/master/hnswlib-scala)  that should feel native to scala developers 
 
 To find out more about how to use this library take a look at the [hnswlib-examples](https://github.com/jelmerk/hnswlib/tree/master/hnswlib-examples) module or browse the documentation
 in the readme files of the submodules
