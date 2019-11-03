@@ -342,7 +342,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     case "inner-product" => floatInnerProduct
     case "manhattan" => floatManhattanDistance
     case value =>
-      Try(Class.forName(value).newInstance())
+      Try(Class.forName(value).getDeclaredConstructor().newInstance())
         .toOption
         .collect { case f: DistanceFunction[Array[Float] @unchecked, Float @unchecked] => f }
         .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
