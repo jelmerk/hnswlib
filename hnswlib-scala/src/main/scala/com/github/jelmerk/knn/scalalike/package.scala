@@ -7,7 +7,7 @@ package object scalalike {
   /**
     * Item that can be indexed
     *
-    * @tparam TId The type of the vector to perform distance calculation on
+    * @tparam TId Type of the vector to perform distance calculation on
     * @tparam TVector Type of the vector to perform distance calculation on
     */
   type Item[TId, TVector] = com.github.jelmerk.knn.Item[TId, TVector]

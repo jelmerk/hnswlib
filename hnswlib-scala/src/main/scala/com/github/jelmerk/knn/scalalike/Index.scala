@@ -8,10 +8,10 @@ import com.github.jelmerk.knn.{Index => JIndex}
 /**
   * K-nearest neighbors search index.
   *
-  * @tparam TId type of the external identifier of an item
-  * @tparam TVector The type of the vector to perform distance calculation on
+  * @tparam TId Type of the external identifier of an item
+  * @tparam TVector Type of the vector to perform distance calculation on
   * @tparam TItem Type of items stored in the index
-  * @tparam TDistance The type of distance between items (expect any numeric type: float, double, int, ..).
+  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..).
   *
   * @see See [[https://en.wikipedia.org/wiki/K-nearest_neighbors_algorithm]] for more information.
   */
