@@ -5,6 +5,8 @@ import java.net.InetAddress
 import scala.util.Try
 
 import scala.math.abs
+
+import com.timgroup.iterata.ParIterator.Implicits._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -195,7 +197,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .cogroup(indices, partitioner)
       .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
-          itemsIter.par.map { case (id, vector) =>
+          itemsIter.iterator.par(chunkSize = 1000).map { case (id, vector) =>
             val fetchSize =
               if (getExcludeSelf) getK + 1
               else getK
@@ -205,8 +207,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                 if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
               .take(getK)
             id -> neighbors
-
-          }.iterator
+          }
         }.getOrElse(Iterator.empty)
       }
       .groupBy(_._1)
