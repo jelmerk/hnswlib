@@ -49,7 +49,7 @@ Development
 
 The easiest way to test changes to the hnswlib codebase is to produce an assembly file with
 
-    mvn clean assembly:single
+    mvn clean assembly:assembly
     
 And then reference it from spark with
 
