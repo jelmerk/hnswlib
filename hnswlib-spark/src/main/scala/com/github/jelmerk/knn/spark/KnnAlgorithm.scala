@@ -197,7 +197,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .cogroup(indices, partitioner)
       .flatMap { case (_, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
-          itemsIter.iterator.par(chunkSize = 1000).map { case (id, vector) =>
+          itemsIter.iterator.par(chunkSize = 20480).map { case (id, vector) =>
             val fetchSize =
               if (getExcludeSelf) getK + 1
               else getK
