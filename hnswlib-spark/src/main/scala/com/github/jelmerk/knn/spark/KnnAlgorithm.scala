@@ -195,9 +195,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .map { case (id, vector, partition) => (partition, (id, vector)) }
       .partitionBy(partitioner)
       .cogroup(indices, partitioner)
-      .flatMap { case (_, (itemsIter, indicesIter)) =>
+      .flatMap { case (partition, (itemsIter, indicesIter)) =>
         indicesIter.headOption.map { index =>
-          itemsIter.iterator.par(chunkSize = 20480).map { case (id, vector) =>
+          new LoggingIterator(partition, itemsIter.iterator.par(chunkSize = 20480).map { case (id, vector) =>
             val fetchSize =
               if (getExcludeSelf) getK + 1
               else getK
@@ -207,7 +207,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                 if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
               .take(getK)
             id -> neighbors
-          }
+          })
         }.getOrElse(Iterator.empty)
       }
       .groupBy(_._1)
@@ -232,6 +232,28 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       StructField(getIdentifierCol, identifierType),
       StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
     ))
+  }
+
+  private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
+
+    private[this] var first = false
+
+    override def hasNext: Boolean = delegate.hasNext
+
+    override def next(): T = {
+      if (first) {
+        logInfo(f"partition $partition%04d : started querying on host ${InetAddress.getLocalHost.getHostName}")
+        first  = false
+      }
+
+      val value = delegate.next()
+
+      if (!hasNext) {
+        logInfo(f"partition $partition%04d : finished querying on host ${InetAddress.getLocalHost.getHostName}")
+      }
+
+      value
+    }
   }
 }
 
@@ -286,12 +308,12 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
           val partition = pairs.head._1
           val items = pairs.map(_._2)
 
-          logInfo(s"Indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(f"partition $partition%04d : indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = createIndex(items.size)
           index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(s"Indexed $workDone of $max items"))
 
-          logInfo(s"Done indexing ${items.size} items for partition $partition on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(f"partition $partition%04d : done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           Iterator.single(partition -> index)
         } else Iterator.empty
