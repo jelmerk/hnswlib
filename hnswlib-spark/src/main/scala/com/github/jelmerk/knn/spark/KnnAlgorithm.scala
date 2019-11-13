@@ -148,15 +148,11 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * Base class for nearest neighbor search models.
   *
   * @param uid identifier
-  * @param numPartitions how many partitions
-  * @param partitioner the partitioner used to parition the data
   * @param indices rdd that holds the indices that are used to do the search
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                                                  numPartitions: Int,
-                                                  partitioner: Partitioner,
-                                                  indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
+                                                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._
@@ -176,6 +172,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
 
+    val partitioner = indices.partitioner.get
+    val numPartitions = indices.getNumPartitions
+
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
@@ -184,7 +183,16 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       case _ => col(getVectorCol)
     }
 
-    dataset
+    // Make sure the indices rdd and query rdd have the same schema
+
+    val queryIndices = indices.mapPartitions(it =>
+      it.map { case (partition, index) =>
+        (partition, (index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
+      }, preservesPartitioning = true)
+
+    // Duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
+
+    val queryRdd = dataset
       .select(
         col(getIdentifierCol).cast(StringType),
         vectorCol.as(getVectorCol)
@@ -192,37 +200,54 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
       .as[(String, Array[Float], Int)]
       .rdd
-      .map { case (id, vector, partition) => (partition, (id, vector)) }
+      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
       .partitionBy(partitioner)
-      .cogroup(indices, partitioner)
-      .flatMap { case (partition, (itemsIter, indicesIter)) =>
-        indicesIter.headOption.map { index =>
-          new LoggingIterator(partition, itemsIter.iterator.par(chunkSize = 20480).map { case (id, vector) =>
-            val fetchSize =
-              if (getExcludeSelf) getK + 1
-              else getK
 
-            val neighbors = index.findNearest(vector, fetchSize)
-              .collect { case SearchResult(item, distance)
-                if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
-              .take(getK)
-            id -> neighbors
-          })
-        }.getOrElse(Iterator.empty)
-      }
-      .groupBy(_._1)
-      .map { case (id, iterator) =>
-        val closestNeighbors = iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)
-        id -> closestNeighbors
-      }
-      .toDF(getIdentifierCol, getNeighborsCol)
-      .select(
-        col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
-        col(getNeighborsCol).cast(ArrayType(StructType(Seq(
-          StructField("neighbor", identifierType),
-          StructField("distance", FloatType)
-        )))).as(getNeighborsCol)
-      )
+    // combine the indices rdd and query rdds
+
+    val unioned = queryIndices
+      .union(queryRdd)
+
+    // map over all the rows in the partition , the first row in the partition should contain the index shard
+
+    unioned.mapPartitions { it =>
+      if (it.hasNext) {
+        val (partition, (index, _, _)) = it.next()
+
+        if (index == null) {
+          logInfo(f"partition $partition%04d: No index on partition, not querying anything.")
+          Iterator.empty
+        } else {
+          new LoggingIterator(partition,
+            it.par(chunkSize = 20480).map { case (_, (_, id, vector)) =>
+
+              val fetchSize =
+                if (getExcludeSelf) getK + 1
+                else getK
+
+              val neighbors = index.findNearest(vector, fetchSize)
+                .collect { case SearchResult(item, distance)
+                  if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
+                .take(getK)
+              id -> neighbors
+            }
+          )
+        }
+      } else Iterator.empty
+    }
+    .groupBy(_._1)
+    .map { case (id, iterator) =>
+      val closestNeighbors = iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)
+      id -> closestNeighbors
+    }
+    .toDF(getIdentifierCol, getNeighborsCol)
+    .select(
+      col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
+      col(getNeighborsCol).cast(ArrayType(StructType(Seq(
+        StructField("neighbor", identifierType),
+        StructField("distance", FloatType)
+      )))).as(getNeighborsCol)
+    )
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -236,20 +261,23 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
   private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
 
-    private[this] var first = false
+    private[this] var count = 0
+    private[this] var first = true
 
     override def hasNext: Boolean = delegate.hasNext
 
     override def next(): T = {
       if (first) {
-        logInfo(f"partition $partition%04d : started querying on host ${InetAddress.getLocalHost.getHostName}")
+        logInfo(f"partition $partition%04d: started querying on host ${InetAddress.getLocalHost.getHostName}")
         first  = false
       }
 
       val value = delegate.next()
 
+      count += 1
+
       if (!hasNext) {
-        logInfo(f"partition $partition%04d : finished querying on host ${InetAddress.getLocalHost.getHostName}")
+        logInfo(f"partition $partition%04d: finished querying $count items on host ${InetAddress.getLocalHost.getHostName}")
       }
 
       value
@@ -301,25 +329,22 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
       .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
       .rdd
       .partitionBy(partitioner)
-      .mapPartitions( it =>
+      .mapPartitionsWithIndex((partition, it) =>
         if (it.hasNext) {
+          val items = it.map{ case (_, indexItem) => indexItem}.toList
 
-          val pairs = it.toList
-          val partition = pairs.head._1
-          val items = pairs.map(_._2)
-
-          logInfo(f"partition $partition%04d : indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = createIndex(items.size)
-          index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(s"Indexed $workDone of $max items"))
+          index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partition%04d: Indexed $workDone of $max items"))
 
-          logInfo(f"partition $partition%04d : done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           Iterator.single(partition -> index)
         } else Iterator.empty
         , preservesPartitioning = true)
 
-    val model = createModel(uid, getNumPartitions, partitioner, indicesRdd)
+    val model = createModel(uid, indicesRdd)
     copyValues(model)
   }
 
@@ -346,14 +371,10 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * Creates the model to be returned from fitting the data.
     *
     * @param uid identifier
-    * @param numPartitions how many partitions
-    * @param partitioner the partitioner used to partition the data
     * @param indices rdd that holds the indices that are used to do the search
     * @return model
     */
   protected def createModel(uid: String,
-                            numPartitions: Int,
-                            partitioner: Partitioner,
                             indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
