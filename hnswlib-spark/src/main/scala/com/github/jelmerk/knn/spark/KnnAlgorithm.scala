@@ -6,7 +6,6 @@ import scala.util.Try
 
 import scala.math.abs
 
-import com.timgroup.iterata.ParIterator.Implicits._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -218,20 +217,22 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
           Iterator.empty
         } else {
           new LoggingIterator(partition,
-            it.par(chunkSize = 20480).map { case (_, (_, id, vector)) =>
+            it.grouped(20480).flatMap { grouped =>
+              grouped.par.map { case (_, (_, id, vector)) =>
 
-              val fetchSize =
-                if (getExcludeSelf) getK + 1
-                else getK
+                val fetchSize =
+                  if (getExcludeSelf) getK + 1
+                  else getK
 
-              val neighbors = index.findNearest(vector, fetchSize)
-                .collect { case SearchResult(item, distance)
-                  if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
+                val neighbors = index.findNearest(vector, fetchSize)
+                  .collect { case SearchResult(item, distance)
+                    if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
 
-              val queue = new BoundedPriorityQueue[Neighbor](getK)
-              queue ++= neighbors
+                val queue = new BoundedPriorityQueue[Neighbor](getK)
+                queue ++= neighbors
 
-              id -> queue
+                id -> queue
+              }
             }
           )
         }
