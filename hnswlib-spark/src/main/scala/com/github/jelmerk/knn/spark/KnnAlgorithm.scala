@@ -32,7 +32,9 @@ private[spark] case class IndexItem(id: String, vector: Array[Float]) extends It
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
   */
-private[spark] case class Neighbor(neighbor: String, distance: Float)
+private[spark] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
+  override def compareTo(other: Neighbor): Int = distance.compareTo(other.distance)
+}
 
 
 private[spark] object Udfs {
@@ -172,9 +174,6 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
 
-    val partitioner = indices.partitioner.get
-    val numPartitions = indices.getNumPartitions
-
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
@@ -197,13 +196,13 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         col(getIdentifierCol).cast(StringType),
         vectorCol.as(getVectorCol)
       )
-      .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
+      .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
       .as[(String, Array[Float], Int)]
       .rdd
       .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
-      .partitionBy(partitioner)
+      .partitionBy(indices.partitioner.get)
 
-    // combine the indices rdd and query rdds
+    // combine the indices rdd and query rdds into a single rdd
 
     val unioned = queryIndices
       .union(queryRdd)
@@ -228,18 +227,21 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
               val neighbors = index.findNearest(vector, fetchSize)
                 .collect { case SearchResult(item, distance)
                   if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
-                .take(getK)
-              id -> neighbors
+
+              val queue = new BoundedPriorityQueue[Neighbor](getK)
+              queue ++= neighbors
+
+              id -> queue
             }
           )
         }
       } else Iterator.empty
     }
-    .groupBy(_._1)
-    .map { case (id, iterator) =>
-      val closestNeighbors = iterator.flatMap(_._2).toList.sortBy(_.distance).take(getK)
-      id -> closestNeighbors
+    .reduceByKey { case (neighborsA, neighborsB) =>
+      neighborsA ++= neighborsB
+      neighborsA
     }
+    .mapValues(_.toArray.sorted)
     .toDF(getIdentifierCol, getNeighborsCol)
     .select(
       col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
