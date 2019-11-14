@@ -5,6 +5,8 @@ package com.github.jelmerk.knn;
  */
 public abstract class IndexException extends RuntimeException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Constructs an IndexException
      */

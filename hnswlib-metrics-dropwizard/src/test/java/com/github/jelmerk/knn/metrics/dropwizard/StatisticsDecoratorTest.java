@@ -82,7 +82,6 @@ class StatisticsDecoratorTest {
 
     @Test
     void timesContains() {
-        Optional<TestItem> getResult = Optional.of(this.item1);
         given(approximativeIndex.contains(this.item1.id())).willReturn(true);
         assertThat(decorator.contains(this.item1.id()), is(true));
         assertThat(metricRegistry.timer(name(getClass(), indexName, "contains")).getCount(), is(1L));

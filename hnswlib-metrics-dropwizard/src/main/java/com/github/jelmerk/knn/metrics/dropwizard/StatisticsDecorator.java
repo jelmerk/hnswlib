@@ -31,6 +31,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         TGroundTruthIndex extends Index<TId, TVector, TItem, TDistance>>
         implements Index<TId, TVector, TItem, TDistance>, Serializable {
 
+    private static final long serialVersionUID = 1L;
+
     private final Timer addTimer;
     private final Timer removeTimer;
     private final Timer getTimer;
@@ -260,9 +262,6 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
             return queue.offer(requestAndResults); // won't block if we can't keep up but will return false
         }
 
-        void shutdown() {
-            running = false;
-        }
     }
 
     private class RequestArgumentsAndResults {

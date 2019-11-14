@@ -7,6 +7,8 @@ import com.github.jelmerk.knn.IndexException;
  */
 public class SizeLimitExceededException extends IndexException {
 
+    private static final long serialVersionUID = 1L;
+
     /**
      * Constructs a SizeLimitExceededException with the specified detail message.
      *

@@ -4,6 +4,8 @@ import java.util.Arrays;
 
 public class TestItem implements Item<String, float[]> {
 
+    private static final long serialVersionUID = 1L;
+
     private final String id;
     private final float[] vector;
     private final long version;

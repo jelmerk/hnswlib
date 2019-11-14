@@ -1024,6 +1024,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     class ExactView implements Index<TId, TVector, TItem, TDistance> {
+
+        private static final long serialVersionUID = 1L;
+
         @Override
         public int size() {
             return HnswIndex.this.size();

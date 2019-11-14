@@ -4,6 +4,8 @@ import java.io.Serializable;
 
 public class SynchronizedBitSet implements BitSet, Serializable  {
 
+    private static final long serialVersionUID = 1L;
+
     private final BitSet delegate;
 
     /**
