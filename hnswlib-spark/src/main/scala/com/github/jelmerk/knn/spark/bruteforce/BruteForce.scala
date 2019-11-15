@@ -14,7 +14,7 @@ import org.apache.spark.rdd.RDD
   * @param indices rdd that holds the indices that are used to do the search
   */
 class BruteForceModel(override val uid: String,
-                      indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
+                      indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends KnnModel[BruteForceModel](uid, indices) {
 
 
@@ -39,7 +39,7 @@ class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel]
     BruteForceIndex[String, Array[Float], IndexItem, Float](distanceFunctionByName(getDistanceFunction))
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): BruteForceModel =
+                           indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
     new BruteForceModel(uid, indices)
 
 }

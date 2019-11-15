@@ -153,7 +153,7 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                                                 indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
+                                                 indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.knn.spark.Udfs._
@@ -184,13 +184,6 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       case _ => col(getVectorCol)
     }
 
-    // make sure the indices rdd and query rdd have the same schema
-
-    val queryIndices = indices.mapPartitions(it =>
-      it.map { case (partition, index) =>
-        (partition, (index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
-      }, preservesPartitioning = true)
-
     // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
     val queryRdd = dataset
@@ -206,7 +199,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
 
-    val unioned = queryIndices
+    val unioned = indices
       .union(queryRdd)
 
     // map over all the rows in the partition, hold on on to the index stored in the first row and
@@ -366,7 +359,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          Iterator.single(partition -> index)
+          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
         } else Iterator.empty
         , preservesPartitioning = true)
 
@@ -401,7 +394,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @return model
     */
   protected def createModel(uid: String,
-                            indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): TModel
+                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "bray-curtis" => floatBrayCurtisDistance

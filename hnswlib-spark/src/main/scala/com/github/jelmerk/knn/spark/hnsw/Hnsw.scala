@@ -57,9 +57,8 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class HnswModel(override val uid: String,
-                indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])])
+                indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends KnnModel[HnswModel](uid, indices) {
-
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
@@ -96,7 +95,7 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with H
     )
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, Index[String, Array[Float], IndexItem, Float])]): HnswModel =
+                           indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
     new HnswModel(uid, indices)
 
 }
