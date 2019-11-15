@@ -12,7 +12,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import com.github.jelmerk.knn.scalalike.{DistanceFunction, _}
+import com.github.jelmerk.knn.scalalike._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -175,20 +175,23 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
+    // select the item vector from the query dataframe, transform vectors or double arrays into float arrays
+    // for performance reasons
+
     val vectorCol = dataset.schema(getVectorCol).dataType match {
       case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
       case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
       case _ => col(getVectorCol)
     }
 
-    // Make sure the indices rdd and query rdd have the same schema
+    // make sure the indices rdd and query rdd have the same schema
 
     val queryIndices = indices.mapPartitions(it =>
       it.map { case (partition, index) =>
         (partition, (index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
       }, preservesPartitioning = true)
 
-    // Duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
+    // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
     val queryRdd = dataset
       .select(
@@ -201,14 +204,15 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
       .partitionBy(indices.partitioner.get)
 
-    // combine the indices rdd and query rdds into a single rdd
+    // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
 
     val unioned = queryIndices
       .union(queryRdd)
 
-    // map over all the rows in the partition , the first row in the partition should contain the index shard
+    // map over all the rows in the partition, hold on on to the index stored in the first row and
+    // use it to find the nearest neighbors of the remaining rows
 
-    unioned.mapPartitions { it =>
+    val neighborsOnAllShards = unioned.mapPartitions { it =>
       if (it.hasNext) {
         val (partition, (index, _, _)) = it.next()
 
@@ -218,6 +222,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         } else {
           new LoggingIterator(partition,
             it.grouped(20480).flatMap { grouped =>
+
+              // use scala's parallel collections to speed up querying
+
               grouped.par.map { case (_, (_, id, vector)) =>
 
                 val fetchSize =
@@ -238,19 +245,27 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         }
       } else Iterator.empty
     }
-    .reduceByKey { case (neighborsA, neighborsB) =>
-      neighborsA ++= neighborsB
-      neighborsA
-    }
-    .mapValues(_.toArray.sorted)
-    .toDF(getIdentifierCol, getNeighborsCol)
-    .select(
-      col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
-      col(getNeighborsCol).cast(ArrayType(StructType(Seq(
-        StructField("neighbor", identifierType),
-        StructField("distance", FloatType)
-      )))).as(getNeighborsCol)
-    )
+
+    // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
+
+    val topNeighbors = neighborsOnAllShards
+      .reduceByKey { case (neighborsA, neighborsB) =>
+        neighborsA ++= neighborsB
+        neighborsA
+      }
+      .mapValues(_.toArray.sorted)
+
+    // transform the rdd into our output dataframe
+
+    topNeighbors
+      .toDF(getIdentifierCol, getNeighborsCol)
+      .select(
+        col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
+        col(getNeighborsCol).cast(ArrayType(StructType(Seq(
+          StructField("neighbor", identifierType),
+          StructField("distance", FloatType)
+        )))).as(getNeighborsCol)
+      )
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -324,7 +339,10 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
-    val indicesRdd = dataset
+    // read the id and vector from the input dataset and and repartition them over numPartitions amount of partitions.
+    // Transform vectors or double arrays into float arrays for performance reasons.
+
+    val partitionedIndexItems = dataset
       .select(
         col(getIdentifierCol).cast(StringType).as("id"),
         vectorCol.as("vector")
@@ -332,6 +350,11 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
       .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
       .rdd
       .partitionBy(partitioner)
+
+    // On each partition collect all the items into memory and construct the HNSW indices.
+    // The result is a rdd that has a single row per partition containing the index
+
+    val indicesRdd = partitionedIndexItems
       .mapPartitionsWithIndex((partition, it) =>
         if (it.hasNext) {
           val items = it.map{ case (_, indexItem) => indexItem}.toList
