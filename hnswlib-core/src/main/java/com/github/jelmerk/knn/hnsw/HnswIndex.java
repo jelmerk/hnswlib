@@ -26,7 +26,7 @@ import java.util.concurrent.locks.*;
  * @param <TId>       Type of the external identifier of an item
  * @param <TVector>   Type of the vector to perform distance calculation on
  * @param <TItem>     Type of items stored in the index
- * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+ * @param <TDistance> Type of distance between items (expect any numeric type: Float, Double, Int, ..)
  * @see <a href="https://arxiv.org/abs/1603.09320">
  * Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a>
  */
