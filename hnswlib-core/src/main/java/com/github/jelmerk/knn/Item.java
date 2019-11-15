@@ -5,7 +5,7 @@ import java.io.Serializable;
 /**
  * Indexable item.
  *
- * @param <TId> Type of the vector to perform distance calculation on
+ * @param <TId> Type of the external identifier of an item
  * @param <TVector> Type of the vector to perform distance calculation on
  */
 public interface Item<TId, TVector> extends Serializable {
