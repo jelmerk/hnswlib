@@ -33,7 +33,7 @@ public class Point implements Item<Integer, double[]> {
                 ", vector=" + Arrays.toString(vector) +
                 '}';
     }
-    String printPoint() {
+    private String printPoint() {
         return "("+vector[0]+","+vector[1]+")";
 
     }
