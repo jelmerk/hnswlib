@@ -32,7 +32,7 @@ private[spark] case class IndexItem(id: String, vector: Array[Float]) extends It
   * @param distance distance to the item
   */
 private[spark] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
-  override def compareTo(other: Neighbor): Int = distance.compareTo(other.distance)
+  override def compareTo(other: Neighbor): Int = other.distance.compareTo(distance)
 }
 
 
@@ -246,7 +246,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         neighborsA ++= neighborsB
         neighborsA
       }
-      .mapValues(_.toArray.sorted)
+      .mapValues(_.toArray.sorted(Ordering[Neighbor].reverse))
 
     // transform the rdd into our output dataframe
 
