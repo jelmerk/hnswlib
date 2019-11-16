@@ -13,7 +13,7 @@ import java.util.Random;
 /**
  * Example application that generates random sample data, inserts them into an hnsw index and makes
  * nearest neighbor query for any random number picked from graph
- * @link https://github.com/nmslib/hnswlib/blob/master/README.md
+ * @see <a href="https://github.com/nmslib/hnswlib/blob/master/README.md">
  * Note: This is not standalone example it requires PointSet class to run.
  */
 public class RandomNumericData {
