@@ -17,7 +17,7 @@ import java.util.Random;
  * Note: This is not standalone example it requires PointSet class to run.
  */
 public class RandomNumericData {
-    private static Point random_create_TC(Random rng) {
+    private static Point randomCreateTc(Random rng) {
         int id = rng.nextInt() & Integer.MAX_VALUE;  // Only positive integer ID's of random points
         double x = rng.nextDouble();
         double y = rng.nextDouble();
@@ -31,7 +31,7 @@ public class RandomNumericData {
         ArrayList<Point> random_points = new ArrayList<Point>();
         int size = 10;  // Size of Random Points Dataset
         for (int i = 0; i < size; i++) {
-            Point point = random_create_TC(rng);
+            Point point = randomCreateTc(rng);
             random_points.add(point);
         }
         System.out.println("Constructing index of Random Points. . .");
@@ -76,7 +76,7 @@ public class RandomNumericData {
 
         System.out.println("Printing All points...");
         for (Point pt : random_points) {
-            System.out.println("("+pt.vector()[0]+","+pt.vector()[1]+")");;
+            System.out.println("("+pt.vector()[0]+","+pt.vector()[1]+")");
         }
 
         /*
