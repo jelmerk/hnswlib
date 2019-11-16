@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark.hnsw
+package com.github.jelmerk.spark.knn.hnsw
 
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.SparkConf

@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark
+package com.github.jelmerk.spark.knn
 
 import java.util.{PriorityQueue => JPriorityQueue}
 

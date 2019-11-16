@@ -25,7 +25,7 @@ Pass the following argument to spark
 Example usage
 -------------
 
-    import com.github.jelmerk.knn.spark.hnsw.Hnsw
+    import com.github.jelmerk.spark.knn.hnsw.Hnsw
     
     val hnsw = new Hnsw()
           .setIdentityCol("row_id")

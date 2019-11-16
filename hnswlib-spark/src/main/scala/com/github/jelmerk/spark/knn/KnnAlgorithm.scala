@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark
+package com.github.jelmerk.spark.knn
 
 import java.net.InetAddress
 
@@ -156,7 +156,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                                                  indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends Model[TModel] with KnnModelParams {
 
-  import com.github.jelmerk.knn.spark.Udfs._
+  import com.github.jelmerk.spark.knn.Udfs._
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
