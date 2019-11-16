@@ -28,7 +28,7 @@ public class Point implements Item<Integer, double[]> {
 
     @Override
     public String toString() {
-        return "TestCase{" +
+        return "Point{" +
                 "id='" + id + '\'' +
                 ", vector=" + Arrays.toString(vector) +
                 '}';
