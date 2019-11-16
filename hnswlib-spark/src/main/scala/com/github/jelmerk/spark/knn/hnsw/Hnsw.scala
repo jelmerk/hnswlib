@@ -5,6 +5,7 @@ import org.apache.spark.ml.util.Identifiable
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
 
 
@@ -57,7 +58,7 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class HnswModel(override val uid: String,
-                indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
+                indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))])
   extends KnnModel[HnswModel](uid, indices) {
 
   override def copy(extra: ParamMap): HnswModel = {
@@ -85,9 +86,9 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with H
   /** @group setParam */
   def setEfConstruction(value: Int): this.type = set(efConstruction, value)
 
-  override def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float] =
-    HnswIndex[String, Array[Float], IndexItem, Float](
-      distanceFunction = distanceFunctionByName(getDistanceFunction),
+  override def createIndex(maxItemCount: Int): Index[String, Vector, IndexItem, Double] =
+    HnswIndex[String, Vector, IndexItem, Double](
+      distanceFunction = DistanceFunctions.innerProduct,
       maxItemCount = maxItemCount,
       m = getM,
       ef = getEf,
@@ -95,7 +96,7 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with H
     )
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
+                           indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))]): HnswModel =
     new HnswModel(uid, indices)
 
 }

@@ -2,8 +2,6 @@ package com.github.jelmerk.spark.knn
 
 import java.net.InetAddress
 
-import scala.util.Try
-
 import scala.math.abs
 
 import org.apache.spark.ml.{Estimator, Model}
@@ -15,7 +13,6 @@ import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.expressions.UserDefinedFunction
 
 /**
   * Item in an nearest neighbor search index
@@ -23,7 +20,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
   * @param id item identifier
   * @param vector item vector
   */
-private[spark] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+private[spark] case class IndexItem(id: String, vector: Vector) extends Item[String, Vector]
 
 /**
   * Neighbor of an item
@@ -31,22 +28,8 @@ private[spark] case class IndexItem(id: String, vector: Array[Float]) extends It
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
   */
-private[spark] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
-  override def compareTo(other: Neighbor): Int = distance.compareTo(other.distance)
-}
-
-
-private[spark] object Udfs {
-
-  /**
-    * Convert a dense vector to a float array.
-    */
-  val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
-
-  /**
-    * Convert a double array to a float array
-    */
-  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
+private[spark] case class Neighbor(neighbor: String, distance: Double) extends Comparable[Neighbor] {
+  override def compareTo(other: Neighbor): Int = other.distance.compareTo(distance)
 }
 
 trait KnnModelParams extends Params {
@@ -85,18 +68,6 @@ trait KnnModelParams extends Params {
   def getNeighborsCol: String = $(neighborsCol)
 
   /**
-    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean",
-    * "inner-product", "manhattan" or the fully qualified classname of a distance function
-    * Default: "cosine"
-    *
-    * @group param
-    */
-  val distanceFunction = new Param[String](this, "distanceFunction", "column names for returned neighbors")
-
-  /** @group getParam */
-  def getDistanceFunction: String = $(distanceFunction)
-
-  /**
     * Param for number of neighbors to find (> 0).
     * Default: 5
     *
@@ -127,7 +98,7 @@ trait KnnModelParams extends Params {
   def getExcludeSelf: Boolean = $(excludeSelf)
 
   setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false)
+    excludeSelf -> false)
 
 }
 
@@ -153,10 +124,8 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                                                 indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
+                                                 indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))])
   extends Model[TModel] with KnnModelParams {
-
-  import com.github.jelmerk.spark.knn.Udfs._
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
@@ -175,26 +144,17 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
-    // select the item vector from the query dataframe, transform vectors or double arrays into float arrays
-    // for performance reasons
-
-    val vectorCol = dataset.schema(getVectorCol).dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
-      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
-      case _ => col(getVectorCol)
-    }
-
     // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
     val queryRdd = dataset
       .select(
         col(getIdentifierCol).cast(StringType),
-        vectorCol.as(getVectorCol)
+        col(getVectorCol)
       )
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
-      .as[(String, Array[Float], Int)]
+      .as[(String, Vector, Int)]
       .rdd
-      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
+      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Vector, IndexItem, Double]], id, vector)) }
       .partitionBy(indices.partitioner.get)
 
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
@@ -246,11 +206,11 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         neighborsA ++= neighborsB
         neighborsA
       }
-      .mapValues(_.toArray.sorted)
+      .mapValues(_.toArray.sorted(Ordering[Neighbor].reverse))
 
     // transform the rdd into our output dataframe
 
-    topNeighbors
+    val transformed = topNeighbors
       .toDF(getIdentifierCol, getNeighborsCol)
       .select(
         col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
@@ -259,6 +219,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
           StructField("distance", FloatType)
         )))).as(getNeighborsCol)
       )
+
+    dataset.join(transformed, Seq(getIdentifierCol))
+
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -298,8 +261,6 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
 abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) extends Estimator[TModel] with KnnAlgorithmParams {
 
-  import Udfs._
-
   def setIdentityCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
@@ -315,20 +276,11 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   def setNumPartitions(value: Int): this.type = set(numPartitions, value)
 
   /** @group setParam */
-  def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
-
-  /** @group setParam */
   def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
 
   override def fit(dataset: Dataset[_]): TModel = {
 
     import dataset.sparkSession.implicits._
-
-    val vectorCol = dataset.schema(getVectorCol).dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol))
-      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
-      case _ => col(getVectorCol)
-    }
 
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
@@ -338,7 +290,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     val partitionedIndexItems = dataset
       .select(
         col(getIdentifierCol).cast(StringType).as("id"),
-        vectorCol.as("vector")
+        col(getVectorCol).as("vector")
       ).as[IndexItem]
       .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
       .rdd
@@ -359,7 +311,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
+          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[Vector]))
         } else Iterator.empty
         , preservesPartitioning = true)
 
@@ -384,7 +336,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @param maxItemCount maximum number of items the index can hold
     * @return create an index
     */
-  protected def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float]
+  protected def createIndex(maxItemCount: Int): Index[String, Vector, IndexItem, Double]
 
   /**
     * Creates the model to be returned from fitting the data.
@@ -394,22 +346,8 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @return model
     */
   protected def createModel(uid: String,
-                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
+                            indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))]): TModel
 
-  protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
-    case "bray-curtis" => floatBrayCurtisDistance
-    case "canberra" => floatCanberraDistance
-    case "correlation" => floatCorrelationDistance
-    case "cosine" => floatCosineDistance
-    case "euclidean" => floatEuclideanDistance
-    case "inner-product" => floatInnerProduct
-    case "manhattan" => floatManhattanDistance
-    case value =>
-      Try(Class.forName(value).getDeclaredConstructor().newInstance())
-        .toOption
-        .collect { case f: DistanceFunction[Array[Float] @unchecked, Float @unchecked] => f }
-        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
-  }
 
 }
 

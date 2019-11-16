@@ -5,6 +5,7 @@ import org.apache.spark.ml.util.Identifiable
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
 
 /**
@@ -14,7 +15,7 @@ import org.apache.spark.rdd.RDD
   * @param indices rdd that holds the indices that are used to do the search
   */
 class BruteForceModel(override val uid: String,
-                      indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
+                      indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))])
   extends KnnModel[BruteForceModel](uid, indices) {
 
 
@@ -35,11 +36,11 @@ class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel]
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
-  override def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float] =
-    BruteForceIndex[String, Array[Float], IndexItem, Float](distanceFunctionByName(getDistanceFunction))
+  override def createIndex(maxItemCount: Int): Index[String, Vector, IndexItem, Double] =
+    BruteForceIndex[String, Vector, IndexItem, Double](DistanceFunctions.innerProduct)
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+                           indices: RDD[(Int, (Index[String, Vector, IndexItem, Double], String, Vector))]): BruteForceModel =
     new BruteForceModel(uid, indices)
 
 }
