@@ -41,7 +41,7 @@ class Normalize(override val uid: String)
 
   private def magnitudeSparse(vector: SparseVector): Double = {
     var magnitude = 0.0
-    for (aDouble <- vector.indices.map(vector.apply)) {
+    for (aDouble <- vector.values) {
       magnitude += aDouble * aDouble
     }
     Math.sqrt(magnitude)
