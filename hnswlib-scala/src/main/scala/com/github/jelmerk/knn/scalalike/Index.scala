@@ -111,21 +111,21 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterab
   def findNeighbors(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]]
 
   /**
-    * Saves the index to an OutputStream.
+    * Saves the index to an OutputStream. Saving is not thread safe and you should not modify the index while saving.
     *
     * @param out the output stream to write the index to
     */
   def save(out: OutputStream): Unit
 
   /**
-    * Saves the index to a file.
+    * Saves the index to a file. Saving is not thread safe and you should not modify the index while saving.
     *
     * @param file file to write the index to
     */
   def save(file: File): Unit
 
   /**
-    * Saves the index to a path.
+    * Saves the index to a path. Saving is not thread safe and you should not modify the index while saving.
     *
     * @param path path to write the index to
     */
