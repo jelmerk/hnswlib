@@ -24,10 +24,10 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
     val sqlCtx = sqlContext
     import sqlCtx.implicits._
 
-
-    val scenarios = Table[Boolean, DataFrame, DataFrame => Unit](
-      ("excludeSelf", "input", "expectedOutput"),
+    val scenarios = Table[Boolean, Float, DataFrame, DataFrame => Unit](
+      ("excludeSelf", "similarityThreshold", "input", "expectedOutput"),
       (false,
+       -1f,
        sc.parallelize(Seq(
          InputRow(1000000, Vectors.dense(0.0110f, 0.2341f)),
          InputRow(2000000, Vectors.dense(0.2300f, 0.3891f)),
@@ -40,6 +40,20 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
        )
       ),
       (false,
+        0.1f,
+        sc.parallelize(Seq(
+          InputRow(1000000, Vectors.dense(0.0110f, 0.2341f)),
+          InputRow(2000000, Vectors.dense(0.2300f, 0.3891f)),
+          InputRow(3000000, Vectors.dense(0.4300f, 0.9891f))
+        )).toDF(),
+        _.as[OutputRow[Int]].collect() should contain only (
+          OutputRow(2000000, Seq(Neighbor(2000000, 0.0f), Neighbor(3000000, 0.0076490045f))),
+          OutputRow(3000000, Seq(Neighbor(3000000, 0.0f), Neighbor(2000000, 0.0076490045f), Neighbor(1000000, 0.06521261f))),
+          OutputRow(1000000, Seq(Neighbor(1000000, 0.0f), Neighbor(3000000, 0.06521261f)))
+        )
+      ),
+      (false,
+       -1f,
        sc.parallelize(Seq(
          InputRow(1000000, Array(0.0110d, 0.2341d)),
          InputRow(2000000, Array(0.2300d, 0.3891d)),
@@ -52,6 +66,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
        )
       ),
       (false,
+       -1f,
        sc.parallelize(Seq(
          InputRow("1000000", Array(0.0110f, 0.2341f)),
          InputRow("2000000", Array(0.2300f, 0.3891f)),
@@ -64,6 +79,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
        )
       ),
       (true,
+       -1f,
        sc.parallelize(Seq(
          InputRow(1000000, Vectors.dense(0.0110f, 0.2341f)),
          InputRow(2000000, Vectors.dense(0.2300f, 0.3891f)),
@@ -77,7 +93,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
       )
     )
 
-    forAll (scenarios) { case (excludeSelf, input, validator) =>
+    forAll (scenarios) { case (excludeSelf, similarityThreshold, input, validator) =>
 
       val hnsw = new Hnsw()
         .setIdentityCol("id")
@@ -86,6 +102,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
         .setK(10)
         .setNeighborsCol("neighbors")
         .setExcludeSelf(excludeSelf)
+        .setSimilarityThreshold(similarityThreshold)
 
       val model = hnsw.fit(input)
 

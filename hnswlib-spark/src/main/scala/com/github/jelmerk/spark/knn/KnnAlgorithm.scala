@@ -104,30 +104,31 @@ trait KnnModelParams extends Params {
     */
   val k = new IntParam(this, "k", "number of neighbors to find", ParamValidators.gt(0))
 
-  /**
-    * Number of results to return as part of the knn search.
-    *
-    * @group getParam
-    * */
+  /** @group getParam */
   def getK: Int = $(k)
 
   /**
-    * Param that indicates whether to include the row identifier as a candidate neighbor
+    * Param that indicates whether to not return the row identifier as a candidate neighbor.
     * Default: false
     *
     * @group param
     */
-  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether or not to exclude the query row_id")
+  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
-  /**
-    * Whether to include the row identifier as a candidate neighbor.
-    *
-    * @group getParam
-    * */
+  /** @group getParam */
   def getExcludeSelf: Boolean = $(excludeSelf)
 
+  /**
+    * Param for the threshold value for inclusion. -1 indicates no threshold
+    * Default: -1
+    */
+  val similarityThreshold = new FloatParam(this, "similarityThreshold", "do not return neighbors further away than this distance")
+
+  /** @group getParam */
+  def getSimilarityThreshold: Float = $(similarityThreshold)
+
   setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false)
+    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1)
 
 }
 
@@ -169,6 +170,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
   /** @group setParam */
   def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
+
+  /** @group setParam */
+  def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
@@ -226,7 +230,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
                 val neighbors = index.findNearest(vector, fetchSize)
                   .collect { case SearchResult(item, distance)
-                    if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
+                    if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance < getSimilarityThreshold)  =>
+                      Neighbor(item.id, distance) }
 
                 val queue = new BoundedPriorityQueue[Neighbor](getK)
                 queue ++= neighbors
@@ -319,6 +324,9 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
   /** @group setParam */
   def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
+
+  /** @group setParam */
+  def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
 
   override def fit(dataset: Dataset[_]): TModel = {
 

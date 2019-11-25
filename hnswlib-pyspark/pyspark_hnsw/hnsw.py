@@ -8,9 +8,10 @@ from pyspark import keyword_only
 class Hnsw(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
+                 m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
+                 excludeSelf=False, similarityThreshold=-1.0):
         super(Hnsw, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.knn.spark.hnsw.Hnsw", self.uid)
+        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.Hnsw", self.uid)
 
         self.identifierCol = Param(self, "identifierCol", "the column name for the row identifier")
         self.vectorCol = Param(self, "vectorCol", "the column name for the vector")
@@ -26,17 +27,20 @@ class Hnsw(JavaEstimator):
                                       "euclidean, inner-product, manhattan or the fully qualified classname "
                                       "of a distance function")
         self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
+        self.similarityThreshold = Param(self, "similarityThreshold",
+                                         "do not return neighbors further away than this distance")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=False)
+                         excludeSelf=False, similarityThreshold=-1.0)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False):
+                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+                  similarityThreshold=-1.0):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

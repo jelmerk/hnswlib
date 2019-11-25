@@ -36,7 +36,7 @@ Development
 
 You can run the integration tests by first running the following command in the root of the project
 
-    mvn clean install 
+    mvn clean install
 
 Followed by running the following commands in the hnswlib-pyspark module
 
