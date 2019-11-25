@@ -27,7 +27,7 @@ class DistanceFunctionsTest {
 
     @Test
     void floatEuclideanDistance() {
-        assertThat((double) DistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.9724937f, error));
+        assertThat((double) DistanceFunctions.FLOAT_EUCLIDEAN_DISTANCE.distance(floatVector1, floatVector2), closeTo(0.02828427, error));
     }
 
     @Test
@@ -62,7 +62,7 @@ class DistanceFunctionsTest {
 
     @Test
     void doubleEuclideanDistance() {
-        assertThat(DistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.9724937237315234, error));
+        assertThat(DistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.028284271247461898, error));
     }
 
     @Test

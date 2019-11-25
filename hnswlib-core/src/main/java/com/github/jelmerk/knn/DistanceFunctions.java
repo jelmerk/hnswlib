@@ -81,7 +81,7 @@ public final class DistanceFunctions {
                 float dp = u[i] - v[i];
                 sum += dp * dp;
             }
-            return 1f / ((float) Math.sqrt(sum) + 1f);
+            return (float) Math.sqrt(sum);
         }
     }
 
@@ -288,7 +288,7 @@ public final class DistanceFunctions {
                 double dp = u[i] - v[i];
                 sum += dp * dp;
             }
-            return 1d / (Math.sqrt(sum) + 1d);
+            return Math.sqrt(sum);
         }
     }
 
