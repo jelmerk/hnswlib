@@ -12,7 +12,7 @@ if CleanCommand is not None:
 setup(
     name="pyspark_hnsw",
     url="https://github.com/jelmerk/hnswlib/tree/master/hnswlib-pyspark",
-    version="0.24",
+    version="0.25",
     zip_safe=True,
     packages=find_packages(exclude=['tests']),
     extras_require={
