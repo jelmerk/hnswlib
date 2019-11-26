@@ -130,6 +130,18 @@ trait KnnModelParams extends Params {
   setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
     distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1)
 
+  protected def validateAndTransformSchema(schema: StructType): StructType = {
+    if (schema.fieldNames.contains(getNeighborsCol)) {
+      throw new IllegalArgumentException(s"Output column $getNeighborsCol already exists.")
+    }
+
+    val identifierColSchema = schema(getIdentifierCol)
+
+    val fields = schema.fields :+
+        StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", FloatType)))))
+
+    StructType(fields)
+  }
 }
 
 trait KnnAlgorithmParams extends KnnModelParams {
@@ -255,7 +267,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     // transform the rdd into our output dataframe
 
-    topNeighbors
+    val transformed = topNeighbors
       .toDF(getIdentifierCol, getNeighborsCol)
       .select(
         col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
@@ -264,15 +276,12 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
           StructField("distance", FloatType)
         )))).as(getNeighborsCol)
       )
+
+    dataset.join(transformed, Seq(getIdentifierCol))
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    val identifierType = schema(getIdentifierCol).dataType
-
-    StructType(Seq(
-      StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
-    ))
+    validateAndTransformSchema(schema)
   }
 
   private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
@@ -376,12 +385,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    val identifierType = schema(getIdentifierCol).dataType
-
-    StructType(Seq(
-      StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
-    ))
+    validateAndTransformSchema(schema)
   }
 
   override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)
