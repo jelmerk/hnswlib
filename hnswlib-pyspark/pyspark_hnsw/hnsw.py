@@ -6,6 +6,9 @@ from pyspark import keyword_only
 
 @inherit_doc
 class Hnsw(JavaEstimator):
+    """
+    Approximate nearest neighbour search.
+    """
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",

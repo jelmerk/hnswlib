@@ -29,6 +29,12 @@
 
         <dependency>
             <groupId>com.github.jelmerk</groupId>
+            <artifactId>hnswlib-utils</artifactId>
+            <version>0.0.26-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.github.jelmerk</groupId>
             <artifactId>hnswlib-scala_2.11</artifactId>
             <version>0.0.26-SNAPSHOT</version>
         </dependency>
