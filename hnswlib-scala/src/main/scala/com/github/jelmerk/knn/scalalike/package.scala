@@ -21,6 +21,13 @@ package object scalalike {
   type SearchResult[TItem, TDistance] = com.github.jelmerk.knn.SearchResult[TItem, TDistance]
 
   /**
+    * A sparse vector represented by an index array and a value array.
+    *
+    * @tparam TVector Type of the value array
+    */
+  type SparseVector[TVector] = com.github.jelmerk.knn.SparseVector[TVector]
+
+  /**
     * Calculates the distance between 2 vectors
     */
   type DistanceFunction[TVector, TDistance] = (TVector, TVector) => TDistance
@@ -62,6 +69,12 @@ package object scalalike {
   val floatCorrelationDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_CORRELATION_DISTANCE.distance
 
   /**
+    * Calculates the inner product.
+    */
+  val floatSparseVectorInnerProduct: DistanceFunction[SparseVector[Array[Float]], Float] =
+    JDistanceFunctions.FLOAT_SPARSE_VECTOR_INNER_PRODUCT.distance
+
+  /**
     * Calculates the manhattan distance.
     */
   val floatManhattanDistance: DistanceFunction[Array[Float], Float] = JDistanceFunctions.FLOAT_MANHATTAN_DISTANCE.distance
@@ -100,4 +113,10 @@ package object scalalike {
     * Calculates the manhattan distance.
     */
   val doubleManhattanDistance: DistanceFunction[Array[Double], Double] = JDistanceFunctions.DOUBLE_MANHATTAN_DISTANCE.distance
+
+  /**
+    * Calculates the inner product.
+    */
+  val doubleSparseVectorInnerProduct: DistanceFunction[SparseVector[Array[Double]], Double] =
+    JDistanceFunctions.DOUBLE_SPARSE_VECTOR_INNER_PRODUCT.distance
 }

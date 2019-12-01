@@ -3,6 +3,82 @@ package com.github.jelmerk.knn;
 public final class DistanceFunctions {
 
     /**
+     * Implementation of {@link DistanceFunction} that calculates the inner product.
+     */
+    static class FloatSparseVectorInnerProduct implements DistanceFunction<SparseVector<float[]>, Float> {
+
+        /**
+         * Calculates the inner product.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Inner product between u and v.
+         */
+        @Override
+        public Float distance(SparseVector<float[]> u, SparseVector<float[]> v) {
+            int[] uIndices = u.indices();
+            float[] uValues = u.values();
+            int[] vIndices = v.indices();
+            float[] vValues = v.values();
+            float dot = 0.0f;
+            int i = 0;
+            int j = 0;
+
+            while (i < uIndices.length && j < vIndices.length) {
+                if (uIndices[i] < vIndices[j]) {
+                    i += 1;
+                } else if (uIndices[i] > vIndices[j]) {
+                    j += 1;
+                } else {
+                    dot += uValues[i] * vValues[j];
+                    i += 1;
+                    j += 1;
+                }
+            }
+            return 1 - dot;
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the inner product.
+     */
+    static class DoubleSparseVectorInnerProduct implements DistanceFunction<SparseVector<double[]>, Double> {
+
+        /**
+         * Calculates the inner product.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Inner product between u and v.
+         */
+        @Override
+        public Double distance(SparseVector<double[]> u, SparseVector<double[]> v) {
+            int[] uIndices = u.indices();
+            double[] uValues = u.values();
+            int[] vIndices = v.indices();
+            double[] vValues = v.values();
+            double dot = 0.0f;
+            int i = 0;
+            int j = 0;
+
+            while (i < uIndices.length && j < vIndices.length) {
+                if (uIndices[i] < vIndices[j]) {
+                    i += 1;
+                } else if (uIndices[i] > vIndices[j]) {
+                    j += 1;
+                } else {
+                    dot += uValues[i] * vValues[j];
+                    i += 1;
+                    j += 1;
+                }
+            }
+            return 1 - dot;
+        }
+    }
+
+    /**
      * Implementation of {@link DistanceFunction} that calculates the cosine distance.
      */
     static class FloatCosineDistance implements DistanceFunction<float[], Float> {
@@ -489,6 +565,15 @@ public final class DistanceFunctions {
      */
     public static final DistanceFunction<double[], Double> DOUBLE_MANHATTAN_DISTANCE = new DoubleManhattanDistance();
 
+    /**
+     * Calculates the inner product.
+     */
+    public static final DistanceFunction<SparseVector<float[]>, Float> FLOAT_SPARSE_VECTOR_INNER_PRODUCT =
+            new FloatSparseVectorInnerProduct();
 
-
+    /**
+     * Calculates the inner product.
+     */
+    public static final DistanceFunction<SparseVector<double[]>, Double> DOUBLE_SPARSE_VECTOR_INNER_PRODUCT =
+            new DoubleSparseVectorInnerProduct();
 }
