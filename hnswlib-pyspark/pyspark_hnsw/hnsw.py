@@ -12,7 +12,7 @@ class Hnsw(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                 excludeSelf=False, similarityThreshold=-1.0):
+                 excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
         super(Hnsw, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.Hnsw", self.uid)
 
@@ -32,10 +32,11 @@ class Hnsw(JavaEstimator):
         self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
         self.similarityThreshold = Param(self, "similarityThreshold",
                                          "do not return neighbors further away than this distance")
+        self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=False, similarityThreshold=-1.0)
+                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -43,7 +44,7 @@ class Hnsw(JavaEstimator):
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0):
+                  similarityThreshold=-1.0, outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

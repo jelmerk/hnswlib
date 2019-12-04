@@ -127,20 +127,38 @@ trait KnnModelParams extends Params {
   /** @group getParam */
   def getSimilarityThreshold: Float = $(similarityThreshold)
 
+  /**
+    * Param for the output format to produce. One of "full", "minimal" Setting this to minimal is more efficient
+    * when all you need is the identifier with its neighbors
+    *
+    * Default: "full"
+    *
+    * @group param
+    */
+  val outputFormat = new Param[String](this, "outputFormat", "output format to produce")
+
+  /** @group getParam */
+  def getOutputFormat: String = $(outputFormat)
+
   setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1)
+    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
-    if (schema.fieldNames.contains(getNeighborsCol)) {
-      throw new IllegalArgumentException(s"Output column $getNeighborsCol already exists.")
-    }
 
     val identifierColSchema = schema(getIdentifierCol)
 
-    val fields = schema.fields :+
-        StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", FloatType)))))
+    val neighborsField = StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", FloatType)))))
 
-    StructType(fields)
+    getOutputFormat match {
+      case "minimal" => StructType(Array(identifierColSchema, neighborsField))
+
+      case _ =>
+        if (schema.fieldNames.contains(getNeighborsCol)) {
+          throw new IllegalArgumentException(s"Output column $getNeighborsCol already exists.")
+        }
+
+        StructType(schema.fields :+ neighborsField)
+    }
   }
 }
 
@@ -185,6 +203,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
   /** @group setParam */
   def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
+
+  /** @group setParam */
+  def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
@@ -277,7 +298,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         )))).as(getNeighborsCol)
       )
 
-    dataset.join(transformed, Seq(getIdentifierCol))
+    if (getOutputFormat == "minimal") transformed
+    else dataset.join(transformed, Seq(getIdentifierCol))
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -336,6 +358,9 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
   /** @group setParam */
   def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
+
+  /** @group setParam */
+  def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
   override def fit(dataset: Dataset[_]): TModel = {
 

@@ -8,7 +8,8 @@ from pyspark import keyword_only
 class BruteForce(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0):
+                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
+                 outputFormat="full"):
         super(BruteForce, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForce", self.uid)
 
@@ -25,15 +26,18 @@ class BruteForce(JavaEstimator):
         self.similarityThreshold = Param(self, "similarityThreshold",
                                          "do not return neighbors further away than this distance")
 
+        self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
+
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0)
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0):
+                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
+                  outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
