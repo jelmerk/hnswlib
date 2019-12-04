@@ -315,7 +315,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     override def next(): T = {
       if (first) {
-        logInfo(f"partition $partition%04d: started querying on host ${InetAddress.getLocalHost.getHostName}")
+        logInfo(f"partition $partition%04d: started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
         first  = false
       }
 
