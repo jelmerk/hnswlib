@@ -382,7 +382,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
         col(getIdentifierCol).cast(StringType).as("id"),
         vectorCol.as("vector")
       ).as[IndexItem]
-      .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
+      .mapPartitions { _.map (item => (abs(item.id.hashCode) % getNumPartitions, item)) }
       .rdd
       .partitionBy(partitioner)
 
