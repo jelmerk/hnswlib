@@ -3,9 +3,7 @@ package com.github.jelmerk.spark.knn
 import java.net.InetAddress
 
 import scala.util.Try
-
 import scala.math.abs
-
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -13,7 +11,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
-import org.apache.spark.Partitioner
+import org.apache.spark.{HashPartitioner, Partitioner}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
 
@@ -223,12 +221,14 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
+    val numPartitions = dataset.rdd.getNumPartitions
+
     val queryRdd = dataset
       .select(
         col(getIdentifierCol).cast(StringType),
         vectorCol.as(getVectorCol)
       )
-      .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
+      .withColumn("partition", explode(array(0 until numPartitions map lit: _*)))
       .as[(String, Array[Float], Int)]
       .rdd
       .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
@@ -280,10 +280,10 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
     // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
 
     val topNeighbors = neighborsOnAllShards
-      .reduceByKey { case (neighborsA, neighborsB) =>
+      .reduceByKey(new HashPartitioner(numPartitions), (neighborsA, neighborsB) => {
         neighborsA ++= neighborsB
         neighborsA
-      }
+      })
       .mapValues(_.toArray.sorted(Ordering[Neighbor].reverse))
 
     // transform the rdd into our output dataframe
@@ -394,7 +394,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
         if (it.hasNext) {
           val items = it.map{ case (_, indexItem) => indexItem}.toList
 
-          logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
 
           val index = createIndex(items.size)
           index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partition%04d: Indexed $workDone of $max items"))
