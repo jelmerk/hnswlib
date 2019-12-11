@@ -16,7 +16,7 @@ def test_hnsw(spark_context):
     ], ['row_id', 'features'])
 
     hnsw = Hnsw(identifierCol='row_id', vectorCol='features', distanceFunction='cosine', m=32, ef=5, k=5,
-                efConstruction=200, numPartitions=100, excludeSelf=False)
+                efConstruction=200, numPartitions=100, excludeSelf=False, similarityThreshold=-1.0)
 
     model = hnsw.fit(df)
 

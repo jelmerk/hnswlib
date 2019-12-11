@@ -20,12 +20,12 @@ Setup
 
 Pass the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.23'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.27'
 
 Example usage
 -------------
 
-    import com.github.jelmerk.knn.spark.hnsw.Hnsw
+    import com.github.jelmerk.spark.knn.hnsw.Hnsw
     
     val hnsw = new Hnsw()
           .setIdentityCol("row_id")

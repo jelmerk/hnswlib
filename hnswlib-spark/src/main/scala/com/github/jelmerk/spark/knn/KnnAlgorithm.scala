@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.spark
+package com.github.jelmerk.spark.knn
 
 import java.net.InetAddress
 
@@ -32,7 +32,7 @@ private[spark] case class IndexItem(id: String, vector: Array[Float]) extends It
   * @param distance distance to the item
   */
 private[spark] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
-  override def compareTo(other: Neighbor): Int = distance.compareTo(other.distance)
+  override def compareTo(other: Neighbor): Int = other.distance.compareTo(distance)
 }
 
 
@@ -104,31 +104,62 @@ trait KnnModelParams extends Params {
     */
   val k = new IntParam(this, "k", "number of neighbors to find", ParamValidators.gt(0))
 
-  /**
-    * Number of results to return as part of the knn search.
-    *
-    * @group getParam
-    * */
+  /** @group getParam */
   def getK: Int = $(k)
 
   /**
-    * Param that indicates whether to include the row identifier as a candidate neighbor
+    * Param that indicates whether to not return the row identifier as a candidate neighbor.
     * Default: false
     *
     * @group param
     */
-  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether or not to exclude the query row_id")
+  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
-  /**
-    * Whether to include the row identifier as a candidate neighbor.
-    *
-    * @group getParam
-    * */
+  /** @group getParam */
   def getExcludeSelf: Boolean = $(excludeSelf)
 
-  setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false)
+  /**
+    * Param for the threshold value for inclusion. -1 indicates no threshold
+    * Default: -1
+    */
+  val similarityThreshold = new FloatParam(this, "similarityThreshold", "do not return neighbors further away than this distance")
 
+  /** @group getParam */
+  def getSimilarityThreshold: Float = $(similarityThreshold)
+
+  /**
+    * Param for the output format to produce. One of "full", "minimal" Setting this to minimal is more efficient
+    * when all you need is the identifier with its neighbors
+    *
+    * Default: "full"
+    *
+    * @group param
+    */
+  val outputFormat = new Param[String](this, "outputFormat", "output format to produce")
+
+  /** @group getParam */
+  def getOutputFormat: String = $(outputFormat)
+
+  setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
+    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
+
+  protected def validateAndTransformSchema(schema: StructType): StructType = {
+
+    val identifierColSchema = schema(getIdentifierCol)
+
+    val neighborsField = StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", FloatType)))))
+
+    getOutputFormat match {
+      case "minimal" => StructType(Array(identifierColSchema, neighborsField))
+
+      case _ =>
+        if (schema.fieldNames.contains(getNeighborsCol)) {
+          throw new IllegalArgumentException(s"Output column $getNeighborsCol already exists.")
+        }
+
+        StructType(schema.fields :+ neighborsField)
+    }
+  }
 }
 
 trait KnnAlgorithmParams extends KnnModelParams {
@@ -156,7 +187,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
                                                  indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends Model[TModel] with KnnModelParams {
 
-  import com.github.jelmerk.knn.spark.Udfs._
+  import com.github.jelmerk.spark.knn.Udfs._
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
@@ -169,6 +200,12 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
   /** @group setParam */
   def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
+
+  /** @group setParam */
+  def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
+
+  /** @group setParam */
+  def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import dataset.sparkSession.implicits._
@@ -226,7 +263,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
                 val neighbors = index.findNearest(vector, fetchSize)
                   .collect { case SearchResult(item, distance)
-                    if !getExcludeSelf || item.id != id => Neighbor(item.id, distance) }
+                    if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance < getSimilarityThreshold)  =>
+                      Neighbor(item.id, distance) }
 
                 val queue = new BoundedPriorityQueue[Neighbor](getK)
                 queue ++= neighbors
@@ -246,11 +284,11 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
         neighborsA ++= neighborsB
         neighborsA
       }
-      .mapValues(_.toArray.sorted)
+      .mapValues(_.toArray.sorted(Ordering[Neighbor].reverse))
 
     // transform the rdd into our output dataframe
 
-    topNeighbors
+    val transformed = topNeighbors
       .toDF(getIdentifierCol, getNeighborsCol)
       .select(
         col(getIdentifierCol).cast(identifierType).as(getIdentifierCol),
@@ -259,15 +297,13 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
           StructField("distance", FloatType)
         )))).as(getNeighborsCol)
       )
+
+    if (getOutputFormat == "minimal") transformed
+    else dataset.join(transformed, Seq(getIdentifierCol))
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    val identifierType = schema(getIdentifierCol).dataType
-
-    StructType(Seq(
-      StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
-    ))
+    validateAndTransformSchema(schema)
   }
 
   private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
@@ -279,7 +315,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
 
     override def next(): T = {
       if (first) {
-        logInfo(f"partition $partition%04d: started querying on host ${InetAddress.getLocalHost.getHostName}")
+        logInfo(f"partition $partition%04d: started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
         first  = false
       }
 
@@ -320,6 +356,12 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   /** @group setParam */
   def setExcludeSelf(value: Boolean): this.type = set(excludeSelf, value)
 
+  /** @group setParam */
+  def setSimilarityThreshold(value: Float): this.type = set(similarityThreshold, value)
+
+  /** @group setParam */
+  def setOutputFormat(value: String): this.type = set(outputFormat, value)
+
   override def fit(dataset: Dataset[_]): TModel = {
 
     import dataset.sparkSession.implicits._
@@ -340,7 +382,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
         col(getIdentifierCol).cast(StringType).as("id"),
         vectorCol.as("vector")
       ).as[IndexItem]
-      .map { item => (abs(item.id.hashCode) % getNumPartitions, item) }
+      .mapPartitions { _.map (item => (abs(item.id.hashCode) % getNumPartitions, item)) }
       .rdd
       .partitionBy(partitioner)
 
@@ -368,12 +410,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    val identifierType = schema(getIdentifierCol).dataType
-
-    StructType(Seq(
-      StructField(getIdentifierCol, identifierType),
-      StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierType), StructField("distance", FloatType)))))
-    ))
+    validateAndTransformSchema(schema)
   }
 
   override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)

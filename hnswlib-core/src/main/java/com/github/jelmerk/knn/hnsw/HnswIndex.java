@@ -64,8 +64,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private ReentrantLock globalLock;
 
-    private StampedLock stampedLock;
-
     private GenericObjectPool<BitSet> visitedBitSetPool;
 
     private BitSet excludedCandidates;
@@ -97,8 +95,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.itemSerializer = builder.itemSerializer;
 
         this.globalLock = new ReentrantLock();
-
-        this.stampedLock = new StampedLock();
 
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
@@ -259,8 +255,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             Node<TItem> entryPointCopy = entryPoint;
 
-            long stamp = stampedLock.readLock();
-
             try {
                 synchronized (lock) {
                     synchronized (newNode) {
@@ -339,8 +333,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 }
             } finally {
                 excludedCandidates.remove(newNodeId);
-
-                stampedLock.unlockRead(stamp);
             }
         } finally {
             if (globalLock.isHeldByCurrentThread()) {
@@ -705,17 +697,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        globalLock.lock();
-        try {
-            long stamp = stampedLock.writeLock();
-
-            try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
-                oos.writeObject(this);
-            } finally {
-                stampedLock.unlockWrite(stamp);
-            }
-        } finally {
-            globalLock.unlock();
+        try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
+            oos.writeObject(this);
         }
     }
 
@@ -764,7 +747,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.entryPoint = entrypointNodeId == -1 ? null : nodes.get(entrypointNodeId);
 
         this.globalLock = new ReentrantLock();
-        this.stampedLock = new StampedLock();
         this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
                 Runtime.getRuntime().availableProcessors());
         this.excludedCandidates = new SynchronizedBitSet(new ArrayBitSet(this.maxItemCount));
