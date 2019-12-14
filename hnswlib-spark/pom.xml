@@ -80,6 +80,17 @@
         <sourceDirectory>src/main/scala</sourceDirectory>
         <testSourceDirectory>src/test/scala</testSourceDirectory>
 
+        <resources>
+            <resource>
+                <directory>${project.basedir}/../hnswlib-pyspark/pyspark_hnsw</directory>
+                <targetPath>pyspark_hnsw</targetPath>
+                <excludes>
+                    <exclude>__pycache__</exclude>
+                    <exclude>**/*.pyc</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>net.alchim31.maven</groupId>
