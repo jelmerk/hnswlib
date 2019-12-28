@@ -1,9 +1,9 @@
 package com.github.jelmerk.spark.knn
 
+import java.lang.{Float => JFloat}
 import java.net.InetAddress
 
 import scala.util.Try
-
 import scala.math.abs
 
 import org.apache.spark.ml.{Estimator, Model}
@@ -23,7 +23,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
   * @param id item identifier
   * @param vector item vector
   */
-private[spark] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
 /**
   * Neighbor of an item
@@ -31,12 +31,12 @@ private[spark] case class IndexItem(id: String, vector: Array[Float]) extends It
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
   */
-private[spark] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
-  override def compareTo(other: Neighbor): Int = other.distance.compareTo(distance)
+private[knn] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
+  override def compareTo(other: Neighbor): Int = JFloat.compare(other.distance, distance)
 }
 
 
-private[spark] object Udfs {
+private[knn] object Udfs {
 
   /**
     * Convert a dense vector to a float array.
@@ -455,6 +455,6 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   *
   * @param numPartitions number of partitions
   */
-private[spark] class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
+private[knn] class PartitionIdPassthrough(override val numPartitions: Int) extends Partitioner {
   override def getPartition(key: Any): Int = key.asInstanceOf[Int]
 }

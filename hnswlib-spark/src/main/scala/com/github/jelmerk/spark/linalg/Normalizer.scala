@@ -53,11 +53,7 @@ class Normalizer(override val uid: String)
       case v: SparseVector => v.values
       case v: DenseVector => v.values
     }
-    var magnitude = 0.0
-    for (aDouble <- values) {
-      magnitude += aDouble * aDouble
-    }
-    Math.sqrt(magnitude)
+    Math.sqrt(values.map(v => v * v).sum)
   }
 
   private val normalizeFloatArray: UserDefinedFunction = udf { value: Seq[Float] => VectorUtils.normalize(value.toArray) }
