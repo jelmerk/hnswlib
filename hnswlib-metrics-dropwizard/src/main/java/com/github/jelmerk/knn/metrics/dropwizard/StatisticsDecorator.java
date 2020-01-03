@@ -87,7 +87,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
         this.containsTimer = metricRegistry.timer(name(clazz, indexName, "contains"));
         this.findNearestTimer = metricRegistry.timer(name(clazz, indexName, "findNearest"));
         this.saveTimer = metricRegistry.timer(name(clazz, indexName,"save"));
-        this.accuracyHistogram = metricRegistry.histogram(name(clazz, indexName, "accuracy"));
+        this.accuracyHistogram = metricRegistry.histogram(name(clazz, indexName, "accuracy"),
+                () -> new Histogram(new UniformReservoir()));
 
         metricRegistry.register(name(clazz, indexName, "size"), (Gauge<Integer>) approximativeIndex::size);
 
