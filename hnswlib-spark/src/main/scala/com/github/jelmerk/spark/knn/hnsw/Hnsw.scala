@@ -8,7 +8,7 @@ import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
 
 
-trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
+trait HnswParams extends KnnAlgorithmParams {
 
   /**
     * The number of bi-directional links created for every new element during construction.
@@ -57,11 +57,12 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class HnswModel(override val uid: String,
+                centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                 indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel](uid, indices) {
+  extends KnnModel[HnswModel](uid, centroidsIndexOption, indices) with HnswParams {
 
   override def copy(extra: ParamMap): HnswModel = {
-    val copied = new HnswModel(uid, indices)
+    val copied = new HnswModel(uid, centroidsIndexOption, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -95,8 +96,9 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with H
     )
 
   override def createModel(uid: String,
+                           centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
-    new HnswModel(uid, indices)
+    new HnswModel(uid, centroidsIndexOption, indices)
 
 }
 

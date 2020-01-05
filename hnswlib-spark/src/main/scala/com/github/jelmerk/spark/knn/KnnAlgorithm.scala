@@ -5,7 +5,6 @@ import java.net.InetAddress
 
 import scala.util.Try
 import scala.math.abs
-
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -13,6 +12,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import org.apache.spark.Partitioner
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -24,6 +24,14 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
   * @param vector item vector
   */
 private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+
+/**
+  * Candidate partition
+  *
+  * @param id partition identifier
+  * @param vector partition centroid
+  */
+private[knn] case class CentroidIndexItem(id: Int, vector: Array[Float]) extends Item[Int, Array[Float]]
 
 /**
   * Neighbor of an item
@@ -49,7 +57,34 @@ private[knn] object Udfs {
   val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
 }
 
-trait KnnModelParams extends Params {
+trait KnnAlgorithmParams extends Params {
+
+  /**
+    * Number of partitions (default: 1)
+    */
+  val numPartitions = new IntParam(this, "numPartitions",
+    "number of partitions", ParamValidators.gt(0))
+
+  /** @group getParam */
+  def getNumPartitions: Int = $(numPartitions)
+
+  /**
+    * Partition centroids
+    */
+  val partitionCentroids = new DoubleArrayArrayParam(this, "partitionCentroids",
+    "data will be partitioned by the index of the nearest centroid")
+
+  /** @group getParam */
+  def getPartitionCentroids: Array[Array[Double]] = $(partitionCentroids)
+
+  /**
+    * Query the closest n partitions
+    */
+  val numQueryPartitions = new IntParam(this, "numQueryPartitions",
+    "number of nearest query partitions to query when partitionCentroids is defined", ParamValidators.gt(0))
+
+  /** @group getParam */
+  def getNumQueryPartitions: Int = $(numQueryPartitions)
 
   /**
     * Param for the column name for the row identifier.
@@ -140,8 +175,11 @@ trait KnnModelParams extends Params {
   /** @group getParam */
   def getOutputFormat: String = $(outputFormat)
 
-  setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
+  setDefault(
+    k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
+    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full",
+    numPartitions -> 1, partitionCentroids -> Array.empty[Array[Double]], numQueryPartitions -> 1
+  )
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
 
@@ -162,19 +200,6 @@ trait KnnModelParams extends Params {
   }
 }
 
-trait KnnAlgorithmParams extends KnnModelParams {
-
-  /**
-    * Number of partitions (default: 1)
-    */
-  val numPartitions = new IntParam(this, "numPartitions",
-    "number of partitions", ParamValidators.gt(0))
-
-  /** @group getParam */
-  def getNumPartitions: Int = $(numPartitions)
-
-}
-
 
 /**
   * Base class for nearest neighbor search models.
@@ -184,8 +209,9 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
+                                                 centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                                                  indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends Model[TModel] with KnnModelParams {
+  extends Model[TModel] with KnnAlgorithmParams {
 
   import com.github.jelmerk.spark.knn.Udfs._
 
@@ -221,17 +247,21 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       case _ => col(getVectorCol)
     }
 
-    // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
-
     val queryRdd = dataset
       .select(
         col(getIdentifierCol).cast(StringType),
         vectorCol.as(getVectorCol)
       )
-      .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
-      .as[(String, Array[Float], Int)]
+      .as[(String, Array[Float])]
       .rdd
-      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
+      .flatMap { case (id, vector) =>
+        // duplicate the rows in the query dataset with for the partitions we want to query then repartition based on the index
+
+        val queryPartitions = centroidsIndexOption.map(_.findNearest(vector, getNumQueryPartitions).map(_.item.id))
+          .getOrElse(0 until indices.getNumPartitions)
+
+        queryPartitions.map { partition => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
+      }
       .partitionBy(indices.partitioner.get)
 
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
@@ -351,6 +381,12 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   def setNumPartitions(value: Int): this.type = set(numPartitions, value)
 
   /** @group setParam */
+  def setPartitionCentroids(value: Array[Array[Double]]): this.type = set(partitionCentroids, value)
+
+  /** @group setParam */
+  def setNumQueryPartitions(value: Int): this.type = set(numQueryPartitions, value)
+
+  /** @group setParam */
   def setDistanceFunction(value: String): this.type = set(distanceFunction, value)
 
   /** @group setParam */
@@ -366,13 +402,21 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
     import dataset.sparkSession.implicits._
 
+    val centroidsIndex = Option(getPartitionCentroids).filter(_.nonEmpty).map { centroids =>
+      val index = BruteForceIndex[Int, Array[Float], CentroidIndexItem, Float](distanceFunctionByName(getDistanceFunction))
+      centroids.zipWithIndex.map { case (vector, partitionId) =>
+        index.add(CentroidIndexItem(partitionId, vector.map(_.toFloat)))
+      }
+      index
+    }
+
+    val partitioner = new PartitionIdPassthrough(getNumPartitions)
+
     val vectorCol = dataset.schema(getVectorCol).dataType match {
       case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol))
       case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
       case _ => col(getVectorCol)
     }
-
-    val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
     // read the id and vector from the input dataset and and repartition them over numPartitions amount of partitions.
     // Transform vectors or double arrays into float arrays for performance reasons.
@@ -381,8 +425,16 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
       .select(
         col(getIdentifierCol).cast(StringType).as("id"),
         vectorCol.as("vector")
-      ).as[IndexItem]
-      .mapPartitions { _.map (item => (abs(item.id.hashCode) % getNumPartitions, item)) }
+      )
+      .as[IndexItem]
+      .mapPartitions { _.map { item =>
+        val partitionId = centroidsIndex.toSeq
+          .flatMap(_.findNearest(item.vector, 1))
+          .map(_.item.id)
+          .headOption
+          .getOrElse(abs(item.id.hashCode) % getNumPartitions)
+        (partitionId, item)
+      }}
       .rdd
       .partitionBy(partitioner)
 
@@ -392,7 +444,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     val indicesRdd = partitionedIndexItems
       .mapPartitionsWithIndex((partition, it) =>
         if (it.hasNext) {
-          val items = it.map{ case (_, indexItem) => indexItem}.toList
+          val items = it.map { case (_, indexItem) => indexItem }.toList
 
           logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
@@ -405,7 +457,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
         } else Iterator.empty
         , preservesPartitioning = true)
 
-    val model = createModel(uid, indicesRdd)
+    val model = createModel(uid, centroidsIndex, indicesRdd)
     copyValues(model)
   }
 
@@ -431,6 +483,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @return model
     */
   protected def createModel(uid: String,
+                            centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                             indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {

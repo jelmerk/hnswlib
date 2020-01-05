@@ -9,7 +9,7 @@ class BruteForce(JavaEstimator):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                 outputFormat="full"):
+                 outputFormat="full", partitionCentroids=[], numQueryPartitions=1):
         super(BruteForce, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForce", self.uid)
 
@@ -25,11 +25,16 @@ class BruteForce(JavaEstimator):
         self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
         self.similarityThreshold = Param(self, "similarityThreshold",
                                          "do not return neighbors further away than this distance")
-
         self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
+        self.partitionCentroids = Param(self, "partitionCentroids",
+                                        "data will be partitioned by the index of the nearest centroid")
+        self.numQueryPartitions = Param(self, "numQueryPartitions"
+                                              "number of nearest query partitions to query when partitionCentroids is defined")
+
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                         partitionCentroids=[], numQueryPartitions=1)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -37,7 +42,7 @@ class BruteForce(JavaEstimator):
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                  outputFormat="full"):
+                  outputFormat="full", partitionCentroids=[], numQueryPartitions=1):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

@@ -14,12 +14,12 @@ import org.apache.spark.rdd.RDD
   * @param indices rdd that holds the indices that are used to do the search
   */
 class BruteForceModel(override val uid: String,
+                      centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                       indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel](uid, indices) {
-
+  extends KnnModel[BruteForceModel](uid, centroidsIndexOption, indices) {
 
   override def copy(extra: ParamMap): BruteForceModel = {
-    val copied = new BruteForceModel(uid, indices)
+    val copied = new BruteForceModel(uid, centroidsIndexOption, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -39,7 +39,8 @@ class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel]
     BruteForceIndex[String, Array[Float], IndexItem, Float](distanceFunctionByName(getDistanceFunction))
 
   override def createModel(uid: String,
+                           centroidsIndexOption: Option[Index[Int, Array[Float], CentroidIndexItem, Float]],
                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
-    new BruteForceModel(uid, indices)
+    new BruteForceModel(uid, centroidsIndexOption, indices)
 
 }
