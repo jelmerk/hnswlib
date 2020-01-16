@@ -1,11 +1,25 @@
 package com.github.jelmerk.spark.knn.bruteforce
 
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
+
+/**
+  * Companion class for BruteForceModel.
+  */
+object BruteForceModel extends MLReadable[BruteForceModel] {
+
+  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel] {
+    override protected def createModel(uid: String,
+                                       indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+      new BruteForceModel(uid, indices)
+  }
+
+  override def read: MLReader[BruteForceModel] = new BruteForceModelReader
+}
 
 /**
   * Model produced by a `BruteForce`.
@@ -15,7 +29,7 @@ import org.apache.spark.rdd.RDD
   */
 class BruteForceModel(override val uid: String,
                       indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel](uid, indices) {
+  extends KnnModel[BruteForceModel](uid, indices) with MLWritable {
 
 
   override def copy(extra: ParamMap): BruteForceModel = {
@@ -23,6 +37,7 @@ class BruteForceModel(override val uid: String,
     copyValues(copied, extra).setParent(parent)
   }
 
+  override def write: MLWriter = new KnnModelWriter[BruteForceModel](this)
 }
 
 /**

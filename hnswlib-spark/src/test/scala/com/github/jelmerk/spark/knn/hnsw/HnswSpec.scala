@@ -1,6 +1,12 @@
 package com.github.jelmerk.spark.knn.hnsw
 
+import java.io.File
+import java.nio.file.Files
+import java.util.UUID
+
+import com.github.jelmerk.spark.HnswLibKryoRegistrator
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
+import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{DenseVector, Vectors}
@@ -8,6 +14,8 @@ import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
+
+
 
 case class InputRow[TId, TVector](id: TId, vector: TVector)
 
@@ -30,7 +38,9 @@ case class MinimalOutputRow[TId](id: TId, neighbors: Seq[Neighbor[TId]]) {
 class HnswSpec extends FunSuite with DataFrameSuiteBase {
 
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
-  override def conf: SparkConf = super.conf.set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+  override def conf: SparkConf = super.conf
+    .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+//    .set("spark.kryo.registrator", classOf[HnswLibKryoRegistrator].getName)
 
   test("find neighbors") {
 
@@ -128,4 +138,52 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
       validator(result)
     }
   }
+
+  test("save and load model") {
+
+    val sqlCtx = sqlContext
+    import sqlCtx.implicits._
+
+    val hnsw = new Hnsw()
+      .setIdentityCol("id")
+      .setVectorCol("vector")
+      .setNeighborsCol("neighbors")
+      .setOutputFormat("minimal")
+
+    val items = sc.parallelize(Seq(
+      InputRow(1000000, Vectors.dense(0.0110f, 0.2341f)),
+      InputRow(2000000, Vectors.dense(0.2300f, 0.3891f)),
+      InputRow(3000000, Vectors.dense(0.4300f, 0.9891f))
+    )).toDF()
+
+    withTempFolder { folder =>
+
+      val path = new File(folder, "model").getCanonicalPath
+
+      hnsw.fit(items).write.overwrite.save(path)
+
+      val model = HnswModel.load(path)
+
+      val queryItems = sc.parallelize(Seq(
+        InputRow(1000000, Vectors.dense(0.0110f, 0.2341f))
+      )).toDF()
+
+      val results = model.transform(queryItems).as[MinimalOutputRow[Int]].collect()
+
+      results.length should be(1)
+      results.head should be (MinimalOutputRow(1000000, Seq(Neighbor(1000000, 0.0f), Neighbor(3000000, 0.06521261f), Neighbor(2000000, 0.11621308f))))
+    }
+
+  }
+
+  def withTempFolder[T](fn: File => T): T = {
+    val tempDir = Files.createTempDirectory(UUID.randomUUID().toString).toFile
+    try {
+      fn(tempDir)
+    } finally {
+      FileUtils.deleteDirectory(tempDir)
+    }
+  }
+
+
 }

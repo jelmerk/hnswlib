@@ -1,14 +1,13 @@
 package com.github.jelmerk.spark.knn.hnsw
 
 import org.apache.spark.ml.param._
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
 
-
-trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
+trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 
   /**
     * The number of bi-directional links created for every new element during construction.
@@ -24,18 +23,6 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   def getM: Int = $(m)
 
   /**
-    * Size of the dynamic list for the nearest neighbors (used during the search).
-    * Default: 10
-    *
-    * @group param
-    */
-  val ef = new IntParam(this, "ef",
-    "size of the dynamic list for the nearest neighbors (used during the search)", ParamValidators.gt(0))
-
-  /** @group getParam */
-  def getEf: Int = $(ef)
-
-  /**
     * Has the same meaning as ef, but controls the index time / index precision.
     * Default: 200
     *
@@ -47,7 +34,41 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   /** @group getParam */
   def getEfConstruction: Int = $(efConstruction)
 
-  setDefault(m -> 16, ef -> 10, efConstruction -> 200)
+  setDefault(m -> 16, efConstruction -> 200)
+}
+
+/**
+  * Common params for Hnsw and HnswModel.
+  */
+trait HnswModelParams extends KnnModelParams {
+
+  /**
+    * Size of the dynamic list for the nearest neighbors (used during the search).
+    * Default: 10
+    *
+    * @group param
+    */
+  val ef = new IntParam(this, "ef",
+    "size of the dynamic list for the nearest neighbors (used during the search)", ParamValidators.gt(0))
+
+  /** @group getParam */
+  def getEf: Int = $(ef)
+
+  setDefault(ef -> 10)
+}
+
+/**
+  * Companion class for HnswModel.
+  */
+object HnswModel extends MLReadable[HnswModel] {
+
+  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel] {
+    override protected def createModel(uid: String, indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
+      new HnswModel(uid, indices)
+  }
+
+  override def read: MLReader[HnswModel] = new HnswModelReader
+
 }
 
 /**
@@ -58,13 +79,17 @@ trait HnswParams extends KnnAlgorithmParams with KnnModelParams {
   */
 class HnswModel(override val uid: String,
                 indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel](uid, indices) {
+  extends KnnModel[HnswModel](uid, indices) with MLWritable with HnswModelParams {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
+  /** @group setParam */
+  def setEf(value: Int): this.type = set(ef, value)
+
+  override def write: MLWriter = new KnnModelWriter[HnswModel](this)
 }
 
 /**

@@ -27,9 +27,12 @@ class BruteForce(JavaEstimator):
                                          "do not return neighbors further away than this distance")
 
         self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
+        self.storageLevel = Param(self, "storageLevel",
+                                  "storageLevel for the indices. Pass in a string representation of StorageLevel")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                         storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -37,7 +40,7 @@ class BruteForce(JavaEstimator):
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                  outputFormat="full"):
+                  outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -54,7 +57,13 @@ class BruteForceModel(JavaModel):
 
         # note: look at https://issues.apache.org/jira/browse/SPARK-10931 in the future
 
-        self.k = Param(self, "k", "number of neighbors to find")
+        self.identifierCol = Param(self, "identifierCol", "the column name for the row identifier")
+        self.vectorCol = Param(self, "vectorCol", "the column name for the vector")
         self.neighborsCol = Param(self, "neighborsCol", "column names for returned neighbors")
+        self.k = Param(self, "k", "number of neighbors to find")
+        self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
+        self.similarityThreshold = Param(self, "similarityThreshold",
+                                         "do not return neighbors further away than this distance")
+        self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
 
         self._transfer_params_from_java()

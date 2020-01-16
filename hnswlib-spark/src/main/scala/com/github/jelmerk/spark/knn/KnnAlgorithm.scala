@@ -5,7 +5,6 @@ import java.net.InetAddress
 
 import scala.util.Try
 import scala.math.abs
-
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -13,9 +12,17 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.spark.util.PartitionedRdd
+import org.apache.hadoop.fs.Path
 import org.apache.spark.Partitioner
+import org.apache.spark.ml.util.{MLReader, MLWriter}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.storage.StorageLevel
+import org.json4s.jackson.JsonMethods._
+import org.json4s._
+
+import scala.reflect.ClassTag
 
 /**
   * Item in an nearest neighbor search index
@@ -49,6 +56,9 @@ private[knn] object Udfs {
   val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
 }
 
+/**
+  * Common params for KnnAlgorithm and KnnModel.
+  */
 trait KnnModelParams extends Params {
 
   /**
@@ -83,18 +93,6 @@ trait KnnModelParams extends Params {
 
   /** @group getParam */
   def getNeighborsCol: String = $(neighborsCol)
-
-  /**
-    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean",
-    * "inner-product", "manhattan" or the fully qualified classname of a distance function
-    * Default: "cosine"
-    *
-    * @group param
-    */
-  val distanceFunction = new Param[String](this, "distanceFunction", "column names for returned neighbors")
-
-  /** @group getParam */
-  def getDistanceFunction: String = $(distanceFunction)
 
   /**
     * Param for number of neighbors to find (> 0).
@@ -141,7 +139,7 @@ trait KnnModelParams extends Params {
   def getOutputFormat: String = $(outputFormat)
 
   setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
-    distanceFunction -> "cosine", excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
+    excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
 
@@ -173,8 +171,108 @@ trait KnnAlgorithmParams extends KnnModelParams {
   /** @group getParam */
   def getNumPartitions: Int = $(numPartitions)
 
+  /**
+    * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean",
+    * "inner-product", "manhattan" or the fully qualified classname of a distance function
+    * Default: "cosine"
+    *
+    * @group param
+    */
+  val distanceFunction = new Param[String](this, "distanceFunction", "column names for returned neighbors")
+
+  /** @group getParam */
+  def getDistanceFunction: String = $(distanceFunction)
+
+  /**
+    * Param for StorageLevel for the indices. Pass in a string representation of
+    * `StorageLevel`.
+    * Default: "MEMORY_ONLY".
+    *
+    * @group expertParam
+    */
+  val storageLevel = new Param[String](this, "storageLevel", "StorageLevel for the indices")
+
+  /** @group expertGetParam */
+  def getStorageLevel: String = $(storageLevel)
+
+
+  setDefault(distanceFunction -> "cosine", numPartitions -> 1, storageLevel -> "MEMORY_ONLY")
 }
 
+/**
+  * Persists a knn model.
+  *
+  * @param instance the instance to persist
+  * @tparam TModel type of model
+  */
+private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TModel]) extends MLWriter {
+
+  override protected def saveImpl(path: String): Unit = {
+    val metaData = JObject(
+      JField("class", JString(instance.getClass.getName)),
+      JField("timestamp", JInt(System.currentTimeMillis())),
+      JField("sparkVersion", JString(sc.version)),
+      JField("uid", JString(instance.uid)),
+      JField("paramMap", JObject(
+        instance.extractParamMap().toSeq.toList.map { case ParamPair(param, value) =>
+          JField(param.name, parse(param.jsonEncode(value)))
+        }
+      ))
+    )
+
+    val metadataPath = new Path(path, "metadata").toString
+    sc.parallelize(Seq(compact(metaData)), 1).saveAsTextFile(metadataPath)
+
+    val indicesPath = new Path(path, "indices").toString
+    instance.indices.saveAsObjectFile(indicesPath)
+  }
+
+}
+
+/**
+  * Reads a knn model from persistent stotage.
+  *
+  * @param ev classtag
+  * @tparam TModel type of model
+  */
+private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev: ClassTag[TModel]) extends MLReader[TModel] {
+
+  private implicit val format: Formats = DefaultFormats
+
+  override def load(path: String): TModel = {
+
+    val metadataPath = new Path(path, "metadata").toString
+
+    val metadataStr = sc.textFile(metadataPath, 1).first()
+
+    val metadata = parse(metadataStr)
+
+    val className = (metadata \ "class").extract[String]
+    val uid = (metadata \ "uid").extract[String]
+
+    val paramMap = (metadata \ "paramMap").extract[JObject]
+
+    val expectedClassName = ev.runtimeClass.getName
+
+    require(className == expectedClassName, s"Error loading metadata: Expected class name" +
+      s" $expectedClassName but found class name $className")
+
+    val indicesPath = new Path(path, "indices").toString
+    val indices = sc.objectFile[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))](indicesPath)
+
+    val model = createModel(uid, new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions))))
+
+    paramMap.obj.foreach { case (paramName, jsonValue) =>
+      val param = model.getParam(paramName)
+      model.set(param, param.jsonDecode(compact(render(jsonValue))))
+    }
+
+    model
+  }
+
+  protected def createModel(uid: String,
+                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
+}
 
 /**
   * Base class for nearest neighbor search models.
@@ -184,7 +282,7 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel model type
   */
 abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                                                 indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
+                                                 private[knn] val indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.spark.knn.Udfs._
@@ -362,6 +460,9 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
   /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
+  /** @group setParam */
+  def setStorageLevel(value: String): this.type = set(storageLevel, value)
+
   override def fit(dataset: Dataset[_]): TModel = {
 
     import dataset.sparkSession.implicits._
@@ -371,6 +472,8 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
       case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
       case _ => col(getVectorCol)
     }
+
+    val storageLevel = StorageLevel.fromString(getStorageLevel)
 
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
 
@@ -403,7 +506,12 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
 
           Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
         } else Iterator.empty
-        , preservesPartitioning = true)
+        , preservesPartitioning = true).persist(storageLevel)
+
+    if (storageLevel != StorageLevel.NONE) {
+      // force caching
+      indicesRdd.count()
+    }
 
     val model = createModel(uid, indicesRdd)
     copyValues(model)

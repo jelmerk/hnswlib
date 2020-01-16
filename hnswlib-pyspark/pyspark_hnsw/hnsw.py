@@ -2,10 +2,11 @@ from pyspark.ml.wrapper import JavaEstimator, JavaModel
 from pyspark.ml.param.shared import *
 from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
+from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
 
 @inherit_doc
-class Hnsw(JavaEstimator):
+class Hnsw(JavaEstimator, JavaMLReadable, JavaMLWritable):
     """
     Approximate nearest neighbour search.
     """
@@ -33,10 +34,12 @@ class Hnsw(JavaEstimator):
         self.similarityThreshold = Param(self, "similarityThreshold",
                                          "do not return neighbors further away than this distance")
         self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
+        self.storageLevel = Param(self, "storageLevel",
+                                  "storageLevel for the indices. Pass in a string representation of StorageLevel")
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
+                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -44,7 +47,7 @@ class Hnsw(JavaEstimator):
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full"):
+                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -52,7 +55,7 @@ class Hnsw(JavaEstimator):
         return HnswModel(java_model)
 
 
-class HnswModel(JavaModel):
+class HnswModel(JavaModel, JavaMLReadable, JavaMLWritable):
     """
     Model fitted by Hnsw.
     """
@@ -61,7 +64,14 @@ class HnswModel(JavaModel):
 
         # note: look at https://issues.apache.org/jira/browse/SPARK-10931 in the future
 
-        self.k = Param(self, "k", "number of neighbors to find")
+        self.identifierCol = Param(self, "identifierCol", "the column name for the row identifier")
+        self.vectorCol = Param(self, "vectorCol", "the column name for the vector")
         self.neighborsCol = Param(self, "neighborsCol", "column names for returned neighbors")
+        self.k = Param(self, "k", "number of neighbors to find")
+        self.ef = Param(self, "ef", "size of the dynamic list for the nearest neighbors (used during the search)")
+        self.excludeSelf = Param(self, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
+        self.similarityThreshold = Param(self, "similarityThreshold",
+                                         "do not return neighbors further away than this distance")
+        self.outputFormat = Param(self, "outputFormat", "output format, one of full, minimal")
 
         self._transfer_params_from_java()
