@@ -12,7 +12,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
-import com.github.jelmerk.spark.util.{PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
+import com.github.jelmerk.spark.util.{BoundedPriorityQueue, PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.{BytesWritable, NullWritable}
 import org.apache.spark.Partitioner

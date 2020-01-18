@@ -6,6 +6,6 @@ import org.apache.hadoop.mapred.SequenceFileInputFormat
 /**
   * Extends SequenceFileInputFormat to make it not splittable.
   */
-class UnsplittableSequenceFileInputFormat[K, V] extends SequenceFileInputFormat[K, V] {
+private[spark] class UnsplittableSequenceFileInputFormat[K, V] extends SequenceFileInputFormat[K, V] {
   override def isSplitable(fs: FileSystem, filename: Path): Boolean = false
 }
