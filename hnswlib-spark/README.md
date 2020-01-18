@@ -26,33 +26,48 @@ Example usage
 -------------
 
     import com.github.jelmerk.spark.knn.hnsw.Hnsw
+    import com.github.jelmerk.spark.linalg.Normalizer
+    import org.apache.spark.ml.Pipeline
     
+    // The cosine distance is obtained with the inner product after normalizing all vectors to unit norm 
+    // this is much faster than calculating the cosine distance directly
+    
+    val normalizer = new Normalizer()
+      .setInputCol("features")
+      .setOutputCol("normalizedFeatures")
+
     val hnsw = new Hnsw()
-          .setIdentityCol("row_id")
-          .setVectorCol("anchor")
-          .setNumPartitions(100)
-          .setM(64)
-          .setEf(5)
-          .setEfConstruction(200)
-          .setK(5)
-          .setDistanceFunction("cosine")
-          .setExcludeSelf(false)
-          
-    val model = hnsw.fit(testData)
+      .setIdentityCol("id")
+      .setVectorCol("normalizedFeatures")
+      .setOutputFormat("minimal")
+      .setNumPartitions(2)
+      .setM(48)
+      .setEf(5)
+      .setEfConstruction(200)
+      .setK(5)
+      .setDistanceFunction("inner-product")
+      .setExcludeSelf(true)
     
-    model.transform(testData).write.mode(SaveMode.Overwrite).parquet("/path/to/output")
+    val pipeline = new Pipeline()
+      .setStages(Array(normalizer, hnsw))
 
-Typically you would want to set numPartitions to the number of executors you have at your disposal
+    val model = pipeline.fit(indexItems)
 
-Development
------------
+    model.transform(indexItems).write.mode(SaveMode.Overwrite).parquet("/path/to/output")
 
-The easiest way to test changes to the hnswlib codebase is to produce an assembly file with
+Recommended configuration
+-------------------------
 
-    mvn clean assembly:assembly
-    
-And then reference it from spark with
+- set `executor.instances` to the same value as the numPartitions property of your Hnsw instance
+- set `spark.executor.cores` to as high a value as feasible on your executors while not making your jobs impossible to schedule
+- set `spark.task.cpus` to the same value as `spark.executor.cores`
+- set `spark.sql.shuffle.partitions` to the same value as `executor.instances`
+- set `spark.sql.files.maxpartitionbytes` to 134217728 divided by the value assigned to `executor.instances`
+- set `spark.scheduler.minRegisteredResourcesRatio` to `1.0`
+- set `spark.speculation` to `false`
+- set `spark.driver.memory`: to some arbitrary low value for instance `2g` will do because the model does not run on the driver
+- set `spark.executor.memory`: to a value appropriate to the size of your data, typically the will be a large value 
+- set `spark.yarn.executor.memoryOverhead` to a value higher than `executorMemory * 0.10` if you get the "Container killed by YARN for exceeding memory limits" error
 
-    spark-submit --jars hnswlib-spark/target/hnswlib-spark-*-jar-with-dependencies.jar your.jar
 
-    
+Note that as it stands increasing the number of partitions will speed up fitting the model but not querying the model.
