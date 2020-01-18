@@ -12,8 +12,9 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import com.github.jelmerk.knn.scalalike._
-import com.github.jelmerk.spark.util.PartitionedRdd
+import com.github.jelmerk.spark.util.{PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
 import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.{BytesWritable, NullWritable}
 import org.apache.spark.Partitioner
 import org.apache.spark.ml.util.{MLReader, MLWriter}
 import org.apache.spark.rdd.RDD
@@ -260,7 +261,9 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
       s" $expectedClassName but found class name $className")
 
     val indicesPath = new Path(path, "indices").toString
-    val indices = sc.objectFile[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))](indicesPath)
+
+    val indices = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
+      .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]](value.getBytes) }
 
     val model = createModel(uid, new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions))))
 
