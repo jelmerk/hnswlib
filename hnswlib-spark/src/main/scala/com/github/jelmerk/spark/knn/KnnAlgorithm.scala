@@ -215,7 +215,8 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TM
       JField("uid", JString(instance.uid)),
       JField("paramMap", JObject(
         instance.extractParamMap().toSeq.toList.map { case ParamPair(param, value) =>
-          JField(param.name, parse(param.jsonEncode(value)))
+          // cannot use parse because of incompatibilities between json4s 3.2.11 used by spark 2.3 and 3.6.6 used by spark 2.4
+          JField(param.name, mapper.readValue(param.jsonEncode(value), classOf[JValue]))
         }
       ))
     )
@@ -245,7 +246,8 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
 
     val metadataStr = sc.textFile(metadataPath, 1).first()
 
-    val metadata = parse(metadataStr)
+    // cannot use parse because of incompatibilities between json4s 3.2.11 used by spark 2.3 and 3.6.6 used by spark 2.4
+    val metadata = mapper.readValue(metadataStr, classOf[JValue])
 
     val className = (metadata \ "class").extract[String]
     val uid = (metadata \ "uid").extract[String]
