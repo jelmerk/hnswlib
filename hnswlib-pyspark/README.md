@@ -36,8 +36,8 @@ Example usage
     
     model.transform(df).write.parquet('/path/to/output', mode='overwrite')
 
-Recommended configuration
--------------------------
+Suggested configuration
+-----------------------
 
 - set `executor.instances` to the same value as the numPartitions property of your Hnsw instance
 - set `spark.executor.cores` to as high a value as feasible on your executors while not making your jobs impossible to schedule
