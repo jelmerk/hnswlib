@@ -3,9 +3,14 @@ from pyspark.ml.param.shared import *
 from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 
+__all__ = ['BruteForce', 'BruteForceModel']
 
 @inherit_doc
 class BruteForce(JavaEstimator):
+    """
+    Exact nearest neighbour search.
+    """
+
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
@@ -37,6 +42,126 @@ class BruteForce(JavaEstimator):
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
 
+    def getIdentifierCol(self):
+        """
+        Gets the value of identifierCol or its default value.
+        """
+        return self.getOrDefault(self.identifierCol)
+
+    def setIdentifierCol(self, value):
+        """
+        Sets the value of :py:attr:`identifierCol`.
+        """
+        return self._set(identifierCol=value)
+
+    def getVectorCol(self):
+        """
+        Gets the value of vectorCol or its default value.
+        """
+        return self.getOrDefault(self.vectorCol)
+
+    def setVectorCol(self, value):
+        """
+        Sets the value of :py:attr:`vectorCol`.
+        """
+        return self._set(vectorCol=value)
+
+    def getNeighborsCol(self):
+        """
+        Gets the value of neighborsCol or its default value.
+        """
+        return self.getOrDefault(self.neighborsCol)
+
+    def setNeighborsCol(self, value):
+        """
+        Sets the value of :py:attr:`neighborsCol`.
+        """
+        return self._set(neighborsCol=value)
+
+    def getNumPartitions(self):
+        """
+        Gets the value of numPartitions or its default value.
+        """
+        return self.getOrDefault(self.numPartitions)
+
+    def setNumPartitions(self, value):
+        """
+        Sets the value of :py:attr:`numPartitions`.
+        """
+        return self._set(numPartitions=value)
+
+    def getK(self):
+        """
+        Gets the value of k or its default value.
+        """
+        return self.getOrDefault(self.k)
+
+    def setK(self, value):
+        """
+        Sets the value of :py:attr:`k`.
+        """
+        return self._set(k=value)
+
+    def getDistanceFunction(self):
+        """
+        Gets the value of distanceFunction or its default value.
+        """
+        return self.getOrDefault(self.distanceFunction)
+
+    def setDistanceFunction(self, value):
+        """
+        Sets the value of :py:attr:`distanceFunction`.
+        """
+        return self._set(distanceFunction=value)
+
+    def getExcludeSelf(self):
+        """
+        Gets the value of excludeSelf or its default value.
+        """
+        return self.getOrDefault(self.excludeSelf)
+
+    def setExcludeSelf(self, value):
+        """
+        Sets the value of :py:attr:`excludeSelf`.
+        """
+        return self._set(excludeSelf=value)
+
+    def getSimilarityThreshold(self):
+        """
+        Gets the value of similarityThreshold or its default value.
+        """
+        return self.getOrDefault(self.similarityThreshold)
+
+    def setSimilarityThreshold(self, value):
+        """
+        Sets the value of :py:attr:`similarityThreshold`.
+        """
+        return self._set(similarityThreshold=value)
+
+    def getOutputFormat(self):
+        """
+        Gets the value of outputFormat or its default value.
+        """
+        return self.getOrDefault(self.outputFormat)
+
+    def setOutputFormat(self, value):
+        """
+        Sets the value of :py:attr:`outputFormat`.
+        """
+        return self._set(outputFormat=value)
+
+    def getStorageLevel(self):
+        """
+        Gets the value of storageLevel or its default value.
+        """
+        return self.getOrDefault(self.storageLevel)
+
+    def setStorageLevel(self, value):
+        """
+        Sets the value of :py:attr:`storageLevel`.
+        """
+        return self._set(storageLevel=value)
+
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
@@ -52,6 +177,7 @@ class BruteForceModel(JavaModel):
     """
     Model fitted by BruteForce.
     """
+
     def __init__(self, java_model):
         super(BruteForceModel, self).__init__(java_model)
 

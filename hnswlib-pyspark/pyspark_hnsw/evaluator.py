@@ -4,6 +4,7 @@ from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
+__all__ = ['KnnEvaluator']
 
 @inherit_doc
 class KnnEvaluator(JavaEvaluator, JavaMLReadable, JavaMLWritable):
@@ -22,6 +23,30 @@ class KnnEvaluator(JavaEvaluator, JavaMLReadable, JavaMLWritable):
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
+
+    def getApproximateNeighborsCol(self):
+        """
+        Gets the value of approximateNeighborsCol or its default value.
+        """
+        return self.getOrDefault(self.approximateNeighborsCol)
+
+    def setApproximateNeighborsCol(self, value):
+        """
+        Sets the value of :py:attr:`approximateNeighborsCol`.
+        """
+        return self._set(approximateNeighborsCol=value)
+
+    def getExactNeighborsCol(self):
+        """
+        Gets the value of exactNeighborsCol or its default value.
+        """
+        return self.getOrDefault(self.exactNeighborsCol)
+
+    def setExactNeighborsCol(self, value):
+        """
+        Sets the value of :py:attr:`exactNeighborsCol`.
+        """
+        return self._set(exactNeighborsCol=value)
 
     @keyword_only
     def setParams(self, approximateNeighborsCol="approximateNeighbors", exactNeighborsCol="exactNeighbors"):

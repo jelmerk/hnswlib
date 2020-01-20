@@ -3,6 +3,8 @@ from pyspark.ml.wrapper import JavaTransformer
 from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 
+__all__ = ['Normalizer']
+
 @inherit_doc
 class Normalizer(JavaTransformer, HasInputCol, HasOutputCol):
     """
