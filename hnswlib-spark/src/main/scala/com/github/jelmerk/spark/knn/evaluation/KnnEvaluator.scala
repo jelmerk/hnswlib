@@ -89,9 +89,8 @@ class KnnEvaluator(override val uid: String) extends Evaluator with DefaultParam
 
   override def isLargerBetter: Boolean = true
 
-  private def requireColumnOfTypeNeighbor(schema: StructType, column: String): Unit = {
+  private def requireColumnOfTypeNeighbor(schema: StructType, column: String): Unit =
     require(isNeighborColumn(schema, column), s"Column $column is not of type array of neighbors.")
-  }
 
   private def isNeighborColumn(schema: StructType, column: String): Boolean = {
     Try(schema(getExactNeighborsCol).dataType).toOption

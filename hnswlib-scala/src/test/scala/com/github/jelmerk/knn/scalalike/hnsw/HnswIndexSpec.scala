@@ -27,6 +27,13 @@ class HnswIndexSpec extends FunSuite {
     index.ef should be (100)
   }
 
+  test("change ef") {
+    val newEfValue = 999
+    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, ef = 100)
+    index.ef = newEfValue
+    index.ef should be (newEfValue)
+  }
+
   test("retrieve efConstruction") {
     val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, efConstruction = 100)
     index.efConstruction should be (100)

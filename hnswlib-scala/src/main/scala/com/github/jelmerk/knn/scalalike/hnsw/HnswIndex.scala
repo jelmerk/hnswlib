@@ -168,7 +168,12 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
   /**
     * The size of the dynamic list for the nearest neighbors (used during the search)
     */
-  val ef: Int = delegate.getEf
+  def ef: Int = delegate.getEf
+
+  /**
+    * Sets the size of the dynamic list for the nearest neighbors (used during the search)
+    */
+  def ef_= (value: Int):Unit = delegate.setEf(value)
 
   /**
     * Returns the parameter has the same meaning as ef, but controls the index time / index precision.

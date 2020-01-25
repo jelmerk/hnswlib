@@ -629,6 +629,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Set the size of the dynamic list for the nearest neighbors (used during the search)
+     *
+     * @param ef The size of the dynamic list for the nearest neighbors
+     */
+    public void setEf(int ef) {
+        this.ef = ef;
+    }
+
+    /**
      * Returns the parameter has the same meaning as ef, but controls the index time / index precision.
      *
      * @return the parameter has the same meaning as ef, but controls the index time / index precision

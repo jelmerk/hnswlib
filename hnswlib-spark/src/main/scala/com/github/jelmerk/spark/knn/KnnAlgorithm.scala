@@ -206,7 +206,9 @@ trait KnnAlgorithmParams extends KnnModelParams {
   * @param instance the instance to persist
   * @tparam TModel type of model
   */
-private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TModel]) extends MLWriter {
+private[knn] class KnnModelWriter[TModel <: Model[TModel],
+                                  TIndex <: Index[String, Array[Float], IndexItem, Float]](instance: KnnModel[TModel, TIndex])
+  extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
     val metaData = JObject(
@@ -228,7 +230,6 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TM
     val indicesPath = new Path(path, "indices").toString
     instance.indices.saveAsObjectFile(indicesPath)
   }
-
 }
 
 /**
@@ -237,7 +238,9 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TM
   * @param ev classtag
   * @tparam TModel type of model
   */
-private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev: ClassTag[TModel]) extends MLReader[TModel] {
+private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
+                                           TIndex <: Index[String, Array[Float], IndexItem, Float]]
+  (implicit ev: ClassTag[TModel]) extends MLReader[TModel] {
 
   private implicit val format: Formats = DefaultFormats
 
@@ -263,7 +266,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     val indicesPath = new Path(path, "indices").toString
 
     val indices = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
-      .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]](value.getBytes) }
+      .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (TIndex, String, Array[Float]))]](value.getBytes) }
 
     val model = createModel(uid, new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions))))
 
@@ -276,7 +279,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
   }
 
   protected def createModel(uid: String,
-                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
+                            indices: RDD[(Int, (TIndex, String, Array[Float]))]): TModel
 }
 
 /**
@@ -286,9 +289,10 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
   * @param indices rdd that holds the indices that are used to do the search
   * @tparam TModel model type
   */
-abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
-                                                 private[knn] val indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends Model[TModel] with KnnModelParams {
+abstract class KnnModel[TModel <: Model[TModel],
+                        TIndex <: Index[String, Array[Float], IndexItem, Float]]
+    (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, String, Array[Float]))])
+      extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.spark.knn.Udfs._
 
@@ -334,7 +338,7 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
       .as[(String, Array[Float], Int)]
       .rdd
-      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[Index[String, Array[Float], IndexItem, Float]], id, vector)) }
+      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex], id, vector)) }
       .partitionBy(indices.partitioner.get)
 
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
@@ -353,6 +357,8 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
           logInfo(f"partition $partition%04d: No index on partition, not querying anything.")
           Iterator.empty
         } else {
+          transformIndex(index)
+
           new LoggingIterator(partition,
             it.grouped(20480).flatMap { grouped =>
 
@@ -405,6 +411,13 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
     else dataset.join(transformed, Seq(getIdentifierCol))
   }
 
+  /**
+    * Subclasses can implement this class in order to transform the index before querying.
+    *
+    * @param index the index to transform
+    */
+  private[knn] def transformIndex(index: TIndex): Unit = ()
+
   override def transformSchema(schema: StructType): StructType = {
     validateAndTransformSchema(schema)
   }
@@ -435,7 +448,9 @@ abstract class KnnModel[TModel <: Model[TModel]](override val uid: String,
   }
 }
 
-abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) extends Estimator[TModel] with KnnAlgorithmParams {
+abstract class KnnAlgorithm[TModel <: Model[TModel],
+                            TIndex <: Index[String, Array[Float], IndexItem, Float]](override val uid: String)
+  extends Estimator[TModel] with KnnAlgorithmParams {
 
   import Udfs._
 
@@ -534,7 +549,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @param maxItemCount maximum number of items the index can hold
     * @return create an index
     */
-  protected def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float]
+  protected def createIndex(maxItemCount: Int): TIndex
 
   /**
     * Creates the model to be returned from fitting the data.
@@ -544,7 +559,7 @@ abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String) e
     * @return model
     */
   protected def createModel(uid: String,
-                            indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): TModel
+                            indices: RDD[(Int, (TIndex, String, Array[Float]))]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "bray-curtis" => floatBrayCurtisDistance

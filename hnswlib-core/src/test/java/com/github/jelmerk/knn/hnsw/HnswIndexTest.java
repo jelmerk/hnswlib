@@ -52,6 +52,13 @@ class HnswIndexTest {
     }
 
     @Test
+    void changeEf() {
+        int newEfValue = 999;
+        index.setEf(newEfValue);
+        assertThat(index.getEf(), is(newEfValue));
+    }
+
+    @Test
     void returnEfConstruction() {
         assertThat(index.getEfConstruction(), is(efConstruction));
     }

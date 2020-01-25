@@ -12,9 +12,9 @@ import org.apache.spark.rdd.RDD
   */
 object BruteForceModel extends MLReadable[BruteForceModel] {
 
-  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel] {
+  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]] {
     override protected def createModel(uid: String,
-                                       indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+                                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
       new BruteForceModel(uid, indices)
   }
 
@@ -28,8 +28,8 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class BruteForceModel(override val uid: String,
-                      indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel](uid, indices) with MLWritable {
+                      indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
+  extends KnnModel[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable {
 
 
   override def copy(extra: ParamMap): BruteForceModel = {
@@ -37,7 +37,7 @@ class BruteForceModel(override val uid: String,
     copyValues(copied, extra).setParent(parent)
   }
 
-  override def write: MLWriter = new KnnModelWriter[BruteForceModel](this)
+  override def write: MLWriter = new KnnModelWriter[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](this)
 }
 
 /**
@@ -46,15 +46,15 @@ class BruteForceModel(override val uid: String,
   *
   * @param uid identifier
   */
-class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel](uid)  {
+class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid)  {
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
-  override def createIndex(maxItemCount: Int): Index[String, Array[Float], IndexItem, Float] =
+  override def createIndex(maxItemCount: Int): BruteForceIndex[String, Array[Float], IndexItem, Float] =
     BruteForceIndex[String, Array[Float], IndexItem, Float](distanceFunctionByName(getDistanceFunction))
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, (Index[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+                           indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
     new BruteForceModel(uid, indices)
 
 }

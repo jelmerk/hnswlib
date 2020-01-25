@@ -3,6 +3,7 @@ package com.github.jelmerk.knn.scalalike.bruteforce
 import java.io.{File, InputStream}
 import java.nio.file.Path
 
+import com.github.jelmerk.knn.{Index => JIndex}
 import com.github.jelmerk.knn.DistanceFunction
 import com.github.jelmerk.knn.bruteforce.{BruteForceIndex => JBruteForceIndex}
 import com.github.jelmerk.knn.scalalike.{ScalaIndexAdapter, Index, Item}
@@ -21,8 +22,8 @@ object BruteForceIndex {
     * @return The restored index
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
-    : Index[TId, TVector, TItem, TDistance] =
-      new ScalaIndexAdapter(JBruteForceIndex.load(inputStream))
+    : BruteForceIndex[TId, TVector, TItem, TDistance] =
+      new BruteForceIndex(JBruteForceIndex.load(inputStream))
 
   /**
     * Restores a BruteForceIndex from a File.
@@ -36,8 +37,8 @@ object BruteForceIndex {
     * @return The restored index
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File)
-    : Index[TId, TVector, TItem, TDistance] =
-      new ScalaIndexAdapter(JBruteForceIndex.load(file))
+    : BruteForceIndex[TId, TVector, TItem, TDistance] =
+      new BruteForceIndex(JBruteForceIndex.load(file))
 
   /**
     * Restores a BruteForceIndex from a Path.
@@ -51,12 +52,12 @@ object BruteForceIndex {
     * @return The restored index
     */
   def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path)
-    : Index[TId, TVector, TItem, TDistance] =
-      new ScalaIndexAdapter(JBruteForceIndex.load(path))
+    : BruteForceIndex[TId, TVector, TItem, TDistance] =
+      new BruteForceIndex(JBruteForceIndex.load(path))
 
   def apply[TId, TVector, TItem <: Item[TId, TVector], TDistance ]
       (distanceFunction: (TVector, TVector) => TDistance)(implicit ordering: Ordering[TDistance])
-        : Index[TId, TVector, TItem, TDistance] = {
+        : BruteForceIndex[TId, TVector, TItem, TDistance] = {
 
     val jDistanceFunction = new DistanceFunction[TVector, TDistance] {
       override def distance(u: TVector, v: TVector): TDistance = distanceFunction(u, v)
@@ -64,6 +65,19 @@ object BruteForceIndex {
 
     val jIndex = JBruteForceIndex.newBuilder(jDistanceFunction, ordering).build[TId, TItem]()
 
-    new ScalaIndexAdapter[TId, TVector, TItem, TDistance](jIndex)
+    new BruteForceIndex[TId, TVector, TItem, TDistance](jIndex)
   }
 }
+
+/**
+  * Implementation of Index that uses brute force
+  *
+  * @param delegate the java index to delegate calls to
+  *
+  * @tparam TId Type of the external identifier of an item
+  * @tparam TVector Type of the vector to perform distance calculation on
+  * @tparam TItem Type of items stored in the index
+  * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+  */
+class BruteForceIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance](delegate: JIndex[TId, TVector, TItem, TDistance])
+  extends ScalaIndexAdapter[TId, TVector, TItem, TDistance](delegate)
