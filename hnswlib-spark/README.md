@@ -25,35 +25,80 @@ Pass the following argument to spark
 Example usage
 -------------
 
-    import com.github.jelmerk.spark.knn.hnsw.Hnsw
-    import com.github.jelmerk.spark.linalg.Normalizer
-    import org.apache.spark.ml.Pipeline
-    
-    // The cosine distance is obtained with the inner product after normalizing all vectors to unit norm 
-    // this is much faster than calculating the cosine distance directly
-    
-    val normalizer = new Normalizer()
-      .setInputCol("features")
-      .setOutputCol("normalizedFeatures")
+Basic:
 
+    import com.github.jelmerk.spark.knn.hnsw.Hnsw
+    
     val hnsw = new Hnsw()
       .setIdentityCol("id")
-      .setVectorCol("normalizedFeatures")
-      .setOutputFormat("minimal")
+      .setVectorCol("features")
       .setNumPartitions(2)
       .setM(48)
       .setEf(5)
       .setEfConstruction(200)
-      .setK(5)
-      .setDistanceFunction("inner-product")
+      .setK(200)
+      .setDistanceFunction("cosine")
       .setExcludeSelf(true)
-    
-    val pipeline = new Pipeline()
-      .setStages(Array(normalizer, hnsw))
 
-    val model = pipeline.fit(indexItems)
+    val model = hnsw.fit(indexItems)
 
     model.transform(indexItems).write.mode(SaveMode.Overwrite).parquet("/path/to/output")
+    
+Advanced:
+
+    import org.apache.spark.ml.Pipeline
+    
+    import com.github.jelmerk.spark.knn.bruteforce.BruteForce
+    import com.github.jelmerk.spark.knn.evaluation.KnnEvaluator
+    import com.github.jelmerk.spark.knn.hnsw.Hnsw
+    import com.github.jelmerk.spark.linalg.Normalizer
+    
+    // The cosine distance is obtained with the inner product after normalizing all vectors to unit norm 
+    // this is much faster than calculating the cosine distance directly
+
+    val normalizer = new Normalizer()
+      .setInputCol("features")
+      .setOutputCol("normalizedFeatures")
+    
+    val hnsw = new Hnsw()
+      .setIdentityCol("id")
+      .setVectorCol("normalizedFeatures")
+      .setNumPartitions(2)
+      .setM(48)
+      .setEfConstruction(200)
+      .setK(200)
+      .setSimilarityThreshold(0.4f)
+      .setDistanceFunction("inner-product")
+      .setNeighborsCol("approximateNeighbors")
+      .setExcludeSelf(true)
+    
+    val bruteForce = new BruteForce()
+      .setIdentityCol("id")
+      .setVectorCol("normalizedFeatures")
+      .setNumPartitions(2)
+      .setK(200)
+      .setSimilarityThreshold(0.4f)
+      .setDistanceFunction("inner-product")
+      .setNeighborsCol("exactNeighbors")
+    
+    val pipeline = new Pipeline()
+      .setStages(Array(normalizer, hnsw, bruteForce))
+    
+    val model = pipeline.fit(indexItems)
+    
+    // computing the exact similarity is expensive so only take a small sample
+    val queryItems = indexItems.sample(0.01)
+    
+    val output = model.transform(queryItems)
+
+    val evaluator = new KnnEvaluator()
+      .setApproximateNeighborsCol("approximateNeighbors")
+      .setExactNeighborsCol("exactNeighbors")
+    
+    val accuracy = evaluator.evaluate(output)
+
+    println(s"Accuracy: $accuracy")
+
 
 Suggested configuration
 -----------------------

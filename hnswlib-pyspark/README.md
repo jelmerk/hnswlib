@@ -18,8 +18,24 @@ Then install the python module with
 Example usage
 -------------
 
+Basic:
+
     from pyspark.ml import Pipeline
     from pyspark_hnsw.knn import Hnsw
+    from pyspark_hnsw.linalg import Normalizer
+    
+    hnsw = Hnsw(identifierCol='id', vectorCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
+                efConstruction=200, numPartitions=2, excludeSelf=True)
+    
+    model = hnsw.fit(index_items)
+    
+    model.transform(index_items).write.parquet('/path/to/output', mode='overwrite')
+
+Advanced:
+
+    from pyspark.ml import Pipeline
+    from pyspark_hnsw.evaluation import KnnEvaluator
+    from pyspark_hnsw.knn import *
     from pyspark_hnsw.linalg import Normalizer
 
     # The cosine distance is obtained with the inner product after normalizing all vectors to unit norm
@@ -27,14 +43,24 @@ Example usage
     
     normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
     
-    hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=5,
-                efConstruction=200, numPartitions=2, excludeSelf=True, outputFormat='minimal')
+    hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
+                efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='approximate')
+                
+    brute_force = BruteForce(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product',
+                             k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='exact')
+     
+    pipeline = Pipeline(stages=[normalizer, hnsw, brute_force])
     
-    pipeline = Pipeline(stages=[normalizer, hnsw])
+    model = pipeline.fit(index_items)
     
-    model = pipeline.fit(df)
+    output = model.transform(index_items)
     
-    model.transform(df).write.parquet('/path/to/output', mode='overwrite')
+    evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
+    
+    accuracy = evaluator.evaluate(output)
+    
+    print(accuracy)
+
 
 Suggested configuration
 -----------------------
