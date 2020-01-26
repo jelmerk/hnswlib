@@ -60,7 +60,7 @@ private[knn] object Udfs {
 /**
   * Common params for KnnAlgorithm and KnnModel.
   */
-trait KnnModelParams extends Params {
+private[knn] trait KnnModelParams extends Params {
 
   /**
     * Param for the column name for the row identifier.
@@ -161,7 +161,7 @@ trait KnnModelParams extends Params {
   }
 }
 
-trait KnnAlgorithmParams extends KnnModelParams {
+private[knn] trait KnnAlgorithmParams extends KnnModelParams {
 
   /**
     * Number of partitions (default: 1)
@@ -289,7 +289,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
   * @param indices rdd that holds the indices that are used to do the search
   * @tparam TModel model type
   */
-abstract class KnnModel[TModel <: Model[TModel],
+private[knn] abstract class KnnModel[TModel <: Model[TModel],
                         TIndex <: Index[String, Array[Float], IndexItem, Float]]
     (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, String, Array[Float]))])
       extends Model[TModel] with KnnModelParams {
@@ -448,7 +448,7 @@ abstract class KnnModel[TModel <: Model[TModel],
   }
 }
 
-abstract class KnnAlgorithm[TModel <: Model[TModel],
+private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
                             TIndex <: Index[String, Array[Float], IndexItem, Float]](override val uid: String)
   extends Estimator[TModel] with KnnAlgorithmParams {
 

@@ -6,7 +6,7 @@ import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
 
-trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
+private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 
   /**
     * The number of bi-directional links created for every new element during construction.
@@ -39,7 +39,7 @@ trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 /**
   * Common params for Hnsw and HnswModel.
   */
-trait HnswModelParams extends KnnModelParams {
+private[hnsw] trait HnswModelParams extends KnnModelParams {
 
   /**
     * Size of the dynamic list for the nearest neighbors (used during the search).
