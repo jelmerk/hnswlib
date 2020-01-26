@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.hnsw import Hnsw
+from pyspark_hnsw.knn import Hnsw
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 

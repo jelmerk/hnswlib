@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.bruteforce import BruteForce
+from pyspark_hnsw.knn import BruteForce
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 

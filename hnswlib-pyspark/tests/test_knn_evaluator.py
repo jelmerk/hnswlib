@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.evaluator import KnnEvaluator
+from pyspark_hnsw.evaluation import KnnEvaluator
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 from pyspark.sql.types import *

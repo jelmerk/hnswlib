@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.normalizer import Normalizer
+from pyspark_hnsw.linalg import Normalizer
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 

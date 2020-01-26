@@ -19,8 +19,8 @@ Example usage
 -------------
 
     from pyspark.ml import Pipeline
-    from pyspark_hnsw.hnsw import Hnsw
-    from pyspark_hnsw.normalizer import Normalizer
+    from pyspark_hnsw.knn import Hnsw
+    from pyspark_hnsw.linalg import Normalizer
 
     # The cosine distance is obtained with the inner product after normalizing all vectors to unit norm
     # this is much faster than calculating the cosine distance directly
