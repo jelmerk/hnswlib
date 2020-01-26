@@ -2,7 +2,6 @@ package com.github.jelmerk.spark.knn.bruteforce
 
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
-import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD

@@ -1,13 +1,19 @@
 package com.github.jelmerk.spark.knn.evaluation
 
 import scala.util.Try
-
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param.{Param, ParamMap}
-import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable}
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
+
+/**
+  * Companion class for KnnEvaluator.
+  */
+object KnnEvaluator extends DefaultParamsReadable[KnnEvaluator] {
+  override def load(path: String): KnnEvaluator = super.load(path)
+}
 
 /**
   * Evaluator for knn algorithms, which expects two input columns: exactNeighbors and approximate neighbors. It compares

@@ -6,11 +6,18 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
+
+/**
+  * Companion class for Normalizer.
+  */
+object Normalizer extends DefaultParamsReadable[Normalizer] {
+  override def load(path: String): Normalizer = super.load(path)
+}
 
 /**
   * Normalizes vectors to unit norm.
@@ -18,7 +25,7 @@ import org.apache.spark.sql.functions._
   * @param uid identifier
   */
 class Normalizer(override val uid: String)
-  extends Transformer with HasInputCol with HasOutputCol with Logging {
+  extends Transformer with HasInputCol with HasOutputCol with Logging with DefaultParamsWritable {
 
   def this() = this(Identifiable.randomUID("norm"))
 
@@ -70,3 +77,5 @@ class Normalizer(override val uid: String)
   }
 
 }
+
+
