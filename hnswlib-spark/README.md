@@ -20,7 +20,7 @@ Setup
 
 Pass the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.29'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.30'
 
 Example usage
 -------------
@@ -98,6 +98,9 @@ Advanced:
     val accuracy = evaluator.evaluate(output)
 
     println(s"Accuracy: $accuracy")
+    
+    // save the model
+    model.write.overwrite.save("/path/to/model")
 
 
 Suggested configuration
