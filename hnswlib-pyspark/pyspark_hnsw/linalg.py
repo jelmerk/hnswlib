@@ -1,12 +1,13 @@
 from pyspark.ml.param.shared import HasInputCol, HasOutputCol
 from pyspark.ml.wrapper import JavaTransformer
+from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 
 __all__ = ['Normalizer']
 
 @inherit_doc
-class Normalizer(JavaTransformer, HasInputCol, HasOutputCol):
+class Normalizer(JavaTransformer, HasInputCol, HasOutputCol, JavaMLReadable, JavaMLWritable):
     """
     Normalizes vectors to unit norm
     """

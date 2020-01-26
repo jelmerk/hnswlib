@@ -80,6 +80,7 @@ Advanced:
       .setSimilarityThreshold(0.4f)
       .setDistanceFunction("inner-product")
       .setNeighborsCol("exactNeighbors")
+      .setExcludeSelf(true)
     
     val pipeline = new Pipeline()
       .setStages(Array(normalizer, hnsw, bruteForce))
