@@ -81,11 +81,10 @@ class KnnEvaluator(override val uid: String) extends Evaluator with DefaultParam
       )
       .as[(Seq[String], Seq[String])]
       .mapPartitions( it => it.map { case (exactNeighbors, approximateNeighbors) =>
-        val numInCommon = exactNeighbors.toSet.intersect(approximateNeighbors.toSet).size
-        numInCommon.toDouble / exactNeighbors.size.toDouble
+         exactNeighbors.toSet.intersect(approximateNeighbors.toSet).size -> exactNeighbors.size
       })
-      .toDF("accuracy")
-      .select(avg($"accuracy"))
+      .toDF("numMatching", "numResults")
+      .select(when(sum($"numResults") === 0, 1.0).otherwise(sum($"numMatching") / sum($"numResults")))
       .as[Double]
       .collect()
       .head
