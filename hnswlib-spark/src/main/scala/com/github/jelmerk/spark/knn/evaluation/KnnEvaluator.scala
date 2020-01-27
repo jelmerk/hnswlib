@@ -16,9 +16,9 @@ object KnnEvaluator extends DefaultParamsReadable[KnnEvaluator] {
 }
 
 /**
-  * Evaluator for knn algorithms, which expects two input columns: exactNeighbors and approximate neighbors. It compares
+  * Evaluator for knn algorithms, which expects two input columns, the exact neighbors and approximate neighbors. It compares
   * the results to determine the accuracy of the approximate results. Typically you will want to compute this over a
-  * small sample given the cost of computing the exact results.
+  * small sample given the cost of computing the exact results on a large index.
   *
   * @param uid identifier
   */
