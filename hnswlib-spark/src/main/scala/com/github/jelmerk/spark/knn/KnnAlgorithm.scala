@@ -454,7 +454,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
 
   import Udfs._
 
-  def setIdentityCol(value: String): this.type = set(identifierCol, value)
+  def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
   def setVectorCol(value: String): this.type = set(vectorCol, value)

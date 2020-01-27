@@ -122,7 +122,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
     forAll (scenarios) { case (outputFormat, excludeSelf, similarityThreshold, input, validator) =>
 
       val hnsw = new Hnsw()
-        .setIdentityCol("id")
+        .setIdentifierCol("id")
         .setVectorCol("vector")
         .setNumPartitions(5)
         .setK(10)
@@ -145,7 +145,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
     import sqlCtx.implicits._
 
     val hnsw = new Hnsw()
-      .setIdentityCol("id")
+      .setIdentifierCol("id")
       .setVectorCol("vector")
       .setNeighborsCol("neighbors")
       .setOutputFormat("minimal")
