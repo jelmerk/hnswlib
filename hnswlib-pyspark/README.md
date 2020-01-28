@@ -20,9 +20,7 @@ Example usage
 
 Basic:
 
-    from pyspark.ml import Pipeline
     from pyspark_hnsw.knn import Hnsw
-    from pyspark_hnsw.linalg import Normalizer
     
     hnsw = Hnsw(identifierCol='id', vectorCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
                 efConstruction=200, numPartitions=2, excludeSelf=True)
@@ -53,7 +51,10 @@ Advanced:
     
     model = pipeline.fit(index_items)
     
-    output = model.transform(index_items)
+    # computing the exact similarity is expensive so only take a small sample
+    query_items = index_items.sample(0.01)
+    
+    output = model.transform(query_items)
     
     evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
     
