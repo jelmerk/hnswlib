@@ -76,7 +76,7 @@ object HnswModel extends MLReadable[HnswModel] {
   * @param uid identifier
   * @param indices rdd that holds the indices that are used to do the search
   */
-class HnswModel(override val uid: String,
+class HnswModel private[hnsw](override val uid: String,
                 indices: RDD[(Int, (HnswIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends KnnModel[HnswModel, HnswIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
 

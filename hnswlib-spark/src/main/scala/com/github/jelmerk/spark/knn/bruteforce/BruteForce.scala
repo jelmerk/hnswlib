@@ -26,7 +26,7 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   * @param uid identifier
   * @param indices rdd that holds the indices that are used to do the search
   */
-class BruteForceModel(override val uid: String,
+class BruteForceModel private[bruteforce](override val uid: String,
                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
   extends KnnModel[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable {
 
