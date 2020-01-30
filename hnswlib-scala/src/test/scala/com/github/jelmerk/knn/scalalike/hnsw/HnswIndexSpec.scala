@@ -4,12 +4,12 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
 import com.github.jelmerk.knn.hnsw.JavaObjectSerializer
 import com.github.jelmerk.knn.scalalike._
-import org.scalatest.FunSuite
-import org.scalatest.Matchers._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers._
 
 import scala.collection.mutable
 
-class HnswIndexSpec extends FunSuite {
+class HnswIndexSpec extends AnyFunSuite {
 
   private val item1 = TestItem("1", Array(0.0110f, 0.2341f))
   private val item2 = TestItem("2", Array(0.2300f, 0.3891f))

@@ -11,7 +11,7 @@ About
 The easiest way to use this library with spark is to simply collect your data on the driver node and index it there. 
 This does mean you'll have to allocate a lot of cores and memory to the driver.
 
-The alternative to this is to use this moule to shard the index across multiple executors 
+The alternative to this is to use this module to shard the index across multiple executors 
 and parallelise the indexing / querying. This may be  faster if you have many executors at your disposal and is
 appropriate if your dataset won't fit in the driver memory
 

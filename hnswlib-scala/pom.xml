@@ -85,7 +85,6 @@
                         <arg>UTF-8</arg>
                         <arg>-feature</arg>
                         <arg>-Xlog-reflective-calls</arg>
-                        <arg>-Ywarn-adapted-args</arg>
                     </args>
                 </configuration>
             </plugin>
@@ -136,9 +135,7 @@
         <profile>
             <id>scala-2.11</id>
             <activation>
-                <property>
-                    <name>!scala-2.12</name>
-                </property>
+                <activeByDefault>true</activeByDefault>
             </activation>
 
             <properties>
@@ -150,7 +147,7 @@
                 <dependency>
                     <groupId>org.scalatest</groupId>
                     <artifactId>scalatest_2.11</artifactId>
-                    <version>3.0.1</version>
+                    <version>3.1.0</version>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
@@ -174,7 +171,31 @@
                 <dependency>
                     <groupId>org.scalatest</groupId>
                     <artifactId>scalatest_2.12</artifactId>
-                    <version>3.0.1</version>
+                    <version>3.1.0</version>
+                    <scope>test</scope>
+                </dependency>
+            </dependencies>
+
+        </profile>
+
+        <profile>
+            <id>scala-2.13</id>
+            <activation>
+                <property>
+                    <name>scala-2.13</name>
+                </property>
+            </activation>
+
+            <properties>
+                <scala.version>2.13.1</scala.version>
+                <scala.binary.version>2.13</scala.binary.version>
+            </properties>
+
+            <dependencies>
+                <dependency>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest_2.13</artifactId>
+                    <version>3.1.0</version>
                     <scope>test</scope>
                 </dependency>
             </dependencies>

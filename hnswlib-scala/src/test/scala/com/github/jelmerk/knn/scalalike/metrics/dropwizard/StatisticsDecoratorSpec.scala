@@ -3,14 +3,14 @@ package com.github.jelmerk.knn.scalalike.metrics.dropwizard
 import com.codahale.metrics.MetricRegistry
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.knn.scalalike._
-import org.scalatest.FunSuite
-import org.scalatest.Matchers._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers._
 
 import com.codahale.metrics.MetricRegistry.name
 
-class StatisticsDecoratorSpec extends FunSuite {
+class StatisticsDecoratorSpec extends AnyFunSuite {
 
-  test("cam construct statistics decorator") {
+  test("can construct statistics decorator") {
 
     val metricRegistry = new MetricRegistry
     val hnswIndex = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, 10)

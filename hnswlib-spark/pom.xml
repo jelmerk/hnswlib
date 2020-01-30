@@ -60,10 +60,11 @@
             <scope>provided</scope>
         </dependency>
 
+        <!-- spark-testing-base is incompatible with scalatest 3.1.0 -->
         <dependency>
             <groupId>org.scalatest</groupId>
             <artifactId>scalatest_2.11</artifactId>
-            <version>3.0.1</version>
+            <version>3.0.8</version>
             <scope>test</scope>
         </dependency>
 
@@ -133,7 +134,6 @@
                         <arg>UTF-8</arg>
                         <arg>-feature</arg>
                         <arg>-Xlog-reflective-calls</arg>
-                        <arg>-Ywarn-adapted-args</arg>
                     </args>
                 </configuration>
             </plugin>

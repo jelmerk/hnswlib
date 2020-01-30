@@ -82,7 +82,6 @@
                         <arg>UTF-8</arg>
                         <arg>-feature</arg>
                         <arg>-Xlog-reflective-calls</arg>
-                        <arg>-Ywarn-adapted-args</arg>
                     </args>
                 </configuration>
             </plugin>

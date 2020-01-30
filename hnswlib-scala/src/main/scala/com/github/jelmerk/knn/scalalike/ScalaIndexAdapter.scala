@@ -3,6 +3,7 @@ package com.github.jelmerk.knn.scalalike
 import java.io.{File, OutputStream}
 import java.nio.file.Path
 
+import scala.collection.immutable.Seq
 import scala.collection.JavaConverters._
 import com.github.jelmerk.knn.{Index => JIndex}
 
@@ -42,10 +43,10 @@ private[scalalike] class ScalaIndexAdapter[TId, TVector, TItem <: Item[TId, TVec
   override def iterator: Iterator[TItem] = delegate.items().asScala.iterator
 
   override def findNearest(vector: TVector, k: Int): Seq[SearchResult[TItem, TDistance]] =
-    delegate.findNearest(vector, k).asScala
+    new UnsafeImmutableJListWrapper(delegate.findNearest(vector, k))
 
   override def findNeighbors(id: TId, k: Int): Seq[SearchResult[TItem, TDistance]] =
-    delegate.findNeighbors(id, k).asScala
+    new UnsafeImmutableJListWrapper(delegate.findNeighbors(id, k))
 
   override def save(out: OutputStream): Unit = delegate.save(out)
 

@@ -3,6 +3,8 @@ package com.github.jelmerk.knn.scalalike
 import java.io.{File, OutputStream}
 import java.nio.file.Path
 
+import scala.collection.immutable.Seq
+
 import com.github.jelmerk.knn.{Index => JIndex}
 
 /**
