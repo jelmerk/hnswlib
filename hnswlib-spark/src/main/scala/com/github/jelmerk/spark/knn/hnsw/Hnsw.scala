@@ -61,7 +61,14 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
   */
 object HnswModel extends MLReadable[HnswModel] {
 
-  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]] {
+  private[hnsw] class HnswModelReader extends KnnModelReader[
+    HnswModel,
+    String,
+    Array[Float],
+    DenseVectorIndexItem,
+    HnswIndex[String, Array[Float],
+    DenseVectorIndexItem, Float]] {
+
     override protected def createModel(uid: String, indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))]): HnswModel =
       new HnswModel(uid, indices)
   }
@@ -78,7 +85,7 @@ object HnswModel extends MLReadable[HnswModel] {
   */
 class HnswModel private[hnsw](override val uid: String,
                 indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
+  extends KnnModel[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
@@ -91,7 +98,7 @@ class HnswModel private[hnsw](override val uid: String,
   /** @group setParam */
   def setEf(value: Int): this.type = set(ef, value)
 
-  override def write: MLWriter = new KnnModelWriter[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](this)
 }
 
 /**
@@ -100,7 +107,7 @@ class HnswModel private[hnsw](override val uid: String,
   * @param uid identifier
   */
 class Hnsw(override val uid: String)
-  extends KnnAlgorithm[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
+  extends KnnAlgorithm[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
     with HnswParams with DenseVectorSupport {
 
   def this() = this(Identifiable.randomUID("hnsw"))

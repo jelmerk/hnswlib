@@ -11,7 +11,12 @@ import org.apache.spark.rdd.RDD
   */
 object BruteForceModel extends MLReadable[BruteForceModel] {
 
-  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]] {
+  private[knn] class BruteForceModelReader extends KnnModelReader[
+    BruteForceModel,
+    String,
+    Array[Float],
+    DenseVectorIndexItem,
+    BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]] {
     override protected def createModel(uid: String,
                                        indices: RDD[(Int, (BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))]): BruteForceModel =
       new BruteForceModel(uid, indices)
@@ -28,14 +33,14 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   */
 class BruteForceModel private[bruteforce](override val uid: String,
                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable {
+  extends KnnModel[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable {
 
   override def copy(extra: ParamMap): BruteForceModel = {
     val copied = new BruteForceModel(uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
-  override def write: MLWriter = new KnnModelWriter[BruteForceModel, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](this)
 }
 
 /**
@@ -45,7 +50,7 @@ class BruteForceModel private[bruteforce](override val uid: String,
   * @param uid identifier
   */
 class BruteForce(override val uid: String)
-  extends KnnAlgorithm[BruteForceModel, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
+  extends KnnAlgorithm[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
     with DenseVectorSupport {
 
   def this() = this(Identifiable.randomUID("brute_force"))

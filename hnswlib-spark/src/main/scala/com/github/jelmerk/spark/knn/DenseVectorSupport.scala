@@ -4,15 +4,6 @@ import com.github.jelmerk.knn.scalalike._
 
 import scala.util.Try
 
-/**
- * Item in an nearest neighbor search index
- *
- * @param id item identifier
- * @param vector item vector
- */
-private[knn] case class DenseVectorIndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
-
-
 private[knn] trait DenseVectorSupport {
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
