@@ -181,7 +181,11 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   * Persists a knn model.
   *
   * @param instance the instance to persist
-  * @tparam TModel type of model
+  * @tparam TModel type of the model
+  * @tparam TId type of the index item identifier
+  * @tparam TVector type of the index item vector
+  * @tparam TItem type of the index item
+  * @tparam TIndex type of the index
   */
 private[knn] class KnnModelWriter[TModel <: Model[TModel],
                                   TId: TypeTag,
@@ -215,8 +219,12 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel],
 /**
   * Reads a knn model from persistent stotage.
   *
-  * @param ev classtag
-  * @tparam TModel type of model
+  * @param ev classtag of the model type
+  * @tparam TModel type of the model
+  * @tparam TId type of the index item identifier
+  * @tparam TVector type of the index item vector
+  * @tparam TItem type of the index item
+  * @tparam TIndex type of the index
   */
 private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
                                            TId: TypeTag,
@@ -269,7 +277,12 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
   *
   * @param uid identifier
   * @param indices rdd that holds the indices that are used to do the search
-  * @tparam TModel model type
+  * @param ev classtag of the index item identifier
+  * @tparam TModel type of the model
+  * @tparam TId type of the index item identifier
+  * @tparam TVector type of the index item vector
+  * @tparam TItem type of the index item
+  * @tparam TIndex type of the index
   */
 private[knn] abstract class KnnModel[TModel <: Model[TModel],
                                      TId : TypeTag,
