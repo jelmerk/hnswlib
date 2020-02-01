@@ -5,6 +5,9 @@ import java.net.InetAddress
 
 import scala.util.Try
 import scala.math.abs
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
+
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
@@ -22,8 +25,6 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.storage.StorageLevel
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
-
-import scala.reflect.ClassTag
 
 /**
   * Item in an nearest neighbor search index
@@ -207,7 +208,9 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TModel type of model
   */
 private[knn] class KnnModelWriter[TModel <: Model[TModel],
-                                  TIndex <: Index[String, Array[Float], IndexItem, Float]](instance: KnnModel[TModel, TIndex])
+                                  TVector : TypeTag,
+                                  TItem <: Item[String, TVector] with Product : TypeTag,
+                                  TIndex <: Index[String, TVector, TItem, Float]](instance: KnnModel[TModel, TVector, TItem, TIndex])
   extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
@@ -290,8 +293,10 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
   * @tparam TModel model type
   */
 private[knn] abstract class KnnModel[TModel <: Model[TModel],
-                        TIndex <: Index[String, Array[Float], IndexItem, Float]]
-    (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, String, Array[Float]))])
+                                     TVector : TypeTag,
+                                     TItem <: Item[String, TVector] with Product : TypeTag,
+                                     TIndex <: Index[String, TVector, TItem, Float]]
+    (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, String, TVector))]) // (implicit ev: ClassTag[TItem])
       extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.spark.knn.Udfs._
@@ -336,7 +341,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
         vectorCol.as(getVectorCol)
       )
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
-      .as[(String, Array[Float], Int)]
+      .as[(String, TVector, Int)]
       .rdd
       .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex], id, vector)) }
       .partitionBy(indices.partitioner.get)
@@ -449,7 +454,10 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
 }
 
 private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
-                            TIndex <: Index[String, Array[Float], IndexItem, Float]](override val uid: String)
+                                         TVector,
+                                         TItem <: Item[String, TVector] with Product : TypeTag,
+                                         TIndex <: Index[String, TVector, TItem, Float]]
+    (override val uid: String)(implicit ev: ClassTag[TItem])
   extends Estimator[TModel] with KnnAlgorithmParams {
 
   import Udfs._
@@ -504,7 +512,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
       .select(
         col(getIdentifierCol).cast(StringType).as("id"),
         vectorCol.as("vector")
-      ).as[IndexItem]
+      ).as[TItem]
       .mapPartitions { _.map (item => (abs(item.id.hashCode) % getNumPartitions, item)) }
       .rdd
       .partitionBy(partitioner)
@@ -524,7 +532,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[Array[Float]]))
+          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[String], null.asInstanceOf[TVector]))
         } else Iterator.empty
         , preservesPartitioning = true).persist(storageLevel)
 
@@ -559,7 +567,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     * @return model
     */
   protected def createModel(uid: String,
-                            indices: RDD[(Int, (TIndex, String, Array[Float]))]): TModel
+                            indices: RDD[(Int, (TIndex, String, TVector))]): TModel
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "bray-curtis" => floatBrayCurtisDistance

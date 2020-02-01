@@ -78,7 +78,7 @@ object HnswModel extends MLReadable[HnswModel] {
   */
 class HnswModel private[hnsw](override val uid: String,
                 indices: RDD[(Int, (HnswIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel, HnswIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
+  extends KnnModel[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
@@ -91,7 +91,7 @@ class HnswModel private[hnsw](override val uid: String,
   /** @group setParam */
   def setEf(value: Int): this.type = set(ef, value)
 
-  override def write: MLWriter = new KnnModelWriter[HnswModel, HnswIndex[String, Array[Float], IndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](this)
 }
 
 /**
@@ -99,7 +99,7 @@ class HnswModel private[hnsw](override val uid: String,
   *
   * @param uid identifier
   */
-class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, HnswIndex[String, Array[Float], IndexItem, Float]](uid) with HnswParams {
+class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](uid) with HnswParams {
 
   def this() = this(Identifiable.randomUID("hnsw"))
 

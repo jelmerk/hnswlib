@@ -28,15 +28,14 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   */
 class BruteForceModel private[bruteforce](override val uid: String,
                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable {
-
+  extends KnnModel[BruteForceModel, Array[Float], IndexItem, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable {
 
   override def copy(extra: ParamMap): BruteForceModel = {
     val copied = new BruteForceModel(uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
-  override def write: MLWriter = new KnnModelWriter[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[BruteForceModel, Array[Float], IndexItem, BruteForceIndex[String, Array[Float], IndexItem, Float]](this)
 }
 
 /**
@@ -45,7 +44,8 @@ class BruteForceModel private[bruteforce](override val uid: String,
   *
   * @param uid identifier
   */
-class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid)  {
+class BruteForce(override val uid: String)
+  extends KnnAlgorithm[BruteForceModel, Array[Float], IndexItem, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid)  {
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
