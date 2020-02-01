@@ -279,7 +279,6 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
     (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, TId, TVector))])(implicit ev: ClassTag[TId])
       extends Model[TModel] with KnnModelParams {
 
-  import com.github.jelmerk.spark.util.Udfs._
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
@@ -304,22 +303,9 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
 
-    // select the item vector from the query dataframe, transform vectors or double arrays into float arrays
-    // for performance reasons
+    // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
-    val vectorCol = dataset.schema(getVectorCol).dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol)) // VectorUDT is not accessible
-      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
-      case _ => col(getVectorCol)
-    }
-
-    // duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
-
-    val queryRdd = dataset
-      .select(
-        col(getIdentifierCol).cast(StringType),
-        vectorCol.as(getVectorCol)
-      )
+    val queryRdd = readItems(dataset)
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
       .as[(TId, TVector, Int)]
       .rdd
@@ -396,16 +382,22 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
     else dataset.join(transformed, Seq(getIdentifierCol))
   }
 
+  override def transformSchema(schema: StructType): StructType = validateAndTransformSchema(schema)
+
   /**
-    * Subclasses can implement this class in order to transform the index before querying.
-    *
-    * @param index the index to transform
-    */
+   * Subclasses can implement this class in order to transform the index before querying.
+   *
+   * @param index the index to transform
+   */
   private[knn] def transformIndex(index: TIndex): Unit = ()
 
-  override def transformSchema(schema: StructType): StructType = {
-    validateAndTransformSchema(schema)
-  }
+  /**
+   * Read items from the passed in dataset.
+   *
+   * @param dataset the dataset to read the items from
+   * @return dataset of item
+   */
+  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem]
 
   private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
 
@@ -470,8 +462,6 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
   /** @group setParam */
   def setStorageLevel(value: String): this.type = set(storageLevel, value)
 
-  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem]
-
   override def fit(dataset: Dataset[_]): TModel = {
     import dataset.sparkSession.implicits._
 
@@ -515,11 +505,17 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     copyValues(model)
   }
 
-  override def transformSchema(schema: StructType): StructType = {
-    validateAndTransformSchema(schema)
-  }
+  override def transformSchema(schema: StructType): StructType = validateAndTransformSchema(schema)
 
   override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)
+
+  /**
+   * Read items from the passed in dataset.
+   *
+   * @param dataset the dataset to read the items from
+   * @return dataset of item
+   */
+  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem]
 
   /**
     * Create the index used to do the nearest neighbor search.
@@ -527,7 +523,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     * @param maxItemCount maximum number of items the index can hold
     * @return create an index
     */
-  protected def createIndex(maxItemCount: Int): TIndex
+  private[knn] def createIndex(maxItemCount: Int): TIndex
 
   /**
     * Creates the model to be returned from fitting the data.
@@ -536,8 +532,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     * @param indices rdd that holds the indices that are used to do the search
     * @return model
     */
-  protected def createModel(uid: String,
-                            indices: RDD[(Int, (TIndex, TId, TVector))]): TModel
+  private[knn] def createModel(uid: String, indices: RDD[(Int, (TIndex, TId, TVector))]): TModel
 }
 
 /**

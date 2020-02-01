@@ -85,7 +85,8 @@ object HnswModel extends MLReadable[HnswModel] {
   */
 class HnswModel private[hnsw](override val uid: String,
                 indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
+  extends DenseVectorKnnModel[HnswModel, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices)
+    with MLWritable with HnswModelParams {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
@@ -107,7 +108,7 @@ class HnswModel private[hnsw](override val uid: String,
   * @param uid identifier
   */
 class Hnsw(override val uid: String)
-  extends DenseVectorKnnAlgorithmBase[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
+  extends DenseVectorKnnAlgorithmBase[HnswModel, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
     with HnswParams {
 
   def this() = this(Identifiable.randomUID("hnsw"))

@@ -33,7 +33,8 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   */
 class BruteForceModel private[bruteforce](override val uid: String,
                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable {
+  extends DenseVectorKnnModel[BruteForceModel, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices)
+    with MLWritable {
 
   override def copy(extra: ParamMap): BruteForceModel = {
     val copied = new BruteForceModel(uid, indices)
@@ -50,7 +51,7 @@ class BruteForceModel private[bruteforce](override val uid: String,
   * @param uid identifier
   */
 class BruteForce(override val uid: String)
-  extends DenseVectorKnnAlgorithmBase[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid) {
+  extends DenseVectorKnnAlgorithmBase[BruteForceModel, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid) {
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
