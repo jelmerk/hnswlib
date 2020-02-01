@@ -61,8 +61,8 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
   */
 object HnswModel extends MLReadable[HnswModel] {
 
-  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel, HnswIndex[String, Array[Float], IndexItem, Float]] {
-    override protected def createModel(uid: String, indices: RDD[(Int, (HnswIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
+  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]] {
+    override protected def createModel(uid: String, indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))]): HnswModel =
       new HnswModel(uid, indices)
   }
 
@@ -77,21 +77,21 @@ object HnswModel extends MLReadable[HnswModel] {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class HnswModel private[hnsw](override val uid: String,
-                indices: RDD[(Int, (HnswIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
+                indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))])
+  extends KnnModel[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid, indices) with MLWritable with HnswModelParams {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
-  override private[knn] def transformIndex(index: HnswIndex[String, Array[Float], IndexItem, Float]): Unit =
+  override private[knn] def transformIndex(index: HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]): Unit =
     index.ef = getEf
 
   /** @group setParam */
   def setEf(value: Int): this.type = set(ef, value)
 
-  override def write: MLWriter = new KnnModelWriter[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](this)
 }
 
 /**
@@ -99,7 +99,9 @@ class HnswModel private[hnsw](override val uid: String,
   *
   * @param uid identifier
   */
-class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, Array[Float], IndexItem, HnswIndex[String, Array[Float], IndexItem, Float]](uid) with HnswParams {
+class Hnsw(override val uid: String)
+  extends KnnAlgorithm[HnswModel, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
+    with HnswParams with DenseVectorSupport {
 
   def this() = this(Identifiable.randomUID("hnsw"))
 
@@ -112,8 +114,8 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, Array[Float
   /** @group setParam */
   def setEfConstruction(value: Int): this.type = set(efConstruction, value)
 
-  override def createIndex(maxItemCount: Int): HnswIndex[String, Array[Float], IndexItem, Float] =
-    HnswIndex[String, Array[Float], IndexItem, Float](
+  override def createIndex(maxItemCount: Int): HnswIndex[String, Array[Float], DenseVectorIndexItem, Float] =
+    HnswIndex[String, Array[Float], DenseVectorIndexItem, Float](
       distanceFunction = distanceFunctionByName(getDistanceFunction),
       maxItemCount = maxItemCount,
       m = getM,
@@ -122,7 +124,7 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, Array[Float
     )
 
   override def createModel(uid: String,
-                           indices: RDD[(Int, (HnswIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): HnswModel =
+                           indices: RDD[(Int, (HnswIndex[String, Array[Float], DenseVectorIndexItem, Float], String, Array[Float]))]): HnswModel =
     new HnswModel(uid, indices)
 
 }

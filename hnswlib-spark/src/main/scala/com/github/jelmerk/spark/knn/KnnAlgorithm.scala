@@ -3,7 +3,6 @@ package com.github.jelmerk.spark.knn
 import java.lang.{Float => JFloat}
 import java.net.InetAddress
 
-import scala.util.Try
 import scala.math.abs
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -25,14 +24,6 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.storage.StorageLevel
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
-
-/**
-  * Item in an nearest neighbor search index
-  *
-  * @param id item identifier
-  * @param vector item vector
-  */
-private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
 
 /**
   * Neighbor of an item
@@ -242,7 +233,7 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel],
   * @tparam TModel type of model
   */
 private[knn] abstract class KnnModelReader[TModel <: Model[TModel],
-                                           TIndex <: Index[String, Array[Float], IndexItem, Float]]
+                                           TIndex <: Index[String, Array[Float], DenseVectorIndexItem, Float]]
   (implicit ev: ClassTag[TModel]) extends MLReader[TModel] {
 
   private implicit val format: Formats = DefaultFormats
@@ -569,20 +560,6 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
   protected def createModel(uid: String,
                             indices: RDD[(Int, (TIndex, String, TVector))]): TModel
 
-  protected def distanceFunctionByName(name: String): DistanceFunction[Array[Float], Float] = name match {
-    case "bray-curtis" => floatBrayCurtisDistance
-    case "canberra" => floatCanberraDistance
-    case "correlation" => floatCorrelationDistance
-    case "cosine" => floatCosineDistance
-    case "euclidean" => floatEuclideanDistance
-    case "inner-product" => floatInnerProduct
-    case "manhattan" => floatManhattanDistance
-    case value =>
-      Try(Class.forName(value).getDeclaredConstructor().newInstance())
-        .toOption
-        .collect { case f: DistanceFunction[Array[Float] @unchecked, Float @unchecked] => f }
-        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
-  }
 
 }
 
