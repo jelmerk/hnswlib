@@ -487,8 +487,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
   /** @group setParam */
   def setStorageLevel(value: String): this.type = set(storageLevel, value)
 
-  override def fit(dataset: Dataset[_]): TModel = {
-
+  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem] = {
     import dataset.sparkSession.implicits._
 
     val vectorCol = dataset.schema(getVectorCol).dataType match {
@@ -497,6 +496,16 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
       case _ => col(getVectorCol)
     }
 
+    dataset
+      .select(
+        col(getIdentifierCol).cast(StringType).as("id"),
+        vectorCol.as("vector")
+      ).as[TItem]
+  }
+
+  override def fit(dataset: Dataset[_]): TModel = {
+    import dataset.sparkSession.implicits._
+
     val storageLevel = StorageLevel.fromString(getStorageLevel)
 
     val partitioner = new PartitionIdPassthrough(getNumPartitions)
@@ -504,11 +513,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     // read the id and vector from the input dataset and and repartition them over numPartitions amount of partitions.
     // Transform vectors or double arrays into float arrays for performance reasons.
 
-    val partitionedIndexItems = dataset
-      .select(
-        col(getIdentifierCol).cast(StringType).as("id"),
-        vectorCol.as("vector")
-      ).as[TItem]
+    val partitionedIndexItems = readItems(dataset)
       .mapPartitions { _.map (item => (abs(item.id.hashCode) % getNumPartitions, item)) }
       .rdd
       .partitionBy(partitioner)
@@ -564,8 +569,6 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     */
   protected def createModel(uid: String,
                             indices: RDD[(Int, (TIndex, TId, TVector))]): TModel
-
-
 }
 
 /**
