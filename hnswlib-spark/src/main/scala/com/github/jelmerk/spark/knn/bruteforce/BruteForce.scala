@@ -50,8 +50,7 @@ class BruteForceModel private[bruteforce](override val uid: String,
   * @param uid identifier
   */
 class BruteForce(override val uid: String)
-  extends KnnAlgorithm[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
-    with DenseVectorSupport {
+  extends DenseVectorKnnAlgorithmBase[BruteForceModel, String, Array[Float], DenseVectorIndexItem, BruteForceIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid) {
 
   def this() = this(Identifiable.randomUID("brute_force"))
 

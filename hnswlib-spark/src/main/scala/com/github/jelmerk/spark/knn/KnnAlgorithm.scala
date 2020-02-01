@@ -8,7 +8,6 @@ import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -20,7 +19,6 @@ import org.apache.hadoop.io.{BytesWritable, NullWritable}
 import org.apache.spark.Partitioner
 import org.apache.spark.ml.util.{MLReader, MLWriter}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.storage.StorageLevel
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
@@ -35,19 +33,6 @@ private[knn] case class Neighbor[TId](neighbor: TId, distance: Float) extends Co
   override def compareTo(other: Neighbor[TId]): Int = JFloat.compare(other.distance, distance)
 }
 
-
-private[knn] object Udfs {
-
-  /**
-    * Convert a dense vector to a float array.
-    */
-  val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
-
-  /**
-    * Convert a double array to a float array
-    */
-  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
-}
 
 /**
   * Common params for KnnAlgorithm and KnnModel.
@@ -294,7 +279,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
     (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, TId, TVector))])(implicit ev: ClassTag[TId])
       extends Model[TModel] with KnnModelParams {
 
-  import com.github.jelmerk.spark.knn.Udfs._
+  import com.github.jelmerk.spark.util.Udfs._
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
@@ -456,8 +441,6 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     (override val uid: String)(implicit ev: ClassTag[TItem])
   extends Estimator[TModel] with KnnAlgorithmParams {
 
-  import Udfs._
-
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
@@ -487,21 +470,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
   /** @group setParam */
   def setStorageLevel(value: String): this.type = set(storageLevel, value)
 
-  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem] = {
-    import dataset.sparkSession.implicits._
-
-    val vectorCol = dataset.schema(getVectorCol).dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => vectorToFloatArray(col(getVectorCol))
-      case ArrayType(DoubleType, _) => doubleArrayToFloatArray(col(getVectorCol))
-      case _ => col(getVectorCol)
-    }
-
-    dataset
-      .select(
-        col(getIdentifierCol).cast(StringType).as("id"),
-        vectorCol.as("vector")
-      ).as[TItem]
-  }
+  private[knn] def readItems(dataset: Dataset[_]): Dataset[TItem]
 
   override def fit(dataset: Dataset[_]): TModel = {
     import dataset.sparkSession.implicits._

@@ -107,8 +107,8 @@ class HnswModel private[hnsw](override val uid: String,
   * @param uid identifier
   */
 class Hnsw(override val uid: String)
-  extends KnnAlgorithm[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
-    with HnswParams with DenseVectorSupport {
+  extends DenseVectorKnnAlgorithmBase[HnswModel, String, Array[Float], DenseVectorIndexItem, HnswIndex[String, Array[Float], DenseVectorIndexItem, Float]](uid)
+    with HnswParams {
 
   def this() = this(Identifiable.randomUID("hnsw"))
 
