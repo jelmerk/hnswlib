@@ -36,6 +36,11 @@ public class TestItem implements Item<String, float[]> {
     }
 
     @Override
+    public int dimensions() {
+        return vector.length;
+    }
+
+    @Override
     public String toString() {
         return "TestItem{" +
                 "id='" + id + '\'' +

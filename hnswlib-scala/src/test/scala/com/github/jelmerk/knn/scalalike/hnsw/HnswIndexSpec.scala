@@ -11,6 +11,8 @@ import scala.collection.mutable
 
 class HnswIndexSpec extends AnyFunSuite {
 
+  private val dimensions = 2
+
   private val item1 = TestItem("1", Array(0.0110f, 0.2341f))
   private val item2 = TestItem("2", Array(0.2300f, 0.3891f))
   private val item3 = TestItem("3", Array(0.4300f, 0.9891f))
@@ -18,86 +20,86 @@ class HnswIndexSpec extends AnyFunSuite {
   private val k = 10
 
   test("retrieve m") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, m = 32)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, m = 32)
     index.m should be (32)
   }
 
   test("retrieve ef") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, ef = 100)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, ef = 100)
     index.ef should be (100)
   }
 
   test("change ef") {
     val newEfValue = 999
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, ef = 100)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, ef = 100)
     index.ef = newEfValue
     index.ef should be (newEfValue)
   }
 
   test("retrieve efConstruction") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, efConstruction = 100)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, efConstruction = 100)
     index.efConstruction should be (100)
   }
 
   test("retrieve maxItemCount") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.maxItemCount should be (10)
   }
 
   test("retrieve distanceFunction") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.distanceFunction should be (floatCosineDistance)
   }
 
   test("retrieve removeEnabled") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, removeEnabled = true)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, removeEnabled = true)
     index.removeEnabled should be (true)
   }
 
   test("retrieve distance ordering") {
     val ordering = Ordering[Float]
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)(ordering)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)(ordering)
     index.distanceOrdering should be theSameInstanceAs ordering
   }
 
   test("retrieve itemIdSerializer") {
     val itemIdSerializer = new JavaObjectSerializer[String]
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, itemIdSerializer = itemIdSerializer)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, itemIdSerializer = itemIdSerializer)
     index.itemIdSerializer should be theSameInstanceAs itemIdSerializer
   }
 
   test("retrieve itemSerializer") {
     val itemSerializer = new JavaObjectSerializer[TestItem]
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, itemSerializer = itemSerializer)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, itemSerializer = itemSerializer)
     index.itemSerializer should be theSameInstanceAs itemSerializer
   }
 
   test("optionally get non-existent item from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.get("1") should be (None)
   }
 
   test("optionally get existing item from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.add(item1)
     index.get(item1.id) should be (Some(item1))
   }
 
   test("get existing item from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.add(item1)
     index(item1.id) should be (item1)
   }
 
   test("get non-existent item from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     an[NoSuchElementException] shouldBe thrownBy {
       index(item1.id) should be (item1)
     }
   }
 
   test("check if item is contained in index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
 
     index.contains(item1.id) should be (false)
     index.add(item1)
@@ -105,21 +107,21 @@ class HnswIndexSpec extends AnyFunSuite {
   }
 
   test("get items from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.add(item1)
 
     index.toSeq should be (Seq(item1))
   }
 
   test("retrieve size of index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
 
     index.add(item1)
     index.size should be (1)
   }
 
   test("remove item from index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10, removeEnabled = true)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10, removeEnabled = true)
 
     index.add(item1)
     index.size should be (1)
@@ -128,7 +130,7 @@ class HnswIndexSpec extends AnyFunSuite {
   }
 
   test("find nearest") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.addAll(Seq(item1, item2, item3))
 
     val results = index.findNearest(item1.vector, k)
@@ -141,7 +143,7 @@ class HnswIndexSpec extends AnyFunSuite {
   }
 
   test("find neighbors") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.addAll(Seq(item1, item2, item3))
 
     val results = index.findNeighbors(item1.id, k)
@@ -155,7 +157,7 @@ class HnswIndexSpec extends AnyFunSuite {
   test("calls progress listener when indexing") {
     val updates = mutable.ArrayBuffer.empty[ProgressUpdate]
 
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.addAll(Seq(item1, item2, item3), progressUpdateInterval = 2, numThreads = 1,
       listener = (workDone, max) => updates += ProgressUpdate(workDone, max))
 
@@ -166,7 +168,7 @@ class HnswIndexSpec extends AnyFunSuite {
   }
 
   test("can load saved index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.add(item1)
 
     val baos = new ByteArrayOutputStream
@@ -179,7 +181,7 @@ class HnswIndexSpec extends AnyFunSuite {
   }
 
   test("can create exact view on hnsw index") {
-    val index = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, maxItemCount = 10)
+    val index = HnswIndex[String, Array[Float], TestItem, Float](dimensions, floatCosineDistance, maxItemCount = 10)
     index.add(item1)
 
     index.asExactIndex.size should be (1)

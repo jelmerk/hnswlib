@@ -49,8 +49,8 @@ class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel,
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
-  override def createIndex(maxItemCount: Int): BruteForceIndex[String, Array[Float], IndexItem, Float] =
-    BruteForceIndex[String, Array[Float], IndexItem, Float](distanceFunctionByName(getDistanceFunction))
+  override def createIndex(dimensions: Int, maxItemCount: Int): BruteForceIndex[String, Array[Float], IndexItem, Float] =
+    BruteForceIndex[String, Array[Float], IndexItem, Float](dimensions, distanceFunctionByName(getDistanceFunction))
 
   override def createModel(uid: String,
                            indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =

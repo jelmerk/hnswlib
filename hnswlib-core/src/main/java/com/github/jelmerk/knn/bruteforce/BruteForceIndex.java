@@ -25,6 +25,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
 
     private static final long serialVersionUID = 1L;
 
+    private final int dimensions;
     private final DistanceFunction<TVector, TDistance> distanceFunction;
     private final Comparator<TDistance> distanceComparator;
 
@@ -32,6 +33,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     private final Map<TId, Long> deletedItemVersions;
 
     private BruteForceIndex(BruteForceIndex.Builder<TVector, TDistance> builder) {
+        this.dimensions = builder.dimensions;
         this.distanceFunction = builder.distanceFunction;
         this.distanceComparator = builder.distanceComparator;
         this.items = new ConcurrentHashMap<>();
@@ -63,10 +65,22 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     }
 
     /**
+     * Returns the dimensionality of the items stored in this index.
+     *
+     * @return the dimensionality of the items stored in this index
+     */
+    public int getDimensions() {
+        return dimensions;
+    }
+
+    /**
      * {@inheritDoc}
      */
     @Override
     public boolean add(TItem item) {
+        if (item.dimensions() != dimensions) {
+            throw new IllegalArgumentException("Item does not have dimensionality of : " + dimensions);
+        }
         synchronized (items) {
             TItem existingItem = items.get(item.id());
 
@@ -110,6 +124,9 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      */
     @Override
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
+        if (vector == null) {
+            throw new IllegalArgumentException("Vector cannot be null.");
+        }
 
         Comparator<SearchResult<TItem, TDistance>> comparator = Comparator
                 .<SearchResult<TItem, TDistance>>naturalOrder()
@@ -138,7 +155,9 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         return results;
     }
 
-
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public void save(OutputStream out) throws IOException {
         try(ObjectOutputStream oos = new ObjectOutputStream(out)) {
@@ -201,16 +220,34 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         }
     }
 
+    /**
+     * Start the process of building a new BruteForce index.
+     *
+     * @param dimensions the dimensionality of the vectors stored in the index
+     * @param distanceFunction the distance function
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return a builder
+     */
     public static <TVector, TDistance extends Comparable<TDistance>>
-        Builder <TVector, TDistance> newBuilder(DistanceFunction<TVector, TDistance> distanceFunction) {
+        Builder <TVector, TDistance> newBuilder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction) {
 
         Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
-        return new Builder<>(distanceFunction, distanceComparator);
+        return new Builder<>(dimensions, distanceFunction, distanceComparator);
     }
 
-    public static <TVector, TDistance> Builder <TVector, TDistance> newBuilder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+    /**
+     * Start the process of building a new BruteForce index.
+     *
+     * @param dimensions the dimensionality of the vectors stored in the index
+     * @param distanceFunction the distance function
+     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return a builder
+     */
+    public static <TVector, TDistance> Builder <TVector, TDistance> newBuilder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
 
-        return new Builder<>(distanceFunction, distanceComparator);
+        return new Builder<>(dimensions, distanceFunction, distanceComparator);
     }
 
     /**
@@ -221,11 +258,14 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      */
     public static class Builder <TVector, TDistance> {
 
+        private final int dimensions;
+
         private final DistanceFunction<TVector, TDistance> distanceFunction;
 
         private final Comparator<TDistance> distanceComparator;
 
-        Builder(DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+        Builder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+            this.dimensions = dimensions;
             this.distanceFunction = distanceFunction;
             this.distanceComparator = distanceComparator;
         }

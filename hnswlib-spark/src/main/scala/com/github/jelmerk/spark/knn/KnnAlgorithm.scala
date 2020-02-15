@@ -31,7 +31,9 @@ import scala.reflect.ClassTag
   * @param id item identifier
   * @param vector item vector
   */
-private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]] {
+  override def dimensions: Int = vector.length
+}
 
 /**
   * Neighbor of an item
@@ -515,11 +517,11 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
     val indicesRdd = partitionedIndexItems
       .mapPartitionsWithIndex((partition, it) =>
         if (it.hasNext) {
-          val items = it.map{ case (_, indexItem) => indexItem}.toList
+          val items = it.map { case (_, indexItem) => indexItem }.toList
 
           logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          val index = createIndex(items.size)
+          val index = createIndex(items.head.dimensions, items.size)
           index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partition%04d: Indexed $workDone of $max items"))
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
@@ -546,10 +548,11 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
   /**
     * Create the index used to do the nearest neighbor search.
     *
+    * @param dimensions dimensionality of the items stored in the index
     * @param maxItemCount maximum number of items the index can hold
     * @return create an index
     */
-  protected def createIndex(maxItemCount: Int): TIndex
+  protected def createIndex(dimensions: Int, maxItemCount: Int): TIndex
 
   /**
     * Creates the model to be returned from fitting the data.

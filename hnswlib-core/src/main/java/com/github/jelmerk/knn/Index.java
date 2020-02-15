@@ -43,6 +43,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param item the item to add to the index
      *
      * @return true if the item was added to the index
+     * @throws IllegalArgumentException thrown when the item has the wrong dimensionality
      */
     boolean add(TItem item);
 

@@ -55,6 +55,7 @@ object HnswIndex {
   /**
     * Construct a new [[HnswIndex]].
     *
+    * @dimensions dimensionality of the items stored in the index
     * @param distanceFunction the distance function
     * @param maxItemCount the maximum number of elements in the index
     * @param m Sets the number of bi-directional links created for every new element during construction. Reasonable range
@@ -86,6 +87,7 @@ object HnswIndex {
     * @return the index
     */
   def apply[TId,  TVector, TItem <: Item[TId, TVector], TDistance](
+    dimensions: Int,
     distanceFunction: DistanceFunction[TVector, TDistance],
     maxItemCount: Int,
     m: Int = JHnswIndex.BuilderBase.DEFAULT_M,
@@ -97,7 +99,7 @@ object HnswIndex {
       : HnswIndex[TId, TVector, TItem, TDistance] = {
 
     val builder = JHnswIndex
-      .newBuilder(new ScalaDistanceFunctionAdapter[TVector, TDistance](distanceFunction), distanceOrdering, maxItemCount)
+      .newBuilder(dimensions, new ScalaDistanceFunctionAdapter[TVector, TDistance](distanceFunction), distanceOrdering, maxItemCount)
       .withM(m)
       .withEf(ef)
       .withEfConstruction(efConstruction)

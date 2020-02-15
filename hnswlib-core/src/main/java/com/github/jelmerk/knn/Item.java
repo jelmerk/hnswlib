@@ -25,6 +25,13 @@ public interface Item<TId, TVector> extends Serializable {
     TVector vector();
 
     /**
+     * Returns the dimensionality of the vector.
+     *
+     * @return the dimensionality of the vector
+     */
+    int dimensions();
+
+    /**
      * Returns the version of the item. Higher is newer.
      *
      * @return the version of this item.

@@ -27,6 +27,11 @@ public class Word implements Item<String, float[]> {
     }
 
     @Override
+    public int dimensions() {
+        return vector.length;
+    }
+
+    @Override
     public String toString() {
         return "Word{" +
                 "id='" + id + '\'' +

@@ -44,7 +44,7 @@ public class FastText {
         System.out.println("Constructing index.");
 
         HnswIndex<String, float[], Word, Float> hnswIndex = HnswIndex
-                .newBuilder(DistanceFunctions.FLOAT_INNER_PRODUCT, words.size())
+                .newBuilder(300, DistanceFunctions.FLOAT_INNER_PRODUCT, words.size())
                 .withM(16)
                 .withEf(200)
                 .withEfConstruction(200)
@@ -113,7 +113,7 @@ public class FastText {
 
                         float[] vector = new float[tokens.length - 1];
                         for (int i = 1; i < tokens.length - 1; i++) {
-                            vector[i] = Float.valueOf(tokens[i]);
+                            vector[i] = Float.parseFloat(tokens[i]);
                         }
 
                         return new Word(word, normalize(vector)); // normalize the vector so we can do inner product search

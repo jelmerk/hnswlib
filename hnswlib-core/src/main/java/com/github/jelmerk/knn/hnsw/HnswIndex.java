@@ -33,6 +33,8 @@ import java.util.concurrent.locks.*;
 public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
         implements Index<TId, TVector, TItem, TDistance> {
 
+    private static final byte VERSION_1 = 0x01;
+
     private static final long serialVersionUID = 1L;
 
     private static final int NO_NODE_ID = -1;
@@ -41,6 +43,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private Comparator<TDistance> distanceComparator;
     private MaxValueComparator<TDistance> maxValueDistanceComparator;
 
+    private int dimensions;
     private int maxItemCount;
     private int m;
     private int maxM;
@@ -72,6 +75,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
+        this.dimensions = builder.dimensions;
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
         this.distanceComparator = builder.distanceComparator;
@@ -611,6 +615,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Returns the dimensionality of the items stored in this index.
+     *
+     * @return the dimensionality of the items stored in this index
+     */
+    public int getDimensions() {
+        return dimensions;
+    }
+
+    /**
      * Returns the number of bi-directional links created for every new element during construction.
      *
      * @return the number of bi-directional links created for every new element during construction
@@ -712,6 +725,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
+        oos.writeByte(VERSION_1);
+        oos.writeInt(dimensions);
         oos.writeObject(distanceFunction);
         oos.writeObject(distanceComparator);
         oos.writeObject(itemIdSerializer);
@@ -733,6 +748,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     @SuppressWarnings("unchecked")
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
+        @SuppressWarnings("unused") byte version = ois.readByte(); // for coping with future incompatible serialization
+        this.dimensions = ois.readInt();
         this.distanceFunction = (DistanceFunction<TVector, TDistance>) ois.readObject();
         this.distanceComparator = (Comparator<TDistance>) ois.readObject();
         this.maxValueDistanceComparator = new MaxValueComparator<>(distanceComparator);
@@ -953,6 +970,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Start the process of building a new HNSW index.
      *
+     * @param dimensions the dimensionality of the vectors stored in the index
      * @param distanceFunction the distance function
      * @param maxItemCount maximum number of items the index can hold
      * @param <TVector> Type of the vector to perform distance calculation on
@@ -960,17 +978,19 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return a builder
      */
     public static <TVector, TDistance extends Comparable<TDistance>> Builder<TVector, TDistance> newBuilder(
+            int dimensions,
             DistanceFunction<TVector, TDistance> distanceFunction,
             int maxItemCount) {
 
         Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
 
-        return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
+        return new Builder<>(dimensions, distanceFunction, distanceComparator, maxItemCount);
     }
 
     /**
      * Start the process of building a new HNSW index.
      *
+     * @param dimensions the dimensionality of the vectors stored in the index
      * @param distanceFunction the distance function
      * @param distanceComparator used to compare distances
      * @param maxItemCount maximum number of items the index can hold
@@ -979,11 +999,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @return a builder
      */
     public static <TVector, TDistance> Builder<TVector, TDistance> newBuilder(
+            int dimensions,
             DistanceFunction<TVector, TDistance> distanceFunction,
             Comparator<TDistance> distanceComparator,
             int maxItemCount) {
 
-        return new Builder<>(distanceFunction, distanceComparator, maxItemCount);
+        return new Builder<>(dimensions, distanceFunction, distanceComparator, maxItemCount);
     }
 
     private int assignLevel(TId value, double lambda) {
@@ -1212,6 +1233,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public static final int DEFAULT_EF_CONSTRUCTION = 200;
         public static final boolean DEFAULT_REMOVE_ENABLED = false;
 
+        int dimensions;
         DistanceFunction<TVector, TDistance> distanceFunction;
         Comparator<TDistance> distanceComparator;
 
@@ -1222,10 +1244,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         int efConstruction = DEFAULT_EF_CONSTRUCTION;
         boolean removeEnabled = DEFAULT_REMOVE_ENABLED;
 
-        BuilderBase(DistanceFunction<TVector, TDistance> distanceFunction,
+        BuilderBase(int dimensions,
+                    DistanceFunction<TVector, TDistance> distanceFunction,
                     Comparator<TDistance> distanceComparator,
                     int maxItemCount) {
 
+            this.dimensions = dimensions;
             this.distanceFunction = distanceFunction;
             this.distanceComparator = distanceComparator;
             this.maxItemCount = maxItemCount;
@@ -1304,14 +1328,16 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         /**
          * Constructs a new {@link Builder} instance.
          *
+         * @param dimensions the dimensionality of the vectors stored in the index
          * @param distanceFunction the distance function
          * @param maxItemCount     the maximum number of elements in the index
          */
-        Builder(DistanceFunction<TVector, TDistance> distanceFunction,
+        Builder(int dimensions,
+                DistanceFunction<TVector, TDistance> distanceFunction,
                 Comparator<TDistance> distanceComparator,
                 int maxItemCount) {
 
-            super(distanceFunction, distanceComparator, maxItemCount);
+            super(dimensions, distanceFunction, distanceComparator, maxItemCount);
         }
 
         @Override
@@ -1329,7 +1355,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @return the builder
          */
         public <TId, TItem extends Item<TId, TVector>> RefinedBuilder<TId, TVector, TItem, TDistance> withCustomSerializers(ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
-            return new RefinedBuilder<>(distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
+            return new RefinedBuilder<>(dimensions, distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
                     removeEnabled, itemIdSerializer, itemSerializer);
         }
 
@@ -1364,7 +1390,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private ObjectSerializer<TId> itemIdSerializer;
         private ObjectSerializer<TItem> itemSerializer;
 
-        RefinedBuilder(DistanceFunction<TVector, TDistance> distanceFunction,
+        RefinedBuilder(int dimensions,
+                       DistanceFunction<TVector, TDistance> distanceFunction,
                        Comparator<TDistance> distanceComparator,
                        int maxItemCount,
                        int m,
@@ -1374,7 +1401,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                        ObjectSerializer<TId> itemIdSerializer,
                        ObjectSerializer<TItem> itemSerializer) {
 
-            super(distanceFunction, distanceComparator, maxItemCount);
+            super(dimensions, distanceFunction, distanceComparator, maxItemCount);
 
             this.m = m;
             this.ef = ef;

@@ -10,7 +10,9 @@ import com.github.jelmerk.knn.examples.IoUtils._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.scalalike.hnsw._
 
-@SerialVersionUID(1L) case class Word(id: String, vector: Array[Float]) extends Item[String, Array[Float]]
+@SerialVersionUID(1L) case class Word(id: String, vector: Array[Float]) extends Item[String, Array[Float]] {
+  override def dimensions(): Int = vector.length
+}
 
 /**
   * Example application that downloads the english fast-text word vectors, inserts them into an hnsw index and lets
@@ -28,7 +30,7 @@ object FastText extends App {
   } {
     println("Constructing index.")
 
-    val hnswIndex = HnswIndex[String, Array[Float], Word, Float](floatCosineDistance, words.size, m = 16,  ef = 200, efConstruction = 200)
+    val hnswIndex = HnswIndex[String, Array[Float], Word, Float](dimensions = 300, floatCosineDistance, words.size, m = 16,  ef = 200, efConstruction = 200)
 
     hnswIndex.addAll(words, listener = (workDone: Int, max: Int) =>
       println(s"Added $workDone out of $max words to the index.")

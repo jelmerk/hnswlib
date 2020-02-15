@@ -15,6 +15,11 @@ final class TestItem implements Item<String, float[]> {
     }
 
     @Override
+    public int dimensions() {
+        return vector.length;
+    }
+
+    @Override
     public String id() {
         return id;
     }

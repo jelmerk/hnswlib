@@ -35,6 +35,7 @@ trait Index[TId, TVector, TItem <: Item[TId, TVector], TDistance] extends Iterab
     *
     * @param item the item to add to the index
     * @return true if the item was added to the index
+    * @throws IllegalArgumentException thrown when the item has the wrong dimensionality
     */
   def add(item: TItem): Boolean
 

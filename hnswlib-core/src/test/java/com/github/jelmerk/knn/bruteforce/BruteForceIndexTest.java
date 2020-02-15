@@ -15,6 +15,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 class BruteForceIndexTest {
 
+    private int dimensions = 2;
     private BruteForceIndex<String, float[], TestItem, Float> index;
 
     private TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
@@ -24,8 +25,13 @@ class BruteForceIndexTest {
     @BeforeEach
     void setUp() {
         index = BruteForceIndex
-                    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE)
+                    .newBuilder(dimensions, DistanceFunctions.FLOAT_COSINE_DISTANCE)
                     .build();
+    }
+
+    @Test
+    void returnDimensions() {
+        assertThat(index.getDimensions(), is(dimensions));
     }
 
     @Test
@@ -61,7 +67,7 @@ class BruteForceIndexTest {
 
     @Test
     void addNewerItem() {
-        TestItem newerItem = new TestItem(item1.id(), new float[0], item1.version() + 1);
+        TestItem newerItem = new TestItem(item1.id(), new float[] {0f, 0f}, item1.version() + 1);
 
         index.add(item1);
         index.add(newerItem);
@@ -72,7 +78,7 @@ class BruteForceIndexTest {
 
     @Test
     void addOlderItem() {
-        TestItem olderItem = new TestItem(item1.id(), new float[0], item1.version() - 1);
+        TestItem olderItem = new TestItem(item1.id(), new float[] {0f, 0f}, item1.version() - 1);
 
         index.add(item1);
         index.add(olderItem);

@@ -112,8 +112,9 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel, HnswIndex[S
   /** @group setParam */
   def setEfConstruction(value: Int): this.type = set(efConstruction, value)
 
-  override def createIndex(maxItemCount: Int): HnswIndex[String, Array[Float], IndexItem, Float] =
+  override def createIndex(dimensions: Int, maxItemCount: Int): HnswIndex[String, Array[Float], IndexItem, Float] =
     HnswIndex[String, Array[Float], IndexItem, Float](
+      dimensions,
       distanceFunction = distanceFunctionByName(getDistanceFunction),
       maxItemCount = maxItemCount,
       m = getM,

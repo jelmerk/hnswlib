@@ -13,7 +13,7 @@ class StatisticsDecoratorSpec extends AnyFunSuite {
   test("can construct statistics decorator") {
 
     val metricRegistry = new MetricRegistry
-    val hnswIndex = HnswIndex[String, Array[Float], TestItem, Float](floatCosineDistance, 10)
+    val hnswIndex = HnswIndex[String, Array[Float], TestItem, Float](dimensions = 2, floatCosineDistance, maxItemCount = 10)
     val indexName = "indexName"
 
     val decorator = StatisticsDecorator[String, Array[Float], TestItem, Float,
