@@ -10,18 +10,20 @@ Core hnsw library.
 Example usage
 -------------
 
-    import com.github.jelmerk.knn.*;
-    import com.github.jelmerk.knn.hnsw.*;
+```java
+import com.github.jelmerk.knn.*;
+import com.github.jelmerk.knn.hnsw.*;
 
-    HnswIndex<String, float[], Word, Float> index = HnswIndex
-        .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
-            .withM(10)
-            .build();
+HnswIndex<String, float[], Word, Float> index = HnswIndex
+    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
+        .withM(10)
+        .build();
 
-    index.addAll(words);
-    
-    List<SearchResult<Word, Float>> nearest = index.findNeighbors("king", 10);
-    
-    for (SearchResult<Word, Float> result : nearest) {
-        System.out.println(result.item().id() + " " + result.getDistance());
-    }
+index.addAll(words);
+
+List<SearchResult<Word, Float>> nearest = index.findNeighbors("king", 10);
+
+for (SearchResult<Word, Float> result : nearest) {
+    System.out.println(result.item().id() + " " + result.getDistance());
+}
+```

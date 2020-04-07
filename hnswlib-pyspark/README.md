@@ -20,51 +20,54 @@ Example usage
 
 Basic:
 
-    from pyspark_hnsw.knn import Hnsw
-    
-    hnsw = Hnsw(identifierCol='id', vectorCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
-                efConstruction=200, numPartitions=2, excludeSelf=True)
-    
-    model = hnsw.fit(index_items)
-    
-    model.transform(index_items).write.parquet('/path/to/output', mode='overwrite')
+```python
+from pyspark_hnsw.knn import Hnsw
+
+hnsw = Hnsw(identifierCol='id', vectorCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
+            efConstruction=200, numPartitions=2, excludeSelf=True)
+
+model = hnsw.fit(index_items)
+
+model.transform(index_items).write.parquet('/path/to/output', mode='overwrite')
+```
 
 Advanced:
 
-    from pyspark.ml import Pipeline
-    from pyspark_hnsw.evaluation import KnnEvaluator
-    from pyspark_hnsw.knn import *
-    from pyspark_hnsw.linalg import Normalizer
+```python
+from pyspark.ml import Pipeline
+from pyspark_hnsw.evaluation import KnnEvaluator
+from pyspark_hnsw.knn import *
+from pyspark_hnsw.linalg import Normalizer
 
-    # The cosine distance is obtained with the inner product after normalizing all vectors to unit norm
-    # this is much faster than calculating the cosine distance directly
-    
-    normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
-    
-    hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
-                efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='approximate')
-                
-    brute_force = BruteForce(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product',
-                             k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='exact')
-     
-    pipeline = Pipeline(stages=[normalizer, hnsw, brute_force])
-    
-    model = pipeline.fit(index_items)
-    
-    # computing the exact similarity is expensive so only take a small sample
-    query_items = index_items.sample(0.01)
-    
-    output = model.transform(query_items)
-    
-    evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
-    
-    accuracy = evaluator.evaluate(output)
-    
-    print(accuracy)
-    
-    # save the model
-    model.write.overwrite.save('/path/to/model')
+# The cosine distance is obtained with the inner product after normalizing all vectors to unit norm
+# this is much faster than calculating the cosine distance directly
 
+normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
+
+hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
+            efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='approximate')
+            
+brute_force = BruteForce(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product',
+                         k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='exact')
+ 
+pipeline = Pipeline(stages=[normalizer, hnsw, brute_force])
+
+model = pipeline.fit(index_items)
+
+# computing the exact similarity is expensive so only take a small sample
+query_items = index_items.sample(0.01)
+
+output = model.transform(query_items)
+
+evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
+
+accuracy = evaluator.evaluate(output)
+
+print(accuracy)
+
+# save the model
+model.write.overwrite.save('/path/to/model')
+```
 
 Suggested configuration
 -----------------------

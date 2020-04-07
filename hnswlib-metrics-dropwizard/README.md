@@ -9,14 +9,17 @@ hnswlib-metrics-dropwizard
 Example usage
 -------------
 
-    MetricRegistry metricRegistry = SharedMetricRegistries.getDefault();
 
-    HnswIndex<String, float[], Word, Float> approximativeIndex = HnswIndex
-        .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
-            .build();
-            
-    Index<String, float[], Word, Float> groundTruthIndex = approximativeIndex.asExactIndex();
-    
-    StatisticsDecorator<String, float[], TestItem, Float, HnswIndex<String, float[], Word, Float>, Index<String, float[], Word, Float>> decorator = 
-        new StatisticsDecorator<>(metricRegistry, MyClass.class,
-            "indexname", approximativeIndex, groundTruthIndex, 1000);
+```java
+MetricRegistry metricRegistry = SharedMetricRegistries.getDefault();
+
+HnswIndex<String, float[], Word, Float> approximativeIndex = HnswIndex
+    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
+        .build();
+        
+Index<String, float[], Word, Float> groundTruthIndex = approximativeIndex.asExactIndex();
+
+StatisticsDecorator<String, float[], TestItem, Float, HnswIndex<String, float[], Word, Float>, Index<String, float[], Word, Float>> decorator = 
+    new StatisticsDecorator<>(metricRegistry, MyClass.class,
+        "indexname", approximativeIndex, groundTruthIndex, 1000);
+```

@@ -8,13 +8,15 @@ hnswlib-scala
 Example usage
 -------------
 
-    import com.github.jelmerk.knn.scalalike._
-    import com.github.jelmerk.knn.scalalike.hnsw._
+```scala
+import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.knn.scalalike.hnsw._
 
-    val index = HnswIndex[String, Array[Float], Word, Float](floatCosineDistance, words.size, m = 10)
-      
-    index.addAll(words)
-    
-    index.findNeighbors("king", k = 10).foreach { case SearchResult(item, distance) => 
-      println(s"$item $distance")
-    }
+val index = HnswIndex[String, Array[Float], Word, Float](floatCosineDistance, words.size, m = 10)
+  
+index.addAll(words)
+
+index.findNeighbors("king", k = 10).foreach { case SearchResult(item, distance) => 
+  println(s"$item $distance")
+}
+```
