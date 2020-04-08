@@ -27,11 +27,6 @@ import org.json4s._
 private[knn] case class Query[TVector](id: String, vector: TVector)
 
 /**
-  * Candidate nearest neighbor from one shard.
-  */
-private[knn] trait Candidate[TCandidate <: Candidate[TCandidate]] extends Product with Comparable[TCandidate]
-
-/**
   * Item in an nearest neighbor search index
   *
   * @param id item identifier
@@ -47,8 +42,8 @@ private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
   */
-private[knn] case class Neighbor(neighbor: String, distance: Float) extends Comparable[Neighbor] {
-  override def compareTo(other: Neighbor): Int = JFloat.compare(other.distance, distance)
+private[knn] case class Neighbor[TId] (neighbor: TId, distance: Float) extends Comparable[Neighbor[TId]] {
+  override def compareTo(other: Neighbor[TId]): Int = JFloat.compare(other.distance, distance)
 }
 
 
@@ -222,8 +217,8 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel],
                                   TId: TypeTag,
                                   TVector : TypeTag,
                                   TItem <: Item[TId, TVector] with Product : TypeTag,
-                                  TIndex <: Index[TId, TVector, TItem, Float],
-                                  TCandidate <: Candidate[TCandidate]](instance: KnnModel[TModel, TId, TVector, TItem, TIndex, TCandidate])
+                                  TIndex <: Index[TId, TVector, TItem, Float]]
+    (instance: KnnModel[TModel, TId, TVector, TItem, TIndex])
   extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
@@ -320,9 +315,8 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
                                      TId : TypeTag,
                                      TVector : TypeTag,
                                      TItem <: Item[TId, TVector] with Product : TypeTag,
-                                     TIndex <: Index[TId, TVector, TItem, Float],
-                                     TCandidate <: Candidate[TCandidate] : TypeTag]
-    (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, TId, TVector))])(implicit evIdentifier: ClassTag[TId], evCandidate: ClassTag[TCandidate])
+                                     TIndex <: Index[TId, TVector, TItem, Float]]
+    (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, TId, TVector))])(implicit evIdentifier: ClassTag[TId])
       extends Model[TModel] with KnnModelParams {
 
   import com.github.jelmerk.spark.knn.Udfs._
@@ -389,12 +383,12 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
                   else getK
 
                 val neighbors = index.findNearest(vector, fetchSize)
-                  .collect { case r @ SearchResult(item, distance)
+                  .collect { case SearchResult(item, distance)
                     if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance < getSimilarityThreshold)  =>
-                      toCandidate(r)
+                      Neighbor(item.id, distance)
                   }
 
-                val queue = new BoundedPriorityQueue[TCandidate](getK)
+                val queue = new BoundedPriorityQueue[Neighbor[TId]](getK)
                 queue ++= neighbors
 
                 id -> queue
@@ -412,7 +406,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
         neighborsA ++= neighborsB
         neighborsA
       }
-      .mapValues(_.toArray.sorted(Ordering[Neighbor].reverse))
+      .mapValues(_.toArray.sorted(Ordering[Neighbor[TId]].reverse))
 
     // transform the rdd into our output dataframe
 
@@ -448,8 +442,6 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
     * @return dataset of item
     */
   private[knn] def readQueries(dataset: Dataset[_]): Dataset[Query[TVector]]
-
-  private[knn] def toCandidate(searchResult: SearchResult[TItem, Float]): TCandidate
 
   private class LoggingIterator[T](partition: Int, delegate: Iterator[T]) extends Iterator[T] {
 
