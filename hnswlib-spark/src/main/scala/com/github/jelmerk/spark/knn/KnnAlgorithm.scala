@@ -7,7 +7,6 @@ import scala.math.abs
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
@@ -19,7 +18,6 @@ import org.apache.hadoop.io.{BytesWritable, NullWritable}
 import org.apache.spark.Partitioner
 import org.apache.spark.ml.util.{MLReader, MLWriter}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.storage.StorageLevel
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
@@ -44,20 +42,6 @@ private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item
   */
 private[knn] case class Neighbor[TId] (neighbor: TId, distance: Float) extends Comparable[Neighbor[TId]] {
   override def compareTo(other: Neighbor[TId]): Int = JFloat.compare(other.distance, distance)
-}
-
-
-private[knn] object Udfs {
-
-  /**
-    * Convert a dense vector to a float array.
-    */
-  val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
-
-  /**
-    * Convert a double array to a float array
-    */
-  val doubleArrayToFloatArray: UserDefinedFunction = udf { vector: Seq[Double] => vector.map(_.toFloat) }
 }
 
 /**
@@ -319,8 +303,6 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel],
     (override val uid: String, private[knn] val indices: RDD[(Int, (TIndex, TId, TVector))])(implicit evIdentifier: ClassTag[TId])
       extends Model[TModel] with KnnModelParams {
 
-  import com.github.jelmerk.spark.knn.Udfs._
-
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
@@ -476,8 +458,6 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel],
                                          TIndex <: Index[TId, TVector, TItem, Float]]
     (override val uid: String)(implicit ev: ClassTag[TItem])
   extends Estimator[TModel] with KnnAlgorithmParams  {
-
-  import Udfs._
 
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
