@@ -1,6 +1,5 @@
 package com.github.jelmerk.spark
 
-import com.github.jelmerk.knn.{SparseVector, DistanceFunctions => JDistanceFunctions}
 import com.github.jelmerk.spark.knn.DistanceFunctions
 import org.apache.spark.ml.linalg.Vectors
 import org.scalatest.FunSuite
@@ -9,28 +8,32 @@ import org.scalatest.Matchers._
 class DistanceFunctionsSpec extends FunSuite {
 
   test("calculate inner product") {
+    val a = Vectors.sparse(2, Array(0, 1), Array(0.047, 1)).toSparse
+    val b = Vectors.sparse(2, Array(0, 1), Array(0.51, 0.86)).toSparse
 
+    DistanceFunctions.innerProductDistance(a, b) should be(0.11602999999999997)
+  }
 
+  test("calculate inner product with empty positions") {
+    val a = Vectors.sparse(3, Array(1, 2), Array(1, 0.5)).toSparse
+    val b = Vectors.sparse(3, Array(0, 1), Array(0.5, 0.9)).toSparse
 
-    println(JDistanceFunctions.FLOAT_INNER_PRODUCT.distance(
-      Array(0.047f, 1f), Array(0.51f, 0.86f)
-    ))
+    DistanceFunctions.innerProductDistance(a, b) should be(0.09999999999999998)
+  }
 
+  test("calculate cosine distance") {
+    val a = Vectors.sparse(3, Array(0, 1, 2), Array(0.01, 0.02, 0.03)).toSparse
+    val b = Vectors.sparse(3, Array(0, 1, 2), Array(0.03, 0.02, 0.01)).toSparse
 
-    println(JDistanceFunctions.FLOAT_SPARSE_VECTOR_INNER_PRODUCT.distance(
-      new SparseVector(Array(0, 1), Array(0.047f, 1f)),
-      new SparseVector(Array(0, 1), Array(0.51f, 0.86f))
-    ))
+    DistanceFunctions.cosineDistance(a, b) should be(0.2857142857142858)
+  }
 
+  test("calculate cosine distance with empty positions") {
 
-    val result = DistanceFunctions.innerProduct(
-      Vectors.sparse(2, Array(0, 1), Array(0.047f, 1f)),
-      Vectors.sparse(2, Array(0, 1), Array(0.51f, 0.86f))
-    )
+    val a = Vectors.sparse(3, Array(1, 2), Array(1, 0.5)).toSparse
+    val b = Vectors.sparse(3, Array(0, 1), Array(0.5, 0.9)).toSparse
 
-    println(result)
-
-    result should be(0.116029985f)
+    DistanceFunctions.cosineDistance(a, b) should be(0.21812996302647503)
   }
 
 }

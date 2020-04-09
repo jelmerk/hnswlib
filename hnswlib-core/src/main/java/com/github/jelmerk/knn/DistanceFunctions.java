@@ -309,6 +309,8 @@ public final class DistanceFunctions {
                 dot += u[i] * v[i];
                 nru += u[i] * u[i];
                 nrv += v[i] * v[i];
+
+                System.out.println(String.format("dot: %f nru: %f nrv: %f", dot, nru, nrv));
             }
 
             double similarity = dot / (Math.sqrt(nru) * Math.sqrt(nrv));
@@ -363,6 +365,8 @@ public final class DistanceFunctions {
             for (int i = 0; i < u.length; i++) {
                 double dp = u[i] - v[i];
                 sum += dp * dp;
+
+                System.out.println(sum);
             }
             return Math.sqrt(sum);
         }

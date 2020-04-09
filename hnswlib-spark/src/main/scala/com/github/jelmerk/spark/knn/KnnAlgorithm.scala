@@ -163,8 +163,7 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   def getDistanceFunction: String = $(distanceFunction)
 
   /**
-    * Param for StorageLevel for the indices. Pass in a string representation of
-    * `StorageLevel`.
+    * Param for StorageLevel for the indices. Pass in a string representation of `StorageLevel`.
     * Default: "MEMORY_ONLY".
     *
     * @group expertParam

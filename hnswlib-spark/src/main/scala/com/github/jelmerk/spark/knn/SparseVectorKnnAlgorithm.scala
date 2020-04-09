@@ -7,6 +7,7 @@ import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.StringType
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
+import org.apache.spark.ml.linalg.SparseVector
 
 import scala.util.Try
 
@@ -57,7 +58,8 @@ private[knn] abstract class SparseVectorKnnAlgorithm[TModel <: Model[TModel], TI
   }
 
   protected def distanceFunctionByName(name: String): DistanceFunction[Vector, Float] = name match {
-    case "inner-product" => DistanceFunctions.innerProduct
+    case "cosine" => (u: Vector, v: Vector) => DistanceFunctions.cosineDistance(u.asInstanceOf[SparseVector], v.asInstanceOf[SparseVector]).toFloat
+    case "inner-product" => (u: Vector, v: Vector) => DistanceFunctions.innerProductDistance(u.asInstanceOf[SparseVector], v.asInstanceOf[SparseVector]).toFloat
     case value =>
       Try(Class.forName(value).getDeclaredConstructor().newInstance())
         .toOption

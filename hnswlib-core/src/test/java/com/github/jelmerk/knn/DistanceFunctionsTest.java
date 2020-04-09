@@ -81,6 +81,17 @@ class DistanceFunctionsTest {
         assertThat(DistanceFunctions.DOUBLE_EUCLIDEAN_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(0.028284271247461898, error));
     }
 
+
+    @Test
+    void fml() {
+
+        System.out.println(DistanceFunctions.DOUBLE_COSINE_DISTANCE.distance(
+                new double[] { 0,   1,   0.5},
+                new double[] { 0.5, 0.9, 0}
+        ));
+
+    }
+
     @Test
     void doubleCanberraDistance() {
         assertThat(DistanceFunctions.DOUBLE_CANBERRA_DISTANCE.distance(doubleVector1, doubleVector2), closeTo(1, error));

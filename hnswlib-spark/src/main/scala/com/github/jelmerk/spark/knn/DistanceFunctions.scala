@@ -1,36 +1,45 @@
 package com.github.jelmerk.spark.knn
 
-import org.apache.spark.ml.linalg.{SparseVector, Vector}
+import org.apache.spark.ml.linalg.SparseVector
 
 object DistanceFunctions {
 
-  def innerProduct(u: Vector, v: Vector): Float = {
+  def cosineDistance(u: SparseVector, v: SparseVector): Double = {
+    val denom = norm(u) * norm(v)
+    val dot = innerProduct(u, v)
 
-    val uIndices = u.asInstanceOf[SparseVector].indices
-    val vIndices = u.asInstanceOf[SparseVector].indices
+    if (denom == 0d) 1d
+    else 1 - dot / denom
+  }
 
-    val uValues = u.asInstanceOf[SparseVector].values
-    val vValues = v.asInstanceOf[SparseVector].values
+  def innerProductDistance(u: SparseVector, v: SparseVector): Double = 1 - innerProduct(u, v)
 
-    var dot = 0.0
+  private def norm(u: SparseVector): Double = math.sqrt(u.values.map(v => v * v).sum)
+
+  private def innerProduct(u: SparseVector, v: SparseVector): Double = {
+    val uIndices = u.indices
+    val vIndices = v.indices
+
+    val uValues = u.values
+    val vValues = v.values
+
+    var dot = 0d
 
     var i = 0
     var j = 0
 
-    while(i < uIndices.length && j < uIndices.length) {
+    while(i < uIndices.length && j < vIndices.length) {
       if (uIndices(i) < vIndices(j)) {
         i += 1
-      } else if (uIndices(i) < vIndices(j)) {
+      } else if (uIndices(i) > vIndices(j)) {
         j += 1
-      } else  {
+      } else {
         dot += uValues(i) * vValues(j)
         i += 1
         j += 1
       }
     }
-
-    (1 - dot).toFloat
-
+    dot
   }
 
 }
