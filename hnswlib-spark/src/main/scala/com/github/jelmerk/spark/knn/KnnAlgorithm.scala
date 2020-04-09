@@ -24,15 +24,6 @@ import org.json4s._
 
 private[knn] case class Query[TVector](id: String, vector: TVector)
 
-/**
-  * Item in an nearest neighbor search index
-  *
-  * @param id item identifier
-  * @param vector item vector
-  */
-private[knn] case class IndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]] {
-  override def dimensions: Int = vector.length
-}
 
 /**
   * Neighbor of an item

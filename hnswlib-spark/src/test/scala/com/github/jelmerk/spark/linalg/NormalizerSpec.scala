@@ -1,7 +1,7 @@
 package com.github.jelmerk.spark.linalg
 
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -10,7 +10,27 @@ case class InputRow[TVector](vector: TVector)
 
 case class OutputRow[TVector](vector: TVector, normalized: TVector)
 
+
+
 class NormalizerSpec extends FunSuite with DataFrameSuiteBase {
+
+  test("foo") {
+    val sqlCtx = sqlContext
+    import sqlCtx.implicits._
+
+    val normalize = new Normalizer()
+      .setInputCol("vector")
+      .setOutputCol("normalized")
+
+    val x = Seq(
+      InputRow(Vectors.sparse(2, Array(0, 1), Array(0.0110f, 0.2341f))),
+      InputRow(Vectors.sparse(2, Array(0, 1), Array(0.2300f, 0.3891f))),
+      InputRow(Vectors.sparse(2, Array(0, 1), Array(0.4300f, 0.9891f)))
+    ).toDS()
+
+    normalize.transform(x).show(false)
+
+  }
 
   test("normalize vector") {
 
