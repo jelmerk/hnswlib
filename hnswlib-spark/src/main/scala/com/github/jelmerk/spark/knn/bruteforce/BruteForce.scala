@@ -1,9 +1,11 @@
 package com.github.jelmerk.spark.knn.bruteforce
 
+import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
 
 /**
@@ -11,9 +13,13 @@ import org.apache.spark.rdd.RDD
   */
 object BruteForceModel extends MLReadable[BruteForceModel] {
 
-  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]] {
-    override protected def createModel(uid: String,
-                                       indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel] {
+
+    override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
+      BruteForceIndex[TId, TVector, TItem, TDistance]
+
+    override protected def createModel(uid: String, indices: Either[RDD[(Int, (BruteForceIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                                                    RDD[(Int, (BruteForceIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): BruteForceModel =
       new BruteForceModel(uid, indices)
   }
 
@@ -27,16 +33,19 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
   * @param indices rdd that holds the indices that are used to do the search
   */
 class BruteForceModel private[bruteforce](override val uid: String,
-                      indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))])
-  extends KnnModel[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid, indices) with MLWritable {
+                                          override val indices: Either[RDD[(Int, (BruteForceIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                                                       RDD[(Int, (BruteForceIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]])
+  extends KnnModel[BruteForceModel](uid) with MLWritable {
 
+  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
+    BruteForceIndex[TId, TVector, TItem, TDistance]
 
   override def copy(extra: ParamMap): BruteForceModel = {
     val copied = new BruteForceModel(uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
-  override def write: MLWriter = new KnnModelWriter[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](this)
+  override def write: MLWriter = new KnnModelWriter[BruteForceModel](this)
 }
 
 /**
@@ -45,15 +54,21 @@ class BruteForceModel private[bruteforce](override val uid: String,
   *
   * @param uid identifier
   */
-class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel, BruteForceIndex[String, Array[Float], IndexItem, Float]](uid)  {
+class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel](uid)  {
 
   def this() = this(Identifiable.randomUID("brute_force"))
 
-  override def createIndex(dimensions: Int, maxItemCount: Int): BruteForceIndex[String, Array[Float], IndexItem, Float] =
-    BruteForceIndex[String, Array[Float], IndexItem, Float](dimensions, distanceFunctionByName(getDistanceFunction))
+  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
+    BruteForceIndex[TId, TVector, TItem, TDistance]
 
-  override def createModel(uid: String,
-                           indices: RDD[(Int, (BruteForceIndex[String, Array[Float], IndexItem, Float], String, Array[Float]))]): BruteForceModel =
+  override protected def createIndex[TVector, TItem <: Item[String, TVector] with Product](dimensions: Int,
+                                                                                           maxItemCount: Int,
+                                                                                           distanceFunction: DistanceFunction[TVector, Float]): BruteForceIndex[String, TVector, TItem, Float] =
+    BruteForceIndex[String, TVector, TItem, Float](dimensions, distanceFunction)
+
+  override protected def createModel(uid: String, indices: Either[RDD[(Int, (BruteForceIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                                                  RDD[(Int, (BruteForceIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): BruteForceModel =
     new BruteForceModel(uid, indices)
+
 
 }

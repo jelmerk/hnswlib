@@ -21,5 +21,5 @@ def test_evaluator(spark_context):
 
     evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
 
-    assert evaluator.evaluate(df) == 0.75
+    assert evaluator.evaluate(df) == 0.6666666666666666
 

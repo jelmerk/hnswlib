@@ -9,8 +9,9 @@ import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
 import org.apache.spark.SparkConf
-import org.apache.spark.ml.linalg.{DenseVector, Vectors}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
+import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -36,6 +37,8 @@ case class MinimalOutputRow[TId](id: TId, neighbors: Seq[Neighbor[TId]]) {
 }
 
 class HnswSpec extends FunSuite with DataFrameSuiteBase {
+
+  implicit val floatEq: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1e-4f)
 
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf
@@ -69,7 +72,21 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
         MinimalOutputRow(1000000, Seq(Neighbor(1000000, 0.0f), Neighbor(3000000, 0.06521261f), Neighbor(2000000, 0.11621308f)))
       )
 
-    val similarityThresholdScenrioValidator: DataFrame => Unit = df =>
+    val sparseVectorInput = sc.parallelize(Seq(
+      InputRow(1000000, Vectors.sparse(2, Array(0, 1), Array(0.0110, 0.2341))),
+      InputRow(2000000, Vectors.sparse(2, Array(0, 1), Array(0.2300, 0.3891))),
+      InputRow(3000000, Vectors.sparse(2, Array(0, 1), Array(0.4300, 0.9891)))
+    )).toDF()
+
+    val sparseVectorScenarioValidator: DataFrame => Unit = df => {
+      val rows = df.as[FullOutputRow[Int, SparseVector]].collect()
+
+      rows.find(_.id == 1000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(3000000, 2000000))
+      rows.find(_.id == 2000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(3000000, 1000000))
+      rows.find(_.id == 3000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(2000000, 1000000))
+    }
+
+    val similarityThresholdScenarioValidator: DataFrame => Unit = df =>
       df.as[FullOutputRow[Int, DenseVector]].collect() should contain only (
         FullOutputRow(2000000, Vectors.dense(0.2300f, 0.3891f), Seq(Neighbor(2000000, 0.0f), Neighbor(3000000, 0.0076490045f))),
         FullOutputRow(3000000, Vectors.dense(0.4300f, 0.9891f), Seq(Neighbor(3000000, 0.0f), Neighbor(2000000, 0.0076490045f), Neighbor(1000000, 0.06521261f))),
@@ -109,17 +126,18 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
         FullOutputRow(1000000, Vectors.dense(0.0110f, 0.2341f), Seq(Neighbor(3000000, 0.06521261f), Neighbor(2000000, 0.11621308f)))
       )
 
-    val scenarios = Table[String, Boolean, Float, DataFrame, DataFrame => Unit](
-      ("outputFormat", "excludeSelf", "similarityThreshold", "input",          "validator"),
-      ("full",         false,         1f,                    denseVectorInput, denseVectorScenarioValidator),
-      ("minimal",      false,         1f,                    denseVectorInput, minimalDenseVectorScenarioValidator),
-      ("full",         false,         0.1f,                  denseVectorInput, similarityThresholdScenrioValidator),
-      ("full",         false,         noSimilarityThreshold, doubleArrayInput, doubleArrayScenarioValidator),
-      ("full",         false,         noSimilarityThreshold, floatArrayInput,  floatArrayScenarioValidator),
-      ("full",         true,          noSimilarityThreshold, denseVectorInput, excludeSelfScenarioValidator)
+    val scenarios = Table[String, Boolean, Boolean, Float, DataFrame, DataFrame => Unit](
+      ("outputFormat", "sparse", "excludeSelf", "similarityThreshold", "input",           "validator"),
+      ("full",         false,    false,         1f,                    denseVectorInput,  denseVectorScenarioValidator),
+      ("minimal",      false,    false,         1f,                    denseVectorInput,  minimalDenseVectorScenarioValidator),
+      ("full",         false,    false,         0.1f,                  denseVectorInput,  similarityThresholdScenarioValidator),
+      ("full",         false,    false,         noSimilarityThreshold, doubleArrayInput,  doubleArrayScenarioValidator),
+      ("full",         false,    false,         noSimilarityThreshold, floatArrayInput,   floatArrayScenarioValidator),
+      ("full",         false,    true,          noSimilarityThreshold, denseVectorInput,  excludeSelfScenarioValidator),
+      ("full",         true,     true,          1f,                    sparseVectorInput, sparseVectorScenarioValidator)
     )
 
-    forAll (scenarios) { case (outputFormat, excludeSelf, similarityThreshold, input, validator) =>
+    forAll (scenarios) { case (outputFormat, sparse, excludeSelf, similarityThreshold, input, validator) =>
 
       val hnsw = new Hnsw()
         .setIdentifierCol("id")
@@ -127,6 +145,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
         .setNumPartitions(5)
         .setK(10)
         .setNeighborsCol("neighbors")
+        .setSparse(sparse)
         .setExcludeSelf(excludeSelf)
         .setSimilarityThreshold(similarityThreshold)
         .setOutputFormat(outputFormat)

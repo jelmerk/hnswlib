@@ -55,7 +55,7 @@ object HnswIndex {
   /**
     * Construct a new [[HnswIndex]].
     *
-    * @dimensions dimensionality of the items stored in the index
+    * @param dimensions dimensionality of the items stored in the index
     * @param distanceFunction the distance function
     * @param maxItemCount the maximum number of elements in the index
     * @param m Sets the number of bi-directional links created for every new element during construction. Reasonable range

@@ -16,7 +16,6 @@ import com.github.jelmerk.knn.{ProgressListener => JProgressListener, Index => J
   * @tparam TVector Type of the vector to perform distance calculation on
   * @tparam TItem Type of items stored in the index
   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-
   */
 @SerialVersionUID(1L)
 private[scalalike] class JavaIndexAdapter[TId, TVector, TItem <: Item[TId, TVector], TDistance](val delegate: Index[TId, TVector, TItem, TDistance])

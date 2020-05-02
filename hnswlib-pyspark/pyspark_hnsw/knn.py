@@ -92,6 +92,10 @@ class _KnnParams(_KnnModelParams):
                          "storageLevel for the indices. Pass in a string representation of StorageLevel",
                          typeConverter=TypeConverters.toString)
 
+    sparse = Param(Params._dummy(), "sparse",
+                   "true if the vector is sparse",
+                   typeConverter=TypeConverters.toBoolean)
+
     def getNumPartitions(self):
         """
         Gets the value of numPartitions or its default value.
@@ -109,6 +113,12 @@ class _KnnParams(_KnnModelParams):
         Gets the value of storageLevel or its default value.
         """
         return self.getOrDefault(self.storageLevel)
+
+    def getSparse(self):
+        """
+        Get whether the input in a sparse vector
+        """
+        return self.getOrDefault(self.sparse)
 
 
 @inherit_doc
@@ -162,13 +172,13 @@ class BruteForce(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                 outputFormat="full"):
+                 outputFormat="full", sparse=False):
         super(BruteForce, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForce", self.uid)
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
                          distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
-                         storageLevel="MEMORY_ONLY")
+                         storageLevel="MEMORY_ONLY", sparse=False)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -233,10 +243,16 @@ class BruteForce(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
         """
         return self._set(storageLevel=value)
 
+    def setSparse(self, value):
+        """
+        Sets the value of :py:attr:`sparse`.
+        """
+        return self._set(sparse=value)
+
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                  outputFormat="full", storageLevel="MEMORY_ONLY"):
+                  outputFormat="full", storageLevel="MEMORY_ONLY", sparse=False):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -301,13 +317,14 @@ class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
     @keyword_only
     def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                 excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
+                 excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", sparse=False):
         super(Hnsw, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.Hnsw", self.uid)
 
         self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                          m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
+                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY",
+                         sparse=False)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -372,6 +389,12 @@ class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
         """
         return self._set(storageLevel=value)
 
+    def setSparse(self, value):
+        """
+        Sets the value of :py:attr:`sparse`.
+        """
+        return self._set(sparse=value)
+
     def setM(self, value):
         """
         Sets the value of :py:attr:`m`.
@@ -393,7 +416,7 @@ class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
     @keyword_only
     def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
                   m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
+                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY", sparse=False):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
