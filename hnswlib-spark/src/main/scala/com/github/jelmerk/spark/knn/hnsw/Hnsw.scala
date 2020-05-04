@@ -59,14 +59,21 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
 }
 
 /**
+  * Defines the index type.
+  */
+private[hnsw] trait HswIndexSupport extends IndexSupport {
+
+  override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
+    HnswIndex[TId, TVector, TItem, TDistance]
+
+}
+
+/**
   * Companion class for HnswModel.
   */
-object HnswModel extends MLReadable[HnswModel] {
+object HnswModel extends MLReadable[HnswModel]  {
 
-  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel] {
-
-    override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-      HnswIndex[TId, TVector, TItem, TDistance]
+  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel] with HswIndexSupport {
 
     override protected def createModel(uid: String, indices: Either[RDD[(Int, (HnswIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
                                                                     RDD[(Int, (HnswIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): HnswModel =
@@ -86,10 +93,7 @@ object HnswModel extends MLReadable[HnswModel] {
 class HnswModel private[hnsw](override val uid: String,
                               override val indices: Either[RDD[(Int, (HnswIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
                                                            RDD[(Int, (HnswIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]])
-  extends KnnModel[HnswModel](uid) with MLWritable with HnswModelParams {
-
-  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-    HnswIndex[TId, TVector, TItem, TDistance]
+  extends KnnModel[HnswModel](uid) with MLWritable with HnswModelParams with HswIndexSupport {
 
   override def copy(extra: ParamMap): HnswModel = {
     val copied = new HnswModel(uid, indices)
@@ -110,10 +114,7 @@ class HnswModel private[hnsw](override val uid: String,
   *
   * @param uid identifier
   */
-class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with HnswParams {
-
-  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-    HnswIndex[TId, TVector, TItem, TDistance]
+class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with HnswParams with HswIndexSupport {
 
   def this() = this(Identifiable.randomUID("hnsw"))
 

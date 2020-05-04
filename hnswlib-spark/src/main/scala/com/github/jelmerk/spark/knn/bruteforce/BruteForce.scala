@@ -9,14 +9,19 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.rdd.RDD
 
 /**
+  * Defines the index type.
+  */
+private[bruteforce] trait BruteForceIndexSupport extends IndexSupport {
+  override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
+    BruteForceIndex[TId, TVector, TItem, TDistance]
+}
+
+/**
   * Companion class for BruteForceModel.
   */
 object BruteForceModel extends MLReadable[BruteForceModel] {
 
-  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel] {
-
-    override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-      BruteForceIndex[TId, TVector, TItem, TDistance]
+  private[knn] class BruteForceModelReader extends KnnModelReader[BruteForceModel] with BruteForceIndexSupport {
 
     override protected def createModel(uid: String, indices: Either[RDD[(Int, (BruteForceIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
                                                                     RDD[(Int, (BruteForceIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): BruteForceModel =
@@ -35,10 +40,7 @@ object BruteForceModel extends MLReadable[BruteForceModel] {
 class BruteForceModel private[bruteforce](override val uid: String,
                                           override val indices: Either[RDD[(Int, (BruteForceIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
                                                                        RDD[(Int, (BruteForceIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]])
-  extends KnnModel[BruteForceModel](uid) with MLWritable {
-
-  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-    BruteForceIndex[TId, TVector, TItem, TDistance]
+  extends KnnModel[BruteForceModel](uid) with MLWritable with BruteForceIndexSupport {
 
   override def copy(extra: ParamMap): BruteForceModel = {
     val copied = new BruteForceModel(uid, indices)
@@ -54,12 +56,9 @@ class BruteForceModel private[bruteforce](override val uid: String,
   *
   * @param uid identifier
   */
-class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel](uid)  {
+class BruteForce(override val uid: String) extends KnnAlgorithm[BruteForceModel](uid) with BruteForceIndexSupport {
 
   def this() = this(Identifiable.randomUID("brute_force"))
-
-  override protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-    BruteForceIndex[TId, TVector, TItem, TDistance]
 
   override protected def createIndex[TVector, TItem <: Item[String, TVector] with Product](dimensions: Int,
                                                                                            maxItemCount: Int,

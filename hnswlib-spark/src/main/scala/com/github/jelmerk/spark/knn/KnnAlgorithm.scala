@@ -224,6 +224,20 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   setDefault(distanceFunction -> "cosine", numPartitions -> 1, storageLevel -> "MEMORY_ONLY", sparse -> false)
 }
 
+trait IndexSupport {
+
+  /**
+    * Type of index.
+    *
+    * @tparam TId Type of the external identifier of an item
+    * @tparam TVector Type of the vector to perform distance calculation on
+    * @tparam TItem Type of items stored in the index
+    * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+    */
+  protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] <: Index[TId, TVector, TItem, TDistance]
+
+}
+
 /**
   * Persists a knn model.
   *
@@ -266,17 +280,7 @@ private[knn] class KnnModelWriter[TModel <: Model[TModel]](instance: KnnModel[TM
   * @tparam TModel type of model
   */
 private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev: ClassTag[TModel])
-  extends MLReader[TModel] {
-
-  /**
-    * Type of index.
-    *
-    * @tparam TId Type of the external identifier of an item
-    * @tparam TVector Type of the vector to perform distance calculation on
-    * @tparam TItem Type of items stored in the index
-    * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-    */
-  protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] <: Index[TId, TVector, TItem, TDistance]
+  extends MLReader[TModel] with IndexSupport {
 
   private implicit val format: Formats = DefaultFormats
 
@@ -306,7 +310,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     val model =
       if (isSparse) {
         val indices = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
-          .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (IndexType[String, Vector, VectorIndexItemSparse, Float], String, Vector))]](value.getBytes) }
+          .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (TIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]](value.getBytes) }
 
         val partitionedIndices = new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions)))
 
@@ -315,7 +319,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
       } else {
 
         val indices = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
-          .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (IndexType[String, Array[Float], VectorIndexItemDense,  Float], String, Array[Float]))]](value.getBytes) }
+          .flatMap { case (_, value) => Utils.deserialize[Array[(Int, (TIndex[String, Array[Float], VectorIndexItemDense,  Float], String, Array[Float]))]](value.getBytes) }
 
         val partitionedIndices = new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions)))
 
@@ -330,8 +334,8 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     model
   }
 
-  protected def createModel(uid: String, indices: Either[RDD[(Int, (IndexType[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                                         RDD[(Int, (IndexType[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): TModel
+  protected def createModel(uid: String, indices: Either[RDD[(Int, (TIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                                         RDD[(Int, (TIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): TModel
 }
 
 /**
@@ -341,24 +345,14 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
   * @tparam TModel model type
   */
 private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: String) extends Model[TModel]
-  with KnnModelParams {
-
-  /**
-    * Type of index.
-    *
-    * @tparam TId Type of the external identifier of an item
-    * @tparam TVector Type of the vector to perform distance calculation on
-    * @tparam TItem Type of items stored in the index
-    * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-    */
-  protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] <: Index[TId, TVector, TItem, TDistance]
+  with KnnModelParams with IndexSupport {
 
   import com.github.jelmerk.spark.knn.Udfs._
 
   // TODO this is not very nice like this
 
-  private[knn] def indices: Either[RDD[(Int, (IndexType[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                   RDD[(Int, (IndexType[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]
+  private[knn] def indices: Either[RDD[(Int, (TIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                   RDD[(Int, (TIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]
 
   /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
@@ -393,7 +387,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: 
           .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
           .as[(String, Vector, Int)]
           .rdd
-          .map { case (id, vector, partition) => (partition, (null.asInstanceOf[IndexType[String, Vector, VectorIndexItemSparse, Float]], id, vector)) }
+          .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex[String, Vector, VectorIndexItemSparse, Float]], id, vector)) }
           .partitionBy(indices.partitioner.get)
 
         val unioned = indices.union(queryRdd)
@@ -420,7 +414,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: 
           .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
           .as[(String, Array[Float], Int)]
           .rdd
-          .map { case (id, vector, partition) => (partition, (null.asInstanceOf[IndexType[String, Array[Float], VectorIndexItemDense, Float]], id, vector)) }
+          .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex[String, Array[Float], VectorIndexItemDense, Float]], id, vector)) }
           .partitionBy(indices.partitioner.get)
 
         val unioned = indices.union(queryRdd)
@@ -445,7 +439,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: 
   }
 
   private def findNearestNeighbors[TVector, TItem <: Item[String, TVector] with Product]
-    (unioned : RDD[(Int, (IndexType[String, TVector, TItem, Float], String, TVector))]): RDD[(String, Array[Neighbor])] = {
+    (unioned : RDD[(Int, (TIndex[String, TVector, TItem, Float], String, TVector))]): RDD[(String, Array[Neighbor])] = {
 
     // map over all the rows in the partition, hold on on to the index stored in the first row and
     // use it to find the nearest neighbors of the remaining rows
@@ -502,7 +496,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: 
     *
     * @param index the index to transform
     */
-  private[knn] def transformIndex[TVector, TItem <: Item[String, TVector] with Product](index: IndexType[String, TVector, TItem, Float]): Unit = ()
+  private[knn] def transformIndex[TVector, TItem <: Item[String, TVector] with Product](index: TIndex[String, TVector, TItem, Float]): Unit = ()
 
   override def transformSchema(schema: StructType): StructType = {
     validateAndTransformSchema(schema)
@@ -535,17 +529,7 @@ private[knn] abstract class KnnModel[TModel <: Model[TModel]](override val uid: 
 }
 
 private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String)
-  extends Estimator[TModel] with KnnAlgorithmParams {
-
-  /**
-    * Type of index.
-    *
-    * @tparam TId Type of the external identifier of an item
-    * @tparam TVector Type of the vector to perform distance calculation on
-    * @tparam TItem Type of items stored in the index
-    * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
-    */
-  protected type IndexType[TId, TVector, TItem <: Item[TId, TVector], TDistance] <: Index[TId, TVector, TItem, TDistance]
+  extends Estimator[TModel] with KnnAlgorithmParams with IndexSupport {
 
   import Udfs._
 
@@ -635,7 +619,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   protected def createIndex[TVector, TItem <: Item[String, TVector] with Product](dimensions: Int,
                                                                                   maxItemCount: Int,
                                                                                   distanceFunction: DistanceFunction[TVector, Float])
-    : IndexType[String, TVector, TItem, Float]
+    : TIndex[String, TVector, TItem, Float]
 
 
   /**
@@ -645,12 +629,12 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     * @param indices rdd that holds the indices that are used to do the search
     * @return model
     */
-  protected def createModel(uid: String, indices: Either[RDD[(Int, (IndexType[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                                         RDD[(Int, (IndexType[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): TModel
+  protected def createModel(uid: String, indices: Either[RDD[(Int, (TIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
+                                                         RDD[(Int, (TIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): TModel
 
   private def createIndexRdd[TVector, TItem <: Item[String, TVector] with Product : TypeTag]
     (dataset: Dataset[TItem], distanceFunction: DistanceFunction[TVector, Float])(implicit ev: ClassTag[TItem])
-      : RDD[(Int, (IndexType[String, TVector, TItem, Float], String , TVector))] = {
+      : RDD[(Int, (TIndex[String, TVector, TItem, Float], String , TVector))] = {
 
     import dataset.sparkSession.implicits._
 
