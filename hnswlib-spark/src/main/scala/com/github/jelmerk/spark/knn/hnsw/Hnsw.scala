@@ -1,12 +1,16 @@
 package com.github.jelmerk.spark.knn.hnsw
 
+import scala.reflect.runtime.universe._
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.sql.{DataFrame, Dataset}
+
+import scala.reflect.ClassTag
 
 private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 
@@ -58,26 +62,25 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
   setDefault(ef -> 10)
 }
 
-/**
-  * Defines the index type.
-  */
-private[hnsw] trait HswIndexSupport extends IndexSupport {
-
-  override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] =
-    HnswIndex[TId, TVector, TItem, TDistance]
-
-}
 
 /**
   * Companion class for HnswModel.
   */
 object HnswModel extends MLReadable[HnswModel]  {
 
-  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel] with HswIndexSupport {
+  private[hnsw] class HnswModelReader extends KnnModelReader[HnswModel] {
 
-    override protected def createModel(uid: String, indices: Either[RDD[(Int, (HnswIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                                                    RDD[(Int, (HnswIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): HnswModel =
-      new HnswModel(uid, indices)
+    override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] = HnswIndex[TId, TVector, TItem, TDistance]
+
+    override protected def createModel[
+      TId: TypeTag,
+      TVector: TypeTag,
+      TItem <: Item[TId, TVector] with Product: TypeTag,
+      TDistance : TypeTag
+    ](uid: String, indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+      (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswModel =
+        new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
+
   }
 
   override def read: MLReader[HnswModel] = new HnswModelReader
@@ -86,35 +89,45 @@ object HnswModel extends MLReadable[HnswModel]  {
 
 /**
   * Model produced by a `Hnsw`.
-  *
-  * @param uid identifier
-  * @param indices rdd that holds the indices that are used to do the search
   */
-class HnswModel private[hnsw](override val uid: String,
-                              override val indices: Either[RDD[(Int, (HnswIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                                           RDD[(Int, (HnswIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]])
-  extends KnnModel[HnswModel](uid) with MLWritable with HnswModelParams with HswIndexSupport {
-
-  override def copy(extra: ParamMap): HnswModel = {
-    val copied = new HnswModel(uid, indices)
-    copyValues(copied, extra).setParent(parent)
-  }
-
-  override private[knn] def transformIndex[TVector, TItem <: Item[String, TVector] with Product](index: HnswIndex[String, TVector, TItem, Float]): Unit =
-    index.ef = getEf
+abstract class HnswModel extends Model[HnswModel] with HnswModelParams with MLWritable {
 
   /** @group setParam */
   def setEf(value: Int): this.type = set(ef, value)
 
-  override def write: MLWriter = new KnnModelWriter[HnswModel](this)
 }
+
+private[knn] class GenericHnswModel[
+  TId : TypeTag,
+  TVector : TypeTag,
+  TItem <: Item[TId, TVector] with Product : TypeTag,
+  TDistance : TypeTag
+](override val uid: String, private[knn] val indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+ (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+    extends HnswModel with KnnModelSupport[HnswModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
+
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
+
+  override def copy(extra: ParamMap): HnswModel = {
+    val copied = new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
+    copyValues(copied, extra).setParent(parent)
+  }
+
+  override private[knn] def transformIndex(index: HnswIndex[TId, TVector, TItem, TDistance]): Unit =
+    index.ef = getEf
+
+  override def write: MLWriter = new KnnModelWriter[HnswModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]](this)
+}
+
 
 /**
   * Nearest neighbor search using the approximative hnsw algorithm.
   *
   * @param uid identifier
   */
-class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with HnswParams with HswIndexSupport {
+class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with HnswParams {
+
+  override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] = HnswIndex[TId, TVector, TItem, TDistance]
 
   def this() = this(Identifiable.randomUID("hnsw"))
 
@@ -127,19 +140,25 @@ class Hnsw(override val uid: String) extends KnnAlgorithm[HnswModel](uid) with H
   /** @group setParam */
   def setEfConstruction(value: Int): this.type = set(efConstruction, value)
 
-  override protected def createIndex[TVector, TItem <: Item[String, TVector] with Product]
-    (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, Float])
-      : HnswIndex[String, TVector, TItem, Float] = HnswIndex[String, TVector, TItem, Float](
-        dimensions,
-        distanceFunction = distanceFunction,
-        maxItemCount = maxItemCount,
-        m = getM,
-        ef = getEf,
-        efConstruction = getEfConstruction
-      )
+  override protected def createIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance]
+    (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance])
+      : HnswIndex[TId, TVector, TItem, TDistance] =
+           HnswIndex[TId, TVector, TItem, TDistance](
+            dimensions,
+            distanceFunction,
+            maxItemCount,
+            getM,
+            getEf,
+            getEfConstruction
+          )
 
-  override protected def createModel(uid: String, indices: Either[RDD[(Int, (HnswIndex[String, Array[Float], VectorIndexItemDense, Float], String, Array[Float]))],
-                                                                  RDD[(Int, (HnswIndex[String, Vector, VectorIndexItemSparse, Float], String, Vector))]]): HnswModel =
-    new HnswModel(uid, indices)
+  override protected def createModel[
+    TId: TypeTag,
+    TVector: TypeTag,
+    TItem <: Item[TId, TVector] with Product: TypeTag,
+    TDistance : TypeTag
+  ](uid: String, indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+    (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswModel =
+      new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
 }
 

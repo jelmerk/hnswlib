@@ -49,7 +49,22 @@ class Normalizer(override val uid: String)
       throw new IllegalArgumentException(s"Output column $getOutputCol already exists.")
     }
 
+    if (!schema.fieldNames.contains(getInputCol)) {
+      throw new IllegalArgumentException(s"Input column $getInputCol does not exist.")
+    }
+
     val inputColumnSchema = schema(getInputCol)
+
+    val inputColHasValidDataType = inputColumnSchema.dataType match {
+      case dataType: DataType if dataType.typeName == "vector" => true
+      case ArrayType(FloatType, _) => true
+      case ArrayType(DoubleType, _) => true
+      case _ => false
+    }
+
+    if (!inputColHasValidDataType) {
+      throw new IllegalArgumentException(s"Input column $getInputCol must be a float array, double array or vector.")
+    }
 
     val outputFields = schema.fields :+ StructField(getOutputCol, inputColumnSchema.dataType, inputColumnSchema.nullable)
     StructType(outputFields)

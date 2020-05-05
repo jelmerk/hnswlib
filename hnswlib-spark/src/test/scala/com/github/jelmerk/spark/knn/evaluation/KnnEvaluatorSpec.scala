@@ -32,7 +32,7 @@ class KnnEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
       .setExactNeighborsCol("exact")
 
     val df = sc.parallelize(Seq(
-      Seq.empty[Neighbor[Int]] ->Seq.empty[Neighbor[Int]]
+      Seq.empty[Neighbor[Int, Float]] -> Seq.empty[Neighbor[Int, Float]] // TODO why are we using neighbor here from another package
     )).toDF("approximate", "exact")
 
     evaluator.evaluate(df) should be (1)

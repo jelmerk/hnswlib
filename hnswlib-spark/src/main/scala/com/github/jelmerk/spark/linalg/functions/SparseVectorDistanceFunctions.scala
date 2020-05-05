@@ -1,8 +1,8 @@
-package com.github.jelmerk.spark.util
+package com.github.jelmerk.spark.linalg.functions
 
 import org.apache.spark.ml.linalg.SparseVector
 
-object DistanceFunctions {
+object SparseVectorDistanceFunctions {
 
   def cosineDistance(u: SparseVector, v: SparseVector): Double = {
     val denom = norm(u) * norm(v)
@@ -13,6 +13,21 @@ object DistanceFunctions {
   }
 
   def innerProductDistance(u: SparseVector, v: SparseVector): Double = 1 - innerProduct(u, v)
+
+  def brayCurtisDistance(u: SparseVector, v: SparseVector): Double =
+    throw new NotImplementedError("Not implemented for sparse vectors.")
+
+  def canberraDistance(u: SparseVector, v: SparseVector): Double =
+    throw new NotImplementedError("Not implemented for sparse vectors.")
+
+  def correlationDistance(u: SparseVector, v: SparseVector): Double =
+    throw new NotImplementedError("Not implemented for sparse vectors.")
+
+  def euclideanDistance(u: SparseVector, v: SparseVector): Double =
+    throw new NotImplementedError("Not implemented for sparse vectors.")
+
+  def manhattanDistance(u: SparseVector, v: SparseVector): Double =
+    throw new NotImplementedError("Not implemented for sparse vectors.")
 
   private def norm(u: SparseVector): Double = math.sqrt(u.values.map(v => v * v).sum)
 
