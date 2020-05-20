@@ -25,11 +25,7 @@ import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.{BoundedPriorityQueue, PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
 
-private[knn] case class FloatArrayIndexItem[TId](id: TId, vector: Array[Float]) extends Item[TId, Array[Float]] {
-  override def dimensions: Int = vector.length
-}
-
-private[knn] case class DoubleArrayIndexItem[TId](id: TId, vector: Array[Double]) extends Item[TId, Array[Double]] {
+private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
   override def dimensions: Int = vector.length
 }
 
@@ -296,16 +292,16 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     val indicesPath = new Path(path, "indices").toString
 
     val model = (identifierType, vectorType) match {
-      case ("int", "float_array") => loadModel[Int, Array[Float], FloatArrayIndexItem[Int], Float](uid, indicesPath)
-      case ("int", "double_array") => loadModel[Int, Array[Double], DoubleArrayIndexItem[Int], Double](uid, indicesPath)
+      case ("int", "float_array") => loadModel[Int, Array[Float], ArrayIndexItem[Int, Float], Float](uid, indicesPath)
+      case ("int", "double_array") => loadModel[Int, Array[Double], ArrayIndexItem[Int, Double], Double](uid, indicesPath)
       case ("int", "vector") => loadModel[Int, Vector, VectorIndexItem[Int], Double](uid, indicesPath)
 
-      case ("long", "float_array") => loadModel[Long, Array[Float], FloatArrayIndexItem[Long], Float](uid, indicesPath)
-      case ("long", "double_array") => loadModel[Long, Array[Double], DoubleArrayIndexItem[Long], Double](uid, indicesPath)
+      case ("long", "float_array") => loadModel[Long, Array[Float], ArrayIndexItem[Long, Float], Float](uid, indicesPath)
+      case ("long", "double_array") => loadModel[Long, Array[Double], ArrayIndexItem[Long, Double], Double](uid, indicesPath)
       case ("long", "vector") => loadModel[Long, Vector, VectorIndexItem[Long], Double](uid, indicesPath)
 
-      case ("string", "float_array") => loadModel[String, Array[Float], FloatArrayIndexItem[String], Float](uid, indicesPath)
-      case ("string", "double_array") => loadModel[String, Array[Double], DoubleArrayIndexItem[String], Double](uid, indicesPath)
+      case ("string", "float_array") => loadModel[String, Array[Float], ArrayIndexItem[String, Float], Float](uid, indicesPath)
+      case ("string", "double_array") => loadModel[String, Array[Double], ArrayIndexItem[String, Double], Double](uid, indicesPath)
       case ("string", "vector") => loadModel[String, Vector, VectorIndexItem[String], Double](uid, indicesPath)
     }
 
@@ -559,21 +555,21 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
     val model = (identifierType, vectorType) match {
       case (IntegerType, ArrayType(FloatType, _)) =>
-        typedFit[Int, Array[Float], FloatArrayIndexItem[Int], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
+        typedFit[Int, Array[Float], ArrayIndexItem[Int, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
       case (IntegerType, ArrayType(DoubleType, _)) =>
-        typedFit[Int, Array[Double], DoubleArrayIndexItem[Int], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
+        typedFit[Int, Array[Double], ArrayIndexItem[Int, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
       case (IntegerType, t) if t.typeName == "vector" =>
         typedFit[Int, Vector, VectorIndexItem[Int], Double](dataset, vectorDistanceFunction(getDistanceFunction))
       case (LongType, ArrayType(FloatType, _)) =>
-        typedFit[Long, Array[Float], FloatArrayIndexItem[Long], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
+        typedFit[Long, Array[Float], ArrayIndexItem[Long, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
       case (LongType, ArrayType(DoubleType, _)) =>
-        typedFit[Long, Array[Double], DoubleArrayIndexItem[Long], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
+        typedFit[Long, Array[Double], ArrayIndexItem[Long, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
       case (LongType, t) if t.typeName == "vector" =>
         typedFit[Long, Vector, VectorIndexItem[Long], Double](dataset, vectorDistanceFunction(getDistanceFunction))
       case (StringType, ArrayType(FloatType, _)) =>
-        typedFit[String, Array[Float], FloatArrayIndexItem[String], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
+         typedFit[String, Array[Float], ArrayIndexItem[String, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
       case (StringType, ArrayType(DoubleType, _)) =>
-        typedFit[String, Array[Double], DoubleArrayIndexItem[String], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
+        typedFit[String, Array[Double], ArrayIndexItem[String, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
       case (StringType, t) if t.typeName == "vector" =>
         typedFit[String, Vector, VectorIndexItem[String], Double](dataset, vectorDistanceFunction(getDistanceFunction))
 
