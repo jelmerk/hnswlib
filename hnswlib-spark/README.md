@@ -55,6 +55,14 @@ import com.github.jelmerk.spark.knn.bruteforce.BruteForce
 import com.github.jelmerk.spark.knn.evaluation.KnnEvaluator
 import com.github.jelmerk.spark.knn.hnsw.Hnsw
 import com.github.jelmerk.spark.linalg.Normalizer
+import com.github.jelmerk.spark.conversion.VectorConverter
+
+// often it is acceptable to use float instead of double precision. 
+// this uses less memory and will be faster 
+
+val converter = new VectorConverter()
+    .setInputCol("featuresAsMlLibVector")
+    .setOutputCol("features")
 
 // The cosine distance is obtained with the inner product after normalizing all vectors to unit norm 
 // this is much faster than calculating the cosine distance directly

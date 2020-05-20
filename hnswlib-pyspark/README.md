@@ -38,6 +38,11 @@ from pyspark.ml import Pipeline
 from pyspark_hnsw.evaluation import KnnEvaluator
 from pyspark_hnsw.knn import *
 from pyspark_hnsw.linalg import Normalizer
+from pyspark_hnsw.conversion import VectorConverter
+
+# often it is acceptable to use float instead of double precision. 
+# this uses less memory and will be faster 
+converter = VectorConverter(inputCol='features_as_ml_lib_vector', outputCol='features')
 
 # The cosine distance is obtained with the inner product after normalizing all vectors to unit norm
 # this is much faster than calculating the cosine distance directly
@@ -50,7 +55,7 @@ hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunctio
 brute_force = BruteForce(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product',
                          k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='exact')
  
-pipeline = Pipeline(stages=[normalizer, hnsw, brute_force])
+pipeline = Pipeline(stages=[converter, normalizer, hnsw, brute_force])
 
 model = pipeline.fit(index_items)
 
