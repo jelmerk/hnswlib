@@ -8,6 +8,8 @@ You can run the integration tests by first running the following command in the 
 Followed by running the following commands in the hnswlib-pyspark module
 
     export SPARK_HOME=/path/to/spark-2.3.0-bin-hadoop2.6
+    rm -rf ~/.ivy2/cache/com.github.jelmerk
+    rm -rf ~/.ivy2/jars/com.github.jelmerk_hnswlib-*
     pip install -e .[test]
     py.test
 
