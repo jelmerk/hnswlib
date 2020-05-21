@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.knn import BruteForce
+from pyspark_hnsw.knn import BruteForceSimilarity
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 
@@ -15,8 +15,8 @@ def test_bruteforce(spark_context):
         [3, Vectors.dense([0.2, 0.1])],
     ], ['row_id', 'features'])
 
-    bruteforce = BruteForce(identifierCol='row_id', vectorCol='features', distanceFunction='cosine',
-                            numPartitions=100, excludeSelf=False, similarityThreshold=-1.0)
+    bruteforce = BruteForceSimilarity(identifierCol='row_id', featuresCol='features', distanceFunction='cosine',
+                                      numPartitions=100, excludeSelf=False, similarityThreshold=-1.0)
 
     model = bruteforce.fit(df)
 

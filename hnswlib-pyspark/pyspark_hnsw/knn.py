@@ -4,22 +4,16 @@ from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
-__all__ = ['Hnsw', 'HnswModel', 'BruteForce', 'BruteForceModel']
+__all__ = ['HnswSimilarity', 'HnswSimilarityModel', 'BruteForceSimilarity', 'BruteForceSimilarityModel']
 
 @inherit_doc
-class _KnnModelParams:
+class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
     """
     Params for knn models.
     """
 
     identifierCol = Param(Params._dummy(), "identifierCol", "the column name for the row identifier",
                           typeConverter=TypeConverters.toString)
-
-    vectorCol = Param(Params._dummy(), "vectorCol", "the column name for the vector",
-                      typeConverter=TypeConverters.toString)
-
-    neighborsCol = Param(Params._dummy(), "neighborsCol", "column name for the returned neighbors",
-                         typeConverter=TypeConverters.toString)
 
     k = Param(Params._dummy(), "k", "number of neighbors to find", typeConverter=TypeConverters.toInt)
 
@@ -38,18 +32,6 @@ class _KnnModelParams:
         Gets the value of identifierCol or its default value.
         """
         return self.getOrDefault(self.identifierCol)
-
-    def getVectorCol(self):
-        """
-        Gets the value of vectorCol or its default value.
-        """
-        return self.getOrDefault(self.vectorCol)
-
-    def getNeighborsCol(self):
-        """
-        Gets the value of neighborsCol or its default value.
-        """
-        return self.getOrDefault(self.neighborsCol)
 
     def getK(self):
         """
@@ -154,21 +136,19 @@ class _HnswParams(_HnswModelParams, _KnnParams):
 
 
 @inherit_doc
-class BruteForce(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
+class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
     """
     Exact nearest neighbour search.
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                 outputFormat="full"):
-        super(BruteForce, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForce", self.uid)
+    def __init__(self, identifierCol="id", featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
+                 distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
+        super(BruteForceSimilarity, self).__init__()
+        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
-        self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors", numPartitions=1, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
-                         storageLevel="MEMORY_ONLY")
+        self._setDefault(identifierCol="id", numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+                         similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -178,18 +158,6 @@ class BruteForce(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
-
-    def setVectorCol(self, value):
-        """
-        Sets the value of :py:attr:`vectorCol`.
-        """
-        return self._set(vectorCol=value)
-
-    def setNeighborsCol(self, value):
-        """
-        Sets the value of :py:attr:`neighborsCol`.
-        """
-        return self._set(neighborsCol=value)
 
     def setNumPartitions(self, value):
         """
@@ -234,17 +202,17 @@ class BruteForce(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWritable):
         return self._set(storageLevel=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                  outputFormat="full", storageLevel="MEMORY_ONLY"):
+    def setParams(self, identifierCol="id", featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
+                  distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                  storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
     def _create_model(self, java_model):
-        return BruteForceModel(java_model)
+        return BruteForceSimilarityModel(java_model)
 
 
-class BruteForceModel(JavaModel, _KnnModelParams, JavaMLReadable, JavaMLWritable):
+class BruteForceSimilarityModel(JavaModel, _KnnModelParams, JavaMLReadable, JavaMLWritable):
     """
     Model fitted by BruteForce.
     """
@@ -254,18 +222,6 @@ class BruteForceModel(JavaModel, _KnnModelParams, JavaMLReadable, JavaMLWritable
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
-
-    def setVectorCol(self, value):
-        """
-        Sets the value of :py:attr:`vectorCol`.
-        """
-        return self._set(vectorCol=value)
-
-    def setNeighborsCol(self, value):
-        """
-        Sets the value of :py:attr:`neighborsCol`.
-        """
-        return self._set(neighborsCol=value)
 
     def setK(self, value):
         """
@@ -293,21 +249,21 @@ class BruteForceModel(JavaModel, _KnnModelParams, JavaMLReadable, JavaMLWritable
 
 
 @inherit_doc
-class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
+class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
     """
     Approximate nearest neighbour search.
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                 m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                 excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
-        super(Hnsw, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.Hnsw", self.uid)
+    def __init__(self, identifierCol="id", featuresCol="features", predictionCol="prediction", m=16, ef=10,
+                 efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+                 similarityThreshold=-1.0, outputFormat="full"):
+        super(HnswSimilarity, self).__init__()
+        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.HnswSimilarity", self.uid)
 
-        self._setDefault(identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                         m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine",
-                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
+        self._setDefault(identifierCol="id", m=16, ef=10, efConstruction=200, numPartitions=1, k=5,
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                         storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -317,18 +273,6 @@ class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
-
-    def setVectorCol(self, value):
-        """
-        Sets the value of :py:attr:`vectorCol`.
-        """
-        return self._set(vectorCol=value)
-
-    def setNeighborsCol(self, value):
-        """
-        Sets the value of :py:attr:`neighborsCol`.
-        """
-        return self._set(neighborsCol=value)
 
     def setNumPartitions(self, value):
         """
@@ -391,17 +335,17 @@ class Hnsw(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
         return self._set(efConstruction=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", vectorCol="vector", neighborsCol="neighbors",
-                  m=16, ef=10, efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+    def setParams(self, identifierCol="id", featuresCol="features", predictionCol="prediction", m=16, ef=10,
+                  efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
                   similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
     def _create_model(self, java_model):
-        return HnswModel(java_model)
+        return HnswSimilarityModel(java_model)
 
 
-class HnswModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWritable):
+class HnswSimilarityModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWritable):
     """
     Model fitted by Hnsw.
     """
@@ -411,18 +355,6 @@ class HnswModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWritable):
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
-
-    def setVectorCol(self, value):
-        """
-        Sets the value of :py:attr:`vectorCol`.
-        """
-        return self._set(vectorCol=value)
-
-    def setNeighborsCol(self, value):
-        """
-        Sets the value of :py:attr:`neighborsCol`.
-        """
-        return self._set(neighborsCol=value)
 
     def setK(self, value):
         """

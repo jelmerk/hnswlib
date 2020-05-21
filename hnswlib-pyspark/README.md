@@ -23,7 +23,7 @@ Basic:
 ```python
 from pyspark_hnsw.knn import Hnsw
 
-hnsw = Hnsw(identifierCol='id', vectorCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
+hnsw = Hnsw(identifierCol='id', featuresCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
             efConstruction=200, numPartitions=2, excludeSelf=True)
 
 model = hnsw.fit(index_items)
@@ -49,11 +49,11 @@ converter = VectorConverter(inputCol='features_as_ml_lib_vector', outputCol='fea
 
 normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
 
-hnsw = Hnsw(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
-            efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='approximate')
+hnsw = Hnsw(identifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
+            efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='approximate')
             
-brute_force = BruteForce(identifierCol='id', vectorCol='normalized_features', distanceFunction='inner-product',
-                         k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, neighborsCol='exact')
+brute_force = BruteForce(identifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product',
+                         k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='exact')
  
 pipeline = Pipeline(stages=[converter, normalizer, hnsw, brute_force])
 

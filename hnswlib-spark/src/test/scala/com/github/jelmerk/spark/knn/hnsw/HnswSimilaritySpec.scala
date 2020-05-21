@@ -10,7 +10,6 @@ import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
-import org.scalactic.{Equality, TolerantNumerics}
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
@@ -35,9 +34,7 @@ case class MinimalOutputRow[TId, TDistance](id: TId, neighbors: Seq[Neighbor[TId
   override def hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }
 
-class HnswSpec extends FunSuite with DataFrameSuiteBase {
-
-  implicit val floatEq: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1e-4f)
+class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
 
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf
@@ -143,12 +140,12 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
 
     forAll (scenarios) { case (outputFormat, excludeSelf, similarityThreshold, input, validator) =>
 
-      val hnsw = new Hnsw()
+      val hnsw = new HnswSimilarity()
         .setIdentifierCol("id")
-        .setVectorCol("vector")
+        .setFeaturesCol("vector")
         .setNumPartitions(5)
         .setK(10)
-        .setNeighborsCol("neighbors")
+        .setPredictionCol("neighbors")
         .setExcludeSelf(excludeSelf)
         .setSimilarityThreshold(similarityThreshold)
         .setOutputFormat(outputFormat)
@@ -166,10 +163,10 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
     val sqlCtx = sqlContext
     import sqlCtx.implicits._
 
-    val hnsw = new Hnsw()
+    val hnsw = new HnswSimilarity()
       .setIdentifierCol("id")
-      .setVectorCol("vector")
-      .setNeighborsCol("neighbors")
+      .setFeaturesCol("vector")
+      .setPredictionCol("neighbors")
       .setOutputFormat("minimal")
 
     val items = sc.parallelize(Seq(
@@ -184,7 +181,7 @@ class HnswSpec extends FunSuite with DataFrameSuiteBase {
 
       hnsw.fit(items).write.overwrite.save(path)
 
-      val model = HnswModel.load(path)
+      val model = HnswSimilarityModel.load(path)
 
       val queryItems = sc.parallelize(Seq(
         InputRow(1000000, Array(0.0110f, 0.2341f))

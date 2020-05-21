@@ -2,7 +2,7 @@ package com.github.jelmerk.spark.knn
 
 import java.net.InetAddress
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, implicitConversions}
 import scala.math.abs
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
@@ -24,6 +24,7 @@ import org.json4s._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.{BoundedPriorityQueue, PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
+import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasPredictionCol}
 
 private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
   override def dimensions: Int = vector.length
@@ -46,7 +47,7 @@ private[knn] case class Neighbor[TId, TDistance] (neighbor: TId, distance: TDist
 /**
   * Common params for KnnAlgorithm and KnnModel.
   */
-private[knn] trait KnnModelParams extends Params {
+private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPredictionCol {
 
   /**
     * Param for the column name for the row identifier.
@@ -58,28 +59,6 @@ private[knn] trait KnnModelParams extends Params {
 
   /** @group getParam */
   def getIdentifierCol: String = $(identifierCol)
-
-  /**
-    * Param for the column name for the vector.
-    * Default: "vector"
-    *
-    * @group param
-    */
-  val vectorCol = new Param[String](this, "vectorCol", "column names for the vector")
-
-  /** @group getParam */
-  def getVectorCol: String = $(vectorCol)
-
-  /**
-    * Param for the column name for returned neighbors.
-    * Default: "neighbors"
-    *
-    * @group param
-    */
-  val neighborsCol = new Param[String](this, "neighborsCol", "column names for returned neighbors")
-
-  /** @group getParam */
-  def getNeighborsCol: String = $(neighborsCol)
 
   /**
     * Param for number of neighbors to find (> 0).
@@ -125,26 +104,26 @@ private[knn] trait KnnModelParams extends Params {
   /** @group getParam */
   def getOutputFormat: String = $(outputFormat)
 
-  setDefault(k -> 5, neighborsCol -> "neighbors", identifierCol -> "id", vectorCol -> "vector",
+  setDefault(k -> 5, predictionCol -> "prediction", identifierCol -> "id", featuresCol -> "features",
     excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
 
   protected def validateAndTransformSchema(schema: StructType): StructType = {
 
     val identifierColSchema = schema(getIdentifierCol)
 
-    val distanceType = schema(getVectorCol).dataType match {
+    val distanceType = schema(getFeaturesCol).dataType match {
       case ArrayType(FloatType, _) => FloatType
       case _ => DoubleType
     }
 
-    val neighborsField = StructField(getNeighborsCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", distanceType)))))
+    val neighborsField = StructField(getPredictionCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", distanceType)))))
 
     getOutputFormat match {
       case "minimal" => StructType(Array(identifierColSchema, neighborsField))
 
       case _ =>
-        if (schema.fieldNames.contains(getNeighborsCol)) {
-          throw new IllegalArgumentException(s"Output column $getNeighborsCol already exists.")
+        if (schema.fieldNames.contains(getPredictionCol)) {
+          throw new IllegalArgumentException(s"Output column $getPredictionCol already exists.")
         }
 
         StructType(schema.fields :+ neighborsField)
@@ -370,7 +349,7 @@ private[knn] trait KnnModelSupport[
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
-  def setNeighborsCol(value: String): this.type = set(neighborsCol, value)
+  def setPredictionCol(value: String): this.type = set(predictionCol, value)
 
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
@@ -398,7 +377,7 @@ private[knn] trait KnnModelSupport[
     // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
     val queryRdd = dataset.select(
         col(getIdentifierCol),
-        col(getVectorCol)
+        col(getFeaturesCol)
       )
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
       .as[(TId, TVector, Int)]
@@ -465,7 +444,7 @@ private[knn] trait KnnModelSupport[
 
 
     val transformed = topNeighbors
-        .toDF(getIdentifierCol, getNeighborsCol)
+        .toDF(getIdentifierCol, getPredictionCol)
 
     if (getOutputFormat == "minimal") transformed
     else dataset.join(transformed, Seq(getIdentifierCol))
@@ -522,10 +501,10 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
 
   /** @group setParam */
-  def setVectorCol(value: String): this.type = set(vectorCol, value)
+  def setFeaturesCol(value: String): this.type = set(featuresCol, value)
 
   /** @group setParam */
-  def setNeighborsCol(value: String): this.type = set(neighborsCol, value)
+  def setPredictionCol(value: String): this.type = set(predictionCol, value)
 
   /** @group setParam */
   def setK(value: Int): this.type = set(k, value)
@@ -551,29 +530,21 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   override def fit(dataset: Dataset[_]): TModel = {
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
-    val vectorType = dataset.schema(getVectorCol).dataType
+    val vectorType = dataset.schema(getFeaturesCol).dataType
 
     val model = (identifierType, vectorType) match {
-      case (IntegerType, ArrayType(FloatType, _)) =>
-        typedFit[Int, Array[Float], ArrayIndexItem[Int, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
-      case (IntegerType, ArrayType(DoubleType, _)) =>
-        typedFit[Int, Array[Double], ArrayIndexItem[Int, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
-      case (IntegerType, t) if t.typeName == "vector" =>
-        typedFit[Int, Vector, VectorIndexItem[Int], Double](dataset, vectorDistanceFunction(getDistanceFunction))
-      case (LongType, ArrayType(FloatType, _)) =>
-        typedFit[Long, Array[Float], ArrayIndexItem[Long, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
-      case (LongType, ArrayType(DoubleType, _)) =>
-        typedFit[Long, Array[Double], ArrayIndexItem[Long, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
-      case (LongType, t) if t.typeName == "vector" =>
-        typedFit[Long, Vector, VectorIndexItem[Long], Double](dataset, vectorDistanceFunction(getDistanceFunction))
-      case (StringType, ArrayType(FloatType, _)) =>
-         typedFit[String, Array[Float], ArrayIndexItem[String, Float], Float](dataset, floatArrayDistanceFunction(getDistanceFunction))
-      case (StringType, ArrayType(DoubleType, _)) =>
-        typedFit[String, Array[Double], ArrayIndexItem[String, Double], Double](dataset, doubleArrayDistanceFunction(getDistanceFunction))
-      case (StringType, t) if t.typeName == "vector" =>
-        typedFit[String, Vector, VectorIndexItem[String], Double](dataset, vectorDistanceFunction(getDistanceFunction))
-
-      case _ => throw new IllegalArgumentException(s"Cannot create index for items with identifier of type ${identifierType.typeName} and vector of type ${vectorType.typeName} ")
+      case (IntegerType, ArrayType(FloatType, _)) => typedFit[Int, Array[Float], ArrayIndexItem[Int, Float], Float](dataset)
+      case (IntegerType, ArrayType(DoubleType, _)) => typedFit[Int, Array[Double], ArrayIndexItem[Int, Double], Double](dataset)
+      case (IntegerType, t) if t.typeName == "vector" => typedFit[Int, Vector, VectorIndexItem[Int], Double](dataset)
+      case (LongType, ArrayType(FloatType, _)) => typedFit[Long, Array[Float], ArrayIndexItem[Long, Float], Float](dataset)
+      case (LongType, ArrayType(DoubleType, _)) => typedFit[Long, Array[Double], ArrayIndexItem[Long, Double], Double](dataset)
+      case (LongType, t) if t.typeName == "vector" => typedFit[Long, Vector, VectorIndexItem[Long], Double](dataset)
+      case (StringType, ArrayType(FloatType, _)) => typedFit[String, Array[Float], ArrayIndexItem[String, Float], Float](dataset)
+      case (StringType, ArrayType(DoubleType, _)) => typedFit[String, Array[Double], ArrayIndexItem[String, Double], Double](dataset)
+      case (StringType, t) if t.typeName == "vector" => typedFit[String, Vector, VectorIndexItem[String], Double](dataset)
+      case _ => throw new IllegalArgumentException(s"Cannot create index for items with identifier of type " +
+        s"${identifierType.simpleString} and vector of type ${vectorType.simpleString}. " +
+        s"Supported identifiers are string, int, long and string. Supported vectors are array<float>, array<double> and vector ")
     }
 
     copyValues(model)
@@ -628,12 +599,12 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](dataset: Dataset[_], distanceFunction: DistanceFunction[TVector, TDistance])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+  ](dataset: Dataset[_])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceFunctionFactory: String => DistanceFunction[TVector, TDistance])
     : TModel = {
 
     import dataset.sparkSession.implicits._
 
-    val items = dataset.select(col(getIdentifierCol).as("id"), col(getVectorCol).as("vector"))
+    val items = dataset.select(col(getIdentifierCol).as("id"), col(getFeaturesCol).as("vector"))
       .as[TItem]
 
     val storageLevel = StorageLevel.fromString(getStorageLevel)
@@ -658,7 +629,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
           logInfo(f"partition $partition%04d: indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          val index = createIndex[TId, TVector, TItem, TDistance](items.head.dimensions, items.size, distanceFunction)
+          val index = createIndex[TId, TVector, TItem, TDistance](items.head.dimensions, items.size, distanceFunctionFactory(getDistanceFunction))
           index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partition%04d: Indexed $workDone of $max items"))
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
@@ -675,7 +646,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     createModel[TId, TVector, TItem, TDistance](uid, indicesRdd)
   }
 
-  private def floatArrayDistanceFunction(name: String): DistanceFunction[Array[Float], Float] = name match {
+  implicit private def floatArrayDistanceFunction(name: String): DistanceFunction[Array[Float], Float] = name match {
     case "bray-curtis" => floatBrayCurtisDistance
     case "canberra" => floatCanberraDistance
     case "correlation" => floatCorrelationDistance
@@ -690,7 +661,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
         .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
   }
 
-  private def doubleArrayDistanceFunction(name: String): DistanceFunction[Array[Double], Double] = name match {
+  implicit private def doubleArrayDistanceFunction(name: String): DistanceFunction[Array[Double], Double] = name match {
     case "bray-curtis" => doubleBrayCurtisDistance
     case "canberra" => doubleCanberraDistance
     case "correlation" => doubleCorrelationDistance
@@ -705,7 +676,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
         .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
   }
 
-  private def vectorDistanceFunction(name: String): DistanceFunction[Vector, Double] = name match {
+  implicit private def vectorDistanceFunction(name: String): DistanceFunction[Vector, Double] = name match {
     case "bray-curtis" => VectorDistanceFunctions.brayCurtisDistance
     case "canberra" => VectorDistanceFunctions.canberraDistance
     case "correlation" => VectorDistanceFunctions.correlationDistance

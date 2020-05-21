@@ -12,7 +12,7 @@ The easiest way to use this library with spark is to simply collect your data on
 This does mean you'll have to allocate a lot of cores and memory to the driver.
 
 The alternative to this is to use this module to shard the index across multiple executors 
-and parallelise the indexing / querying. This may be  faster if you have many executors at your disposal and is
+and parallelize the indexing / querying. This may be  faster if you have many executors at your disposal and is
 appropriate if your dataset won't fit in the driver memory
 
 Setup
@@ -28,11 +28,11 @@ Example usage
 Basic:
 
 ```scala
-import com.github.jelmerk.spark.knn.hnsw.Hnsw
+import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 
-val hnsw = new Hnsw()
+val hnsw = new HnswSimilarity()
   .setIdentifierCol("id")
-  .setVectorCol("features")
+  .setFeaturesCol("features")
   .setNumPartitions(2)
   .setM(48)
   .setEf(5)
@@ -43,7 +43,7 @@ val hnsw = new Hnsw()
 
 val model = hnsw.fit(indexItems)
 
-model.transform(indexItems).write.mode(SaveMode.Overwrite).parquet("/path/to/output")
+model.transform(indexItems).write.parquet("/path/to/output")
 ```
 
 Advanced:
@@ -51,9 +51,9 @@ Advanced:
 ```scala
 import org.apache.spark.ml.Pipeline
 
-import com.github.jelmerk.spark.knn.bruteforce.BruteForce
+import com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity
 import com.github.jelmerk.spark.knn.evaluation.KnnEvaluator
-import com.github.jelmerk.spark.knn.hnsw.Hnsw
+import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 import com.github.jelmerk.spark.linalg.Normalizer
 import com.github.jelmerk.spark.conversion.VectorConverter
 
@@ -71,30 +71,30 @@ val normalizer = new Normalizer()
   .setInputCol("features")
   .setOutputCol("normalizedFeatures")
 
-val hnsw = new Hnsw()
+val hnsw = new HnswSimilarity()
   .setIdentifierCol("id")
-  .setVectorCol("normalizedFeatures")
+  .setFeaturesCol("normalizedFeatures")
   .setNumPartitions(2)
   .setK(200)
   .setSimilarityThreshold(0.4f)
   .setDistanceFunction("inner-product")
-  .setNeighborsCol("approximate")
+  .setPredictionCol("approximate")
   .setExcludeSelf(true)
   .setM(48)
   .setEfConstruction(200)
 
-val bruteForce = new BruteForce()
+val bruteForce = new BruteForceSimilarity()
   .setIdentifierCol(hnsw.getIdentifierCol)
-  .setVectorCol(hnsw.getVectorCol)
+  .setFeaturesCol(hnsw.getFeaturesCol)
   .setNumPartitions(2)
   .setK(hnsw.getK)
   .setSimilarityThreshold(hnsw.getSimilarityThreshold)
   .setDistanceFunction(hnsw.getDistanceFunction)
-  .setNeighborsCol("exact")
+  .setPredictionCol("exact")
   .setExcludeSelf(hnsw.getExcludeSelf)
 
 val pipeline = new Pipeline()
-  .setStages(Array(normalizer, hnsw, bruteForce))
+  .setStages(Array(converter, normalizer, hnsw, bruteForce))
 
 val model = pipeline.fit(indexItems)
 
