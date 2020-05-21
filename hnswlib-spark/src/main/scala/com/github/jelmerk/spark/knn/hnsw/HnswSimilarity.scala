@@ -77,7 +77,7 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
       TVector: TypeTag,
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
-    ](uid: String, indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+    ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
         new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
 
@@ -102,11 +102,11 @@ private[knn] class GenericHnswModel[
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, private[knn] val indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+](override val uid: String, private[knn] val indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     extends HnswSimilarityModel with KnnModelSupport[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
-  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): HnswSimilarityModel = {
     val copied = new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
@@ -157,7 +157,7 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
     TVector: TypeTag,
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
-  ](uid: String, indices: RDD[(Int, (HnswIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+  ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
       new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
 }

@@ -34,6 +34,8 @@ private[knn] case class VectorIndexItem[TId](id: TId, vector: Vector) extends It
   override def dimensions: Int = vector.size
 }
 
+private[knn] case class Query[TId, TVector](id: TId, vector: TVector)
+
 /**
   * Neighbor of an item
   *
@@ -55,10 +57,20 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val identifierCol = new Param[String](this, "identifierCol", "column names for the row identifier")
+  val identifierCol = new Param[String](this, "identifierCol", "column name for the row identifier")
 
   /** @group getParam */
   def getIdentifierCol: String = $(identifierCol)
+
+  /**
+    * Param for the column name for the query identifier.
+    *
+    * @group param
+    */
+  val queryIdentifierCol = new Param[String](this, "queryIdentifierCol", "column name for the query identifier")
+
+  /** @group getParam */
+  def getQueryIdentifierCol: String = $(queryIdentifierCol)
 
   /**
     * Param for number of neighbors to find (> 0).
@@ -72,7 +84,7 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   def getK: Int = $(k)
 
   /**
-    * Param that indicates whether to not return the row identifier as a candidate neighbor.
+    * Param that indicates whether to not return the a candidate when it's identifier equals the query identifier
     * Default: false
     *
     * @group param
@@ -309,7 +321,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](uid: String, indices: RDD[(Int, (TIndex[TId, TVector, TItem, TDistance], TId, TVector))])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : TModel
+  ](uid: String, indices: RDD[(Int, TIndex[TId, TVector, TItem, TDistance])])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : TModel
 
   private def loadModel[
     TId : TypeTag,
@@ -318,7 +330,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     TDistance : TypeTag
   ](uid: String, indicesPath: String)(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]): TModel = {
     val serializedIndexRdd = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
-    val indices = serializedIndexRdd.flatMap { case (_, value) => Utils.deserialize[Array[(Int, (TIndex[TId, TVector, TItem, TDistance], TId, TVector))]](value.getBytes) }
+    val indices = serializedIndexRdd.flatMap { case (_, value) => Utils.deserialize[Array[(Int, TIndex[TId, TVector, TItem, TDistance])]](value.getBytes) }
     val partitionedIndices = new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions)))
     createModel(uid, partitionedIndices)
   }
@@ -346,7 +358,10 @@ private[knn] trait KnnModelSupport[
   this: TModel with KnnModelParams =>
 
   /** @group setParam */
-  def setIdentifierCol(value: String): this.type = set(identifierCol, value)
+  def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
+
+  /** @group setParam */
+  def setFeaturesCol(value: String): this.type = set(featuresCol, value)
 
   /** @group setParam */
   def setPredictionCol(value: String): this.type = set(predictionCol, value)
@@ -363,10 +378,16 @@ private[knn] trait KnnModelSupport[
   /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
-  private[knn] def indices: RDD[(Int, (TIndex, TId, TVector))]
+  private[knn] def indices: RDD[(Int, TIndex)]
 
-  protected def typedTransform(indices: RDD[(Int, (TIndex, TId, TVector))], dataset: Dataset[_])
-                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame = {
+
+  protected def typedTransform(dataset: Dataset[_])
+                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame =
+    if (isSet(queryIdentifierCol)) typedTransformWithQueryCol[TId](dataset, getQueryIdentifierCol)
+    else typedTransformWithQueryCol[Long](dataset.withColumn("_query_id", monotonically_increasing_id), "_query_id").drop("_query_id")
+
+  protected def typedTransformWithQueryCol[TQueryId](dataset: Dataset[_], queryIdCol: String)
+                                                    (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], evQueryId: ClassTag[TQueryId], distanceOrdering: Ordering[TDistance]) : DataFrame = {
     import dataset.sparkSession.implicits._
 
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
@@ -376,11 +397,11 @@ private[knn] trait KnnModelSupport[
 
     // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
     val queryRdd = dataset.select(
-        col(getIdentifierCol),
+        col(queryIdCol),
         col(getFeaturesCol)
       )
       .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
-      .as[(TId, TVector, Int)]
+      .as[(TQueryId, TVector, Int)]
       .rdd
       .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex], id, vector)) }
       .partitionBy(indices.partitioner.get)
@@ -388,6 +409,7 @@ private[knn] trait KnnModelSupport[
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
 
     val unioned = indices
+      .mapPartitions(_.map { case (partition, index) => (partition, (index, null.asInstanceOf[TQueryId], null.asInstanceOf[TVector])) }, preservesPartitioning = true)
       .union(queryRdd)
 
     // map over all the rows in the partition, hold on on to the index stored in the first row and
@@ -433,7 +455,7 @@ private[knn] trait KnnModelSupport[
 
     // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
 
-    val topNeighbors: RDD[(TId, Array[Neighbor[TId, TDistance]])] = neighborsOnAllShards
+    val topNeighbors: RDD[(TQueryId, Array[Neighbor[TId, TDistance]])] = neighborsOnAllShards
       .reduceByKey { case (neighborsA, neighborsB) =>
         neighborsA ++= neighborsB
         neighborsA
@@ -442,12 +464,11 @@ private[knn] trait KnnModelSupport[
 
     // transform the rdd into our output dataframe
 
-
     val transformed = topNeighbors
-        .toDF(getIdentifierCol, getPredictionCol)
+        .toDF(queryIdCol, getPredictionCol)
 
     if (getOutputFormat == "minimal") transformed
-    else dataset.join(transformed, Seq(getIdentifierCol))
+    else dataset.join(transformed, Seq(queryIdCol))
   }
 
   /**
@@ -498,7 +519,11 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     */
   protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] <: Index[TId, TVector, TItem, TDistance]
 
+  /** @group setParam */
   def setIdentifierCol(value: String): this.type = set(identifierCol, value)
+
+  /** @group setParam */
+  def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
 
   /** @group setParam */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
@@ -591,7 +616,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](uid: String, indices: RDD[(Int, (TIndex[TId, TVector, TItem, TDistance], TId, TVector))])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+  ](uid: String, indices: RDD[(Int, TIndex[TId, TVector, TItem, TDistance])])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     : TModel
 
   private def typedFit[
@@ -634,7 +659,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
           logInfo(f"partition $partition%04d: done indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          Iterator.single(partition -> Tuple3(index, null.asInstanceOf[TId], null.asInstanceOf[TVector]))
+          Iterator.single(partition -> index)
         } else Iterator.empty
         , preservesPartitioning = true).persist(storageLevel)
 

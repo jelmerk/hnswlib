@@ -142,6 +142,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
 
       val hnsw = new HnswSimilarity()
         .setIdentifierCol("id")
+        .setQueryIdentifierCol("id")
         .setFeaturesCol("vector")
         .setNumPartitions(5)
         .setK(10)
@@ -165,6 +166,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
 
     val hnsw = new HnswSimilarity()
       .setIdentifierCol("id")
+      .setQueryIdentifierCol("id")
       .setFeaturesCol("vector")
       .setPredictionCol("neighbors")
       .setOutputFormat("minimal")

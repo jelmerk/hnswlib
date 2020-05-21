@@ -27,7 +27,7 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
       TVector: TypeTag,
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
-    ](uid: String, indices: RDD[(Int, (BruteForceIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+    ](uid: String, indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
         new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
 
@@ -47,11 +47,11 @@ private[knn] class GenericBruteForceModel[
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, private[knn] val indices: RDD[(Int, (BruteForceIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+](override val uid: String, private[knn] val indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     extends BruteForceSimilarityModel with KnnModelSupport[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
 
-  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): BruteForceSimilarityModel = {
     val copied = new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
@@ -93,7 +93,7 @@ class BruteForceSimilarity(override val uid: String) extends KnnAlgorithm[BruteF
     TVector: TypeTag,
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
-  ](uid: String, indices: RDD[(Int, (BruteForceIndex[TId, TVector, TItem, TDistance], TId, TVector))])
+  ](uid: String, indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
       new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
 

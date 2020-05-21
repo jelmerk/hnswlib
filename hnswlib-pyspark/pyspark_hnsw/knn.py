@@ -12,8 +12,8 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
     Params for knn models.
     """
 
-    identifierCol = Param(Params._dummy(), "identifierCol", "the column name for the row identifier",
-                          typeConverter=TypeConverters.toString)
+    queryIdentifierCol = Param(Params._dummy(), "queryIdentifierCol", "the column name for the query identifier",
+                               typeConverter=TypeConverters.toString)
 
     k = Param(Params._dummy(), "k", "number of neighbors to find", typeConverter=TypeConverters.toInt)
 
@@ -27,11 +27,11 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
     outputFormat = Param(Params._dummy(), "outputFormat", "output format, one of full, minimal",
                          typeConverter=TypeConverters.toString)
 
-    def getIdentifierCol(self):
+    def getQueryIdentifierCol(self):
         """
-        Gets the value of identifierCol or its default value.
+        Gets the value of queryIdentifierCol or its default value.
         """
-        return self.getOrDefault(self.identifierCol)
+        return self.getOrDefault(self.queryIdentifierCol)
 
     def getK(self):
         """
@@ -63,6 +63,9 @@ class _KnnParams(_KnnModelParams):
     Params for knn algorithms.
     """
 
+    identifierCol = Param(Params._dummy(), "identifierCol", "the column name for the row identifier",
+                          typeConverter=TypeConverters.toString)
+
     numPartitions = Param(Params._dummy(), "numPartitions", "number of partitions", typeConverter=TypeConverters.toInt)
 
     distanceFunction = Param(Params._dummy(), "distanceFunction",
@@ -73,6 +76,12 @@ class _KnnParams(_KnnModelParams):
     storageLevel = Param(Params._dummy(), "storageLevel",
                          "storageLevel for the indices. Pass in a string representation of StorageLevel",
                          typeConverter=TypeConverters.toString)
+
+    def getIdentifierCol(self):
+        """
+        Gets the value of identifierCol or its default value.
+        """
+        return self.getOrDefault(self.identifierCol)
 
     def getNumPartitions(self):
         """
@@ -142,13 +151,14 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
-                 distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
+    def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
+                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
+                 outputFormat="full"):
         super(BruteForceSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
-        self._setDefault(identifierCol="id", numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
-                         similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
+        self._setDefault(identifierCol="id", numPartitions=1, k=5, distanceFunction="cosine",
+                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -158,6 +168,12 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
+
+    def setQueryIdentifierCol(self, value):
+        """
+        Sets the value of :py:attr:`queryIdentifierCol`.
+        """
+        return self._set(queryIdentifierCol=value)
 
     def setNumPartitions(self, value):
         """
@@ -202,7 +218,7 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         return self._set(storageLevel=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
+    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
                   distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
                   storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
@@ -217,11 +233,11 @@ class BruteForceSimilarityModel(JavaModel, _KnnModelParams, JavaMLReadable, Java
     Model fitted by BruteForce.
     """
 
-    def setIdentifierCol(self, value):
+    def setQueryIdentifierCol(self, value):
         """
-        Sets the value of :py:attr:`identifierCol`.
+        Sets the value of :py:attr:`queryIdentifierCol`.
         """
-        return self._set(identifierCol=value)
+        return self._set(queryIdentifierCol=value)
 
     def setK(self, value):
         """
@@ -255,7 +271,7 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", featuresCol="features", predictionCol="prediction", m=16, ef=10,
+    def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
                  efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
                  similarityThreshold=-1.0, outputFormat="full"):
         super(HnswSimilarity, self).__init__()
@@ -273,6 +289,12 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         Sets the value of :py:attr:`identifierCol`.
         """
         return self._set(identifierCol=value)
+
+    def setQueryIdentifierCol(self, value):
+        """
+        Sets the value of :py:attr:`queryIdentifierCol`.
+        """
+        return self._set(queryIdentifierCol=value)
 
     def setNumPartitions(self, value):
         """
@@ -335,7 +357,7 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         return self._set(efConstruction=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", featuresCol="features", predictionCol="prediction", m=16, ef=10,
+    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
                   efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
                   similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
@@ -350,11 +372,11 @@ class HnswSimilarityModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWri
     Model fitted by Hnsw.
     """
 
-    def setIdentifierCol(self, value):
+    def setQueryIdentifierCol(self, value):
         """
-        Sets the value of :py:attr:`identifierCol`.
+        Sets the value of :py:attr:`queryIdentifierCol`.
         """
-        return self._set(identifierCol=value)
+        return self._set(queryIdentifierCol=value)
 
     def setK(self, value):
         """
