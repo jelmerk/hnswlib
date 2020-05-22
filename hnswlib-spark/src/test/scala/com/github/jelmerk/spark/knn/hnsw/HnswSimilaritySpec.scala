@@ -146,12 +146,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
         .setFeaturesCol("vector")
         .setNumPartitions(5)
         .setK(10)
-        .setPredictionCol("neighbors")
         .setExcludeSelf(excludeSelf)
         .setSimilarityThreshold(similarityThreshold)
         .setOutputFormat(outputFormat)
 
-      val model = hnsw.fit(input).setEf(10)
+      val model = hnsw.fit(input).setPredictionCol("neighbors").setEf(10)
 
       val result = model.transform(input)
 

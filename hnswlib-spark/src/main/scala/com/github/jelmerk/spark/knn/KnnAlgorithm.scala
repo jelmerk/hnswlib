@@ -202,7 +202,7 @@ private[knn] class KnnModelWriter[
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance: TypeTag,
   TIndex <: Index[TId, TVector, TItem, TDistance]
-] (instance: TModel with KnnModelSupport[TModel, TId, TVector, TItem, TDistance, TIndex])
+] (instance: TModel with KnnModelOps[TModel, TId, TVector, TItem, TDistance, TIndex])
     extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
@@ -338,24 +338,11 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
 }
 
 /**
-  * Base class for nearest neighbor search models.
-  *
-  * @tparam TModel type of the model
-  * @tparam TId type of the index item identifier
-  * @tparam TVector type of the index item vector
-  * @tparam TItem type of the index item
-  * @tparam TDistance type of distance between items
-  * @tparam TIndex type of the index
-  */
-private[knn] trait KnnModelSupport[
-  TModel <: Model[TModel],
-  TId,
-  TVector,
-  TItem <: Item[TId, TVector] with Product,
-  TDistance,
-  TIndex <: Index[TId, TVector, TItem, TDistance]
-] {
-  this: TModel with KnnModelParams =>
+ * Base class for nearest neighbor search models.
+ *
+ * @tparam TModel type of the model
+ **/
+private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[TModel] with KnnModelParams {
 
   /** @group setParam */
   def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
@@ -378,8 +365,30 @@ private[knn] trait KnnModelSupport[
   /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
-  private[knn] def indices: RDD[(Int, TIndex)]
+}
 
+/**
+  * Contains the core knn search logic
+  *
+  * @tparam TModel type of the model
+  * @tparam TId type of the index item identifier
+  * @tparam TVector type of the index item vector
+  * @tparam TItem type of the index item
+  * @tparam TDistance type of distance between items
+  * @tparam TIndex type of the index
+  */
+private[knn] trait KnnModelOps[
+  TModel <: Model[TModel],
+  TId,
+  TVector,
+  TItem <: Item[TId, TVector] with Product,
+  TDistance,
+  TIndex <: Index[TId, TVector, TItem, TDistance]
+] {
+  this: TModel with KnnModelParams =>
+
+
+  private[knn] def indices: RDD[(Int, TIndex)]
 
   protected def typedTransform(dataset: Dataset[_])
                               (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame =

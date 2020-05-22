@@ -8,7 +8,6 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
-import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -29,7 +28,7 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
       TDistance : TypeTag
     ](uid: String, indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
-        new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
+        new GenericBruteForceSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
 
   }
 
@@ -39,22 +38,22 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
 /**
   * Model produced by a `BruteForceSimilarity`.
   */
-abstract class BruteForceSimilarityModel extends Model[BruteForceSimilarityModel] with KnnModelParams with MLWritable
+abstract class BruteForceSimilarityModel extends KnnModelBase[BruteForceSimilarityModel] with KnnModelParams with MLWritable
 
 
-private[knn] class GenericBruteForceModel[
+private[knn] class GenericBruteForceSimilarityModel[
   TId : TypeTag,
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
 ](override val uid: String, private[knn] val indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
-    extends BruteForceSimilarityModel with KnnModelSupport[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
+    extends BruteForceSimilarityModel with KnnModelOps[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): BruteForceSimilarityModel = {
-    val copied = new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
+    val copied = new GenericBruteForceSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -95,6 +94,6 @@ class BruteForceSimilarity(override val uid: String) extends KnnAlgorithm[BruteF
     TDistance : TypeTag
   ](uid: String, indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
-      new GenericBruteForceModel[TId, TVector, TItem, TDistance](uid, indices)
+      new GenericBruteForceSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
 
 }

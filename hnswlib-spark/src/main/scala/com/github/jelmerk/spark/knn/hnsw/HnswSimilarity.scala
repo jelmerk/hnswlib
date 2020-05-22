@@ -6,7 +6,6 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
-import org.apache.spark.ml.Model
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -79,7 +78,7 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
       TDistance : TypeTag
     ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
-        new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
+        new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
 
   }
 
@@ -90,26 +89,26 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
 /**
   * Model produced by a `HnswSimilarity`.
   */
-abstract class HnswSimilarityModel extends Model[HnswSimilarityModel] with HnswModelParams with MLWritable {
+abstract class HnswSimilarityModel extends KnnModelBase[HnswSimilarityModel] with HnswModelParams with MLWritable {
 
   /** @group setParam */
   def setEf(value: Int): this.type = set(ef, value)
 
 }
 
-private[knn] class GenericHnswModel[
+private[knn] class GenericHnswSimilarityModel[
   TId : TypeTag,
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
 ](override val uid: String, private[knn] val indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
- (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
-    extends HnswSimilarityModel with KnnModelSupport[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
+  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+    extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): HnswSimilarityModel = {
-    val copied = new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
+    val copied = new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -159,6 +158,6 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
     TDistance : TypeTag
   ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
-      new GenericHnswModel[TId, TVector, TItem, TDistance](uid, indices)
+      new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
 }
 
