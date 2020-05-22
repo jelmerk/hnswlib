@@ -105,7 +105,7 @@ private[knn] class GenericHnswSimilarityModel[
   (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
-  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
 
   override def copy(extra: ParamMap): HnswSimilarityModel = {
     val copied = new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)

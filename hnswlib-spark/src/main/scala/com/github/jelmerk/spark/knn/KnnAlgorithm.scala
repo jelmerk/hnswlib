@@ -1,6 +1,7 @@
 package com.github.jelmerk.spark.knn
 
 import java.net.InetAddress
+import java.util.concurrent.ThreadLocalRandom
 
 import scala.language.{higherKinds, implicitConversions}
 import scala.math.abs
@@ -33,8 +34,6 @@ private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[T
 private[knn] case class VectorIndexItem[TId](id: TId, vector: Vector) extends Item[TId, Vector] {
   override def dimensions: Int = vector.size
 }
-
-private[knn] case class Query[TId, TVector](id: TId, vector: TVector)
 
 /**
   * Neighbor of an item
@@ -97,11 +96,25 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   /**
     * Param for the threshold value for inclusion. -1 indicates no threshold
     * Default: -1
+    *
+    * @group param
     */
   val similarityThreshold = new DoubleParam(this, "similarityThreshold", "do not return neighbors further away than this distance")
 
   /** @group getParam */
   def getSimilarityThreshold: Double = $(similarityThreshold)
+
+  /**
+    * Param that specifies the number of index replicas to create when querying the index. More replicas means you can
+    * execute more queries in parallel at the expense of increased resource usage.
+    * Default: 0
+    *
+    * @group param
+    */
+  val numReplicas = new IntParam(this, "numReplicas", "number of index replicas to create when querying")
+
+  /** @group getParam */
+  def getNumReplicas: Int = $(numReplicas)
 
   /**
     * Param for the output format to produce. One of "full", "minimal" Setting this to minimal is more efficient
@@ -179,7 +192,7 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   def getStorageLevel: String = $(storageLevel)
 
 
-  setDefault(distanceFunction -> "cosine", numPartitions -> 1, storageLevel -> "MEMORY_ONLY")
+  setDefault(distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0, storageLevel -> "MEMORY_ONLY")
 }
 
 
@@ -363,6 +376,9 @@ private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[
   def setSimilarityThreshold(value: Double): this.type = set(similarityThreshold, value)
 
   /** @group setParam */
+  def setNumReplicas(value: Int): this.type = set(numReplicas, value)
+
+  /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
 }
@@ -390,13 +406,13 @@ private[knn] trait KnnModelOps[
 
   private[knn] def indices: RDD[(Int, TIndex)]
 
-  protected def typedTransform(dataset: Dataset[_])
-                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame =
+  protected def typedTransform(indices: RDD[(Int, TIndex)], dataset: Dataset[_])
+                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame =
     if (isSet(queryIdentifierCol)) typedTransformWithQueryCol[TId](dataset, getQueryIdentifierCol)
     else typedTransformWithQueryCol[Long](dataset.withColumn("_query_id", monotonically_increasing_id), "_query_id").drop("_query_id")
 
   protected def typedTransformWithQueryCol[TQueryId](dataset: Dataset[_], queryIdCol: String)
-                                                    (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], evQueryId: ClassTag[TQueryId], distanceOrdering: Ordering[TDistance]) : DataFrame = {
+                                                    (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], ev5: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], evQueryId: ClassTag[TQueryId], distanceOrdering: Ordering[TDistance]) : DataFrame = {
     import dataset.sparkSession.implicits._
 
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
@@ -404,20 +420,41 @@ private[knn] trait KnnModelOps[
     // this works because distance is always either float or double right now this is not very nice and I should probably come up with something more robust
     val threshold = getSimilarityThreshold.asInstanceOf[TDistance]
 
+    // replicate the indices if numReplicas > 0 this means we can parallelize the querying
+
+    val numPartitions = indices.partitions.length
+    val numPartitionCopies = getNumReplicas + 1
+
+    val replicatedIndices =
+      if (getNumReplicas <= 0) indices
+      else indices
+        .flatMap { case (partition, index) =>
+          Range.inclusive(0, getNumReplicas).map { replica => (partition * numPartitionCopies) + replica -> index }
+        }
+        .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
+
+
     // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
+
     val queryRdd = dataset.select(
         col(queryIdCol),
         col(getFeaturesCol)
       )
-      .withColumn("partition", explode(array(0 until indices.getNumPartitions map lit: _*)))
-      .as[(TQueryId, TVector, Int)]
+      .as[(TQueryId, TVector)]
       .rdd
-      .map { case (id, vector, partition) => (partition, (null.asInstanceOf[TIndex], id, vector)) }
-      .partitionBy(indices.partitioner.get)
+      .flatMap { case (queryId, vector) =>
+        Range(0, numPartitions).map { partition =>
+          val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
+          val newPartition = (partition * numPartitionCopies) + randomCopy
+
+          newPartition -> (null.asInstanceOf[TIndex], queryId, vector)
+        }
+      }
+      .partitionBy(replicatedIndices.partitioner.get)
 
     // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
 
-    val unioned = indices
+    val unioned = replicatedIndices
       .mapPartitions(_.map { case (partition, index) => (partition, (index, null.asInstanceOf[TQueryId], null.asInstanceOf[TVector])) }, preservesPartitioning = true)
       .union(queryRdd)
 
@@ -554,6 +591,9 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
   /** @group setParam */
   def setSimilarityThreshold(value: Double): this.type = set(similarityThreshold, value)
+
+  /** @group setParam */
+  def setNumReplicas(value: Int): this.type = set(numReplicas, value)
 
   /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)

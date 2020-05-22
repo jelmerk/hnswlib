@@ -17,6 +17,8 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
 
     k = Param(Params._dummy(), "k", "number of neighbors to find", typeConverter=TypeConverters.toInt)
 
+    numReplicas = Param(Params._dummy(), "numReplicas", "number of index replicas to create when querying", typeConverter=TypeConverters.toInt)
+
     excludeSelf = Param(Params._dummy(), "excludeSelf", "whether to include the row identifier as a candidate neighbor",
                         typeConverter=TypeConverters.toBoolean)
 
@@ -56,6 +58,12 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
         Gets the value of outputFormat or its default value.
         """
         return self.getOrDefault(self.outputFormat)
+
+    def getNumReplicas(self):
+        """
+        Gets the value of numReplicas or its default value.
+        """
+        return self.getOrDefault(self.numReplicas)
 
 @inherit_doc
 class _KnnParams(_KnnModelParams):
@@ -152,12 +160,12 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
 
     @keyword_only
     def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
-                 numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                 outputFormat="full"):
+                 numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
+                 similarityThreshold=-1.0, outputFormat="full"):
         super(BruteForceSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
-        self._setDefault(identifierCol="id", numPartitions=1, k=5, distanceFunction="cosine",
+        self._setDefault(identifierCol="id", numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine",
                          excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
 
         kwargs = self._input_kwargs
@@ -180,6 +188,12 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         Sets the value of :py:attr:`numPartitions`.
         """
         return self._set(numPartitions=value)
+
+    def setNumReplicas(self, value):
+        """
+        Sets the value of :py:attr:`numReplicas`.
+        """
+        return self._set(numReplicas=value)
 
     def setK(self, value):
         """
@@ -218,9 +232,9 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         return self._set(storageLevel=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", numPartitions=1, k=5,
-                  distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
-                  storageLevel="MEMORY_ONLY"):
+    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
+                  numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
+                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -263,6 +277,12 @@ class BruteForceSimilarityModel(JavaModel, _KnnModelParams, JavaMLReadable, Java
         """
         return self._set(outputFormat=value)
 
+    def setNumReplicas(self, value):
+        """
+        Sets the value of :py:attr:`numReplicas`.
+        """
+        return self._set(numReplicas=value)
+
 
 @inherit_doc
 class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable):
@@ -272,12 +292,12 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
 
     @keyword_only
     def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
-                 efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+                 efConstruction=200, numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
                  similarityThreshold=-1.0, outputFormat="full"):
         super(HnswSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.HnswSimilarity", self.uid)
 
-        self._setDefault(identifierCol="id", m=16, ef=10, efConstruction=200, numPartitions=1, k=5,
+        self._setDefault(identifierCol="id", m=16, ef=10, efConstruction=200, numPartitions=1, numReplicas=0, k=5,
                          distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
                          storageLevel="MEMORY_ONLY")
 
@@ -301,6 +321,12 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         Sets the value of :py:attr:`numPartitions`.
         """
         return self._set(numPartitions=value)
+
+    def setNumReplicas(self, value):
+        """
+        Sets the value of :py:attr:`numReplicas`.
+        """
+        return self._set(numReplicas=value)
 
     def setK(self, value):
         """
@@ -358,7 +384,7 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
 
     @keyword_only
     def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
-                  efConstruction=200, numPartitions=1, k=5, distanceFunction="cosine", excludeSelf=False,
+                  efConstruction=200, numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
                   similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
@@ -407,3 +433,9 @@ class HnswSimilarityModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWri
         Sets the value of :py:attr:`outputFormat`.
         """
         return self._set(outputFormat=value)
+
+    def setNumReplicas(self, value):
+        """
+        Sets the value of :py:attr:`numReplicas`.
+        """
+        return self._set(numReplicas=value)

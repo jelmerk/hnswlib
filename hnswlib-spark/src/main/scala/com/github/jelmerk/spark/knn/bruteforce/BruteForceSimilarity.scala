@@ -50,7 +50,7 @@ private[knn] class GenericBruteForceSimilarityModel[
  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     extends BruteForceSimilarityModel with KnnModelOps[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
 
-  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
 
   override def copy(extra: ParamMap): BruteForceSimilarityModel = {
     val copied = new GenericBruteForceSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
