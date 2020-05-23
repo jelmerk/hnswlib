@@ -1,15 +1,18 @@
 package com.github.jelmerk.spark.knn.hnsw
 
+import java.io.InputStream
+
 import scala.reflect.runtime.universe._
-import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
+import scala.reflect.ClassTag
+
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
-import com.github.jelmerk.knn.scalalike.hnsw._
-import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-import scala.reflect.ClassTag
+import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
+import com.github.jelmerk.knn.scalalike.hnsw._
+import com.github.jelmerk.spark.knn._
 
 private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 
@@ -79,6 +82,14 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
     ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
         new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
+
+    override protected def newIndexLoader[
+      TId: TypeTag,
+      TVector: TypeTag,
+      TItem <: Item[TId, TVector] with Product: TypeTag,
+      TDistance : TypeTag
+    ]: InputStream => HnswIndex[TId, TVector, TItem, TDistance] =
+      HnswIndex.load[TId, TVector, TItem, TDistance]
 
   }
 

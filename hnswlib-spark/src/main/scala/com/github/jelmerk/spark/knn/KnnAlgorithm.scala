@@ -1,5 +1,6 @@
 package com.github.jelmerk.spark.knn
 
+import java.io.InputStream
 import java.net.InetAddress
 import java.util.concurrent.ThreadLocalRandom
 
@@ -14,8 +15,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.{BytesWritable, NullWritable}
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.Partitioner
 import org.apache.spark.ml.util.{MLReader, MLWriter}
 import org.apache.spark.rdd.RDD
@@ -24,7 +24,8 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
-import com.github.jelmerk.spark.util.{BoundedPriorityQueue, PartitionedRdd, UnsplittableSequenceFileInputFormat, Utils}
+import com.github.jelmerk.spark.util.BoundedPriorityQueue
+import org.apache.hadoop.conf.Configuration
 import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasPredictionCol}
 
 private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
@@ -239,6 +240,7 @@ private[knn] class KnnModelWriter[
       JField("uid", JString(instance.uid)),
       JField("identifierType", JString(identifierType)),
       JField("vectorType", JString(vectorType)),
+      JField("partitions", JInt(instance.indices.partitions.length)),
       JField("paramMap", JObject(
         instance.extractParamMap().toSeq.toList.map { case ParamPair(param, value) =>
           // cannot use parse because of incompatibilities between json4s 3.2.11 used by spark 2.3 and 3.6.6 used by spark 2.4
@@ -248,11 +250,16 @@ private[knn] class KnnModelWriter[
     )
 
     val metadataPath = new Path(path, "metadata").toString
-    sc.parallelize(Seq(compact(metaData)), 1).saveAsTextFile(metadataPath)
+    sc.parallelize(Seq(compact(metaData)), numSlices = 1).saveAsTextFile(metadataPath)
 
     val indicesPath = new Path(path, "indices").toString
 
-    instance.indices.saveAsObjectFile(indicesPath)
+    instance.indices.foreachPartition(it => it.foreach { case (partition, index) =>
+      val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
+      val fileSystem = FileSystem.get(hadoopConfiguration)
+      val out = fileSystem.create(new Path(indicesPath, partition.toString))
+      index.save(out)
+    })
   }
 }
 
@@ -290,23 +297,24 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
 
     val identifierType = (metadata \ "identifierType").extract[String]
     val vectorType = (metadata \ "vectorType").extract[String]
+    val partitions = (metadata \ "partitions").extract[Int]
 
     val paramMap = (metadata \ "paramMap").extract[JObject]
 
     val indicesPath = new Path(path, "indices").toString
 
     val model = (identifierType, vectorType) match {
-      case ("int", "float_array") => loadModel[Int, Array[Float], ArrayIndexItem[Int, Float], Float](uid, indicesPath)
-      case ("int", "double_array") => loadModel[Int, Array[Double], ArrayIndexItem[Int, Double], Double](uid, indicesPath)
-      case ("int", "vector") => loadModel[Int, Vector, VectorIndexItem[Int], Double](uid, indicesPath)
+      case ("int", "float_array") => loadModel[Int, Array[Float], ArrayIndexItem[Int, Float], Float](uid, indicesPath, partitions)
+      case ("int", "double_array") => loadModel[Int, Array[Double], ArrayIndexItem[Int, Double], Double](uid, indicesPath, partitions)
+      case ("int", "vector") => loadModel[Int, Vector, VectorIndexItem[Int], Double](uid, indicesPath, partitions)
 
-      case ("long", "float_array") => loadModel[Long, Array[Float], ArrayIndexItem[Long, Float], Float](uid, indicesPath)
-      case ("long", "double_array") => loadModel[Long, Array[Double], ArrayIndexItem[Long, Double], Double](uid, indicesPath)
-      case ("long", "vector") => loadModel[Long, Vector, VectorIndexItem[Long], Double](uid, indicesPath)
+      case ("long", "float_array") => loadModel[Long, Array[Float], ArrayIndexItem[Long, Float], Float](uid, indicesPath, partitions)
+      case ("long", "double_array") => loadModel[Long, Array[Double], ArrayIndexItem[Long, Double], Double](uid, indicesPath, partitions)
+      case ("long", "vector") => loadModel[Long, Vector, VectorIndexItem[Long], Double](uid, indicesPath, partitions)
 
-      case ("string", "float_array") => loadModel[String, Array[Float], ArrayIndexItem[String, Float], Float](uid, indicesPath)
-      case ("string", "double_array") => loadModel[String, Array[Double], ArrayIndexItem[String, Double], Double](uid, indicesPath)
-      case ("string", "vector") => loadModel[String, Vector, VectorIndexItem[String], Double](uid, indicesPath)
+      case ("string", "float_array") => loadModel[String, Array[Float], ArrayIndexItem[String, Float], Float](uid, indicesPath, partitions)
+      case ("string", "double_array") => loadModel[String, Array[Double], ArrayIndexItem[String, Double], Double](uid, indicesPath, partitions)
+      case ("string", "vector") => loadModel[String, Vector, VectorIndexItem[String], Double](uid, indicesPath, partitions)
     }
 
     paramMap.obj.foreach { case (paramName, jsonValue) =>
@@ -336,15 +344,35 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     TDistance: TypeTag
   ](uid: String, indices: RDD[(Int, TIndex[TId, TVector, TItem, TDistance])])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : TModel
 
+  protected def newIndexLoader[
+    TId : TypeTag,
+    TVector : TypeTag,
+    TItem <: Item[TId, TVector] with Product : TypeTag,
+    TDistance : TypeTag
+  ]: InputStream => TIndex[TId, TVector, TItem, TDistance]
+
   private def loadModel[
     TId : TypeTag,
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance : TypeTag
-  ](uid: String, indicesPath: String)(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]): TModel = {
-    val serializedIndexRdd = sc.hadoopFile(indicesPath, classOf[UnsplittableSequenceFileInputFormat[NullWritable, BytesWritable]], classOf[NullWritable], classOf[BytesWritable])
-    val indices = serializedIndexRdd.flatMap { case (_, value) => Utils.deserialize[Array[(Int, TIndex[TId, TVector, TItem, TDistance])]](value.getBytes) }
-    val partitionedIndices = new PartitionedRdd(indices, Some(new PartitionIdPassthrough(indices.getNumPartitions)))
+  ](uid: String, indicesPath: String, numPartitions: Int)(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]): TModel = {
+
+    val indexFactory = newIndexLoader[TId, TVector, TItem, TDistance]
+
+    val partitionedIndices = sc.parallelize(Seq.range(0, numPartitions).map(partition => partition -> new Path(indicesPath, partition.toString).toString))
+      .partitionBy(new PartitionIdPassthrough(numPartitions))
+      .mapPartitions(it => {
+        val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
+        val fileSystem = FileSystem.get(hadoopConfiguration)
+        it
+          .collect { case (partition, path) if fileSystem.exists(new Path(path)) => partition -> new Path(path) }
+          .map { case (partition, path) =>
+            val index = indexFactory(fileSystem.open(path))
+            partition -> index
+          }
+        }, preservesPartitioning = true)
+
     createModel(uid, partitionedIndices)
   }
 

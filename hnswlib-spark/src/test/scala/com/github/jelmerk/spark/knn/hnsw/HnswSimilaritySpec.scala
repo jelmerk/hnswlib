@@ -39,7 +39,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-    .set("spark.kryo.registrator", classOf[HnswLibKryoRegistrator].getName)
+//    .set("spark.kryo.registrator", classOf[HnswLibKryoRegistrator].getName)
 
   test("find neighbors") {
 
@@ -145,7 +145,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
         .setQueryIdentifierCol("id")
         .setFeaturesCol("vector")
         .setNumPartitions(5)
-        .setNumReplicas(3)
+//        .setNumReplicas(3)
         .setK(10)
         .setExcludeSelf(excludeSelf)
         .setSimilarityThreshold(similarityThreshold)

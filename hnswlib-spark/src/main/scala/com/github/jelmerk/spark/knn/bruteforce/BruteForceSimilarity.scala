@@ -1,8 +1,9 @@
 package com.github.jelmerk.spark.knn.bruteforce
 
+import java.io.InputStream
+
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
-
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
@@ -10,7 +11,6 @@ import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
-
 
 /**
   * Companion class for BruteForceModel.
@@ -29,6 +29,14 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
     ](uid: String, indices: RDD[(Int, BruteForceIndex[TId, TVector, TItem, TDistance])])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
         new GenericBruteForceSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
+
+    override protected def newIndexLoader[
+      TId: TypeTag,
+      TVector: TypeTag,
+      TItem <: Item[TId, TVector] with Product: TypeTag,
+      TDistance : TypeTag
+    ]: InputStream => BruteForceIndex[TId, TVector, TItem, TDistance] =
+      BruteForceIndex.load[TId, TVector, TItem, TDistance]
 
   }
 
