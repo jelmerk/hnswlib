@@ -22,7 +22,7 @@ Pass the following argument to spark
 
     --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.31'
 
-Example usage
+Example usage 
 -------------
 
 Basic:
@@ -32,6 +32,7 @@ import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 
 val hnsw = new HnswSimilarity()
   .setIdentifierCol("id")
+  .setQueryIdentifierCol("id")
   .setFeaturesCol("features")
   .setNumPartitions(2)
   .setM(48)
@@ -73,6 +74,7 @@ val normalizer = new Normalizer()
 
 val hnsw = new HnswSimilarity()
   .setIdentifierCol("id")
+  .setQueryIdentifierCol("id")
   .setFeaturesCol("normalizedFeatures")
   .setNumPartitions(2)
   .setK(200)
@@ -85,6 +87,7 @@ val hnsw = new HnswSimilarity()
 
 val bruteForce = new BruteForceSimilarity()
   .setIdentifierCol(hnsw.getIdentifierCol)
+  .setQueryIdentifierCol(hnsw.getQueryIdentifierCol)
   .setFeaturesCol(hnsw.getFeaturesCol)
   .setNumPartitions(2)
   .setK(hnsw.getK)
