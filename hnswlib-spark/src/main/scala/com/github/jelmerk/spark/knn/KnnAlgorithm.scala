@@ -454,36 +454,31 @@ private[knn] trait KnnModelOps[
     val numPartitions = indices.partitions.length
     val numPartitionCopies = getNumReplicas + 1
 
-    val replicatedIndices =
-      if (getNumReplicas <= 0) indices
-      else indices
-        .flatMap { case (partition, index) =>
-          Range.inclusive(0, getNumReplicas).map { replica => (partition * numPartitionCopies) + replica -> index }
-        }
-        .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
-
+    val replicatedIndices = (for {
+      partitionAndIndex <- indices
+      replica <- Range.inclusive(0, getNumReplicas)
+    } yield {
+      val (partition, index) = partitionAndIndex
+      val physicalPartition = (partition * numPartitionCopies) + replica
+      physicalPartition -> index
+    }).partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
 
     // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
 
-    val queryRdd = dataset.select(
-        col(queryIdCol),
-        col(getFeaturesCol)
-      )
-      .as[(TQueryId, TVector)]
-      .rdd
-      .flatMap { case (queryId, vector) =>
-        Range(0, numPartitions).map { partition =>
-          val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
-          val newPartition = (partition * numPartitionCopies) + randomCopy
+    val queryRdd = (for {
+      queryIdAndVector <- dataset.select(col(queryIdCol), col(getFeaturesCol)).as[(TQueryId, TVector)].rdd
+      partition <- Range(0, numPartitions)
+    } yield {
+      val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
+      val physicalPartition = (partition * numPartitionCopies) + randomCopy
 
-          newPartition -> (queryId, vector)
-        }
-      }
-      .partitionBy(replicatedIndices.partitioner.get)
+      physicalPartition -> queryIdAndVector
+    }).partitionBy(replicatedIndices.partitioner.get)
 
     // query all the indices
 
-    val neighborsOnAllShards: RDD[(TQueryId, BoundedPriorityQueue[Neighbor[TId, TDistance]])] = indices.cogroup(queryRdd)
+    val neighborsOnAllShards = indices
+      .cogroup(queryRdd)
       .mapPartitions(it => { it.flatMap { case (partition, (indices, queries)) =>
         for {
           index <- indices
