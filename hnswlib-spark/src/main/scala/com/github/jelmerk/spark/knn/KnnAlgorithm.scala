@@ -446,6 +446,7 @@ private[knn] trait KnnModelOps[
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
 
     // this works because distance is always either float or double right now this is not very nice and I should probably come up with something more robust
+
     val threshold = getSimilarityThreshold.asInstanceOf[TDistance]
 
     // replicate the indices if numReplicas > 0 this means we can parallelize the querying
@@ -475,74 +476,50 @@ private[knn] trait KnnModelOps[
           val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
           val newPartition = (partition * numPartitionCopies) + randomCopy
 
-          newPartition -> (null.asInstanceOf[TIndex], queryId, vector)
+          newPartition -> (queryId, vector)
         }
       }
       .partitionBy(replicatedIndices.partitioner.get)
 
-    // combine the indices rdd and query rdds into a single rdd and make sure the first row of the unioned rdd is our index
+    // query all the indices
 
-    val unioned = replicatedIndices
-      .mapPartitions(_.map { case (partition, index) => (partition, (index, null.asInstanceOf[TQueryId], null.asInstanceOf[TVector])) }, preservesPartitioning = true)
-      .union(queryRdd)
+    val neighborsOnAllShards: RDD[(TQueryId, BoundedPriorityQueue[Neighbor[TId, TDistance]])] = indices.cogroup(queryRdd)
+      .mapPartitions(it => { it.flatMap { case (partition, (indices, queries)) =>
+        for {
+          index <- indices
+          batch <- new LoggingIterator(partition, queries.grouped(20480))
+          queryIdAndCandidates <- batch.par.map { case (id, vector) =>
+            val fetchSize =
+              if (getExcludeSelf) getK + 1
+              else getK
 
-    // map over all the rows in the partition, hold on on to the index stored in the first row and
-    // use it to find the nearest neighbors of the remaining rows
-
-    val neighborsOnAllShards = unioned.mapPartitions { it =>
-      if (it.hasNext) {
-        val (partition, (index, _, _)) = it.next()
-
-        if (index == null) {
-          logInfo(f"partition $partition%04d: No index on partition, not querying anything.")
-          Iterator.empty
-        } else {
-          transformIndex(index)
-
-          new LoggingIterator(partition,
-            it.grouped(20480).flatMap { grouped =>
-
-              // use scala's parallel collections to speed up querying
-
-              grouped.par.map { case (_, (_, id, vector)) =>
-
-                val fetchSize =
-                  if (getExcludeSelf) getK + 1
-                  else getK
-
-                val neighbors = index.findNearest(vector, fetchSize)
-                  .collect { case SearchResult(item, distance)
-                    if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceOrdering.lt(distance, threshold)) =>
-                      Neighbor[TId, TDistance](item.id, distance)
-                  }
-
-                val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
-                queue ++= neighbors
-
-                id -> queue
+            val neighbors = index.findNearest(vector, fetchSize)
+              .collect { case SearchResult(item, distance)
+                if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceOrdering.lt(distance, threshold)) =>
+                Neighbor[TId, TDistance](item.id, distance)
               }
-            }
-          )
-        }
-      } else Iterator.empty
-    }
+
+            val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
+            queue ++= neighbors
+
+            id -> queue
+
+          }
+        } yield queryIdAndCandidates
+      }})
 
     // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
 
-    val topNeighbors: RDD[(TQueryId, Array[Neighbor[TId, TDistance]])] = neighborsOnAllShards
+    val topNeighbors = neighborsOnAllShards
       .reduceByKey { case (neighborsA, neighborsB) =>
         neighborsA ++= neighborsB
         neighborsA
       }
       .mapValues(_.toArray.sorted(neighborOrdering))
+      .toDF(queryIdCol, getPredictionCol)
 
-    // transform the rdd into our output dataframe
-
-    val transformed = topNeighbors
-        .toDF(queryIdCol, getPredictionCol)
-
-    if (getOutputFormat == "minimal") transformed
-    else dataset.join(transformed, Seq(queryIdCol))
+    if (getOutputFormat == "minimal") topNeighbors
+    else dataset.join(topNeighbors, Seq(queryIdCol))
   }
 
   /**
