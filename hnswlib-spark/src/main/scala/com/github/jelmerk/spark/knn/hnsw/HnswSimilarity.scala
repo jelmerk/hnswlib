@@ -66,7 +66,7 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
 
 
 /**
-  * Companion class for HnswModel.
+  * Companion class for HnswSimilarityModel.
   */
 object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
 
@@ -98,7 +98,7 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
 }
 
 /**
-  * Model produced by a `HnswSimilarity`.
+  * Model produced by `HnswSimilarity`.
   */
 abstract class HnswSimilarityModel extends KnnModelBase[HnswSimilarityModel] with HnswModelParams with MLWritable {
 

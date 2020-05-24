@@ -53,7 +53,7 @@ Advanced:
 import org.apache.spark.ml.Pipeline
 
 import com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity
-import com.github.jelmerk.spark.knn.evaluation.KnnEvaluator
+import com.github.jelmerk.spark.knn.evaluation.KnnSimilarityEvaluator
 import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 import com.github.jelmerk.spark.linalg.Normalizer
 import com.github.jelmerk.spark.conversion.VectorConverter
@@ -106,7 +106,7 @@ val queryItems = indexItems.sample(0.01)
 
 val output = model.transform(queryItems)
 
-val evaluator = new KnnEvaluator()
+val evaluator = new KnnSimilarityEvaluator()
   .setApproximateNeighborsCol("approximate")
   .setExactNeighborsCol("exact")
 

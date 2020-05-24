@@ -1,6 +1,6 @@
 # coding=utf-8
 
-from pyspark_hnsw.evaluation import KnnEvaluator
+from pyspark_hnsw.evaluation import KnnSimilarityEvaluator
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 from pyspark.sql.types import *
@@ -19,7 +19,7 @@ def test_evaluator(spark_context):
         [[{'neighbor': 2, 'distance': 0.1}], [{'neighbor': 2, 'distance': 0.1}, {'neighbor': 3, 'distance': 0.9}]]
     ], schema=schema)
 
-    evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
+    evaluator = KnnSimilarityEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
 
     assert evaluator.evaluate(df) == 0.6666666666666666
 

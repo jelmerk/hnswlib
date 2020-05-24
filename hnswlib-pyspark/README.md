@@ -35,7 +35,7 @@ Advanced:
 
 ```python
 from pyspark.ml import Pipeline
-from pyspark_hnsw.evaluation import KnnEvaluator
+from pyspark_hnsw.evaluation import KnnSimilarityEvaluator
 from pyspark_hnsw.knn import *
 from pyspark_hnsw.linalg import Normalizer
 from pyspark_hnsw.conversion import VectorConverter
@@ -64,7 +64,7 @@ query_items = index_items.sample(0.01)
 
 output = model.transform(query_items)
 
-evaluator = KnnEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
+evaluator = KnnSimilarityEvaluator(approximateNeighborsCol='approximate', exactNeighborsCol='exact')
 
 accuracy = evaluator.evaluate(output)
 

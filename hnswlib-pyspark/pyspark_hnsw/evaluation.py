@@ -4,17 +4,17 @@ from pyspark.mllib.common import inherit_doc
 from pyspark import keyword_only
 from pyspark.ml.util import JavaMLReadable, JavaMLWritable
 
-__all__ = ['KnnEvaluator']
+__all__ = ['KnnSimilarityEvaluator']
 
 @inherit_doc
-class KnnEvaluator(JavaEvaluator, JavaMLReadable, JavaMLWritable):
+class KnnSimilarityEvaluator(JavaEvaluator, JavaMLReadable, JavaMLWritable):
     """
     Evaluate the performance of a knn model.
     """
     @keyword_only
     def __init__(self, approximateNeighborsCol="approximateNeighbors", exactNeighborsCol="exactNeighbors"):
         super(JavaEvaluator, self).__init__()
-        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.evaluation.KnnEvaluator", self.uid)
+        self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.evaluation.KnnSimilarityEvaluator", self.uid)
 
         self.approximateNeighborsCol = Param(self, "approximateNeighborsCol", "the column name for the row identifier")
         self.exactNeighborsCol = Param(self, "exactNeighborsCol", "the column name for the vector")

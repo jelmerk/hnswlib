@@ -13,7 +13,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /**
-  * Companion class for BruteForceModel.
+  * Companion class for BruteForceSimilarityModel.
   */
 object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
 
@@ -44,7 +44,7 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
 }
 
 /**
-  * Model produced by a `BruteForceSimilarity`.
+  * Model produced by `BruteForceSimilarity`.
   */
 abstract class BruteForceSimilarityModel extends KnnModelBase[BruteForceSimilarityModel] with KnnModelParams with MLWritable
 

@@ -1,17 +1,18 @@
 package com.github.jelmerk.spark.knn.evaluation
 
-import com.github.jelmerk.spark.knn.hnsw.Neighbor
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 
-class KnnEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
+case class Neighbor[TId, TDistance](neighbor: TId, distance: TDistance)
+
+class KnnSimilarityEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
 
   test("evaluate performance") {
     val sqlCtx = sqlContext
     import sqlCtx.implicits._
 
-    val evaluator = new KnnEvaluator()
+    val evaluator = new KnnSimilarityEvaluator()
       .setApproximateNeighborsCol("approximate")
       .setExactNeighborsCol("exact")
 
@@ -27,12 +28,12 @@ class KnnEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
     val sqlCtx = sqlContext
     import sqlCtx.implicits._
 
-    val evaluator = new KnnEvaluator()
+    val evaluator = new KnnSimilarityEvaluator()
       .setApproximateNeighborsCol("approximate")
       .setExactNeighborsCol("exact")
 
     val df = sc.parallelize(Seq(
-      Seq.empty[Neighbor[Int, Float]] -> Seq.empty[Neighbor[Int, Float]] // TODO why are we using neighbor here from another package
+      Seq.empty[Neighbor[Int, Float]] -> Seq.empty[Neighbor[Int, Float]]
     )).toDF("approximate", "exact")
 
     evaluator.evaluate(df) should be (1)
