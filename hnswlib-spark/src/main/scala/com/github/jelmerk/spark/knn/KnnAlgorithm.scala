@@ -479,29 +479,29 @@ private[knn] trait KnnModelOps[
 
     val neighborsOnAllShards = indices
       .cogroup(queryRdd)
-      .mapPartitions(it => { it.flatMap { case (partition, (indices, queries)) =>
-        for {
-          index <- indices
-          batch <- new LoggingIterator(partition, queries.grouped(20480))
-          queryIdAndCandidates <- batch.par.map { case (id, vector) =>
-            val fetchSize =
-              if (getExcludeSelf) getK + 1
-              else getK
+      .mapPartitions(it => for {
+        (partition, (indices, queries)) <- it
+        index <- indices
+        batch <- new LoggingIterator(partition, queries.grouped(20480))
+        queryIdAndCandidates <- batch.par.map { case (id, vector) =>
+          val fetchSize =
+            if (getExcludeSelf) getK + 1
+            else getK
 
-            val neighbors = index.findNearest(vector, fetchSize)
-              .collect { case SearchResult(item, distance)
-                if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceOrdering.lt(distance, threshold)) =>
-                Neighbor[TId, TDistance](item.id, distance)
-              }
+          val neighbors = index.findNearest(vector, fetchSize)
+            .collect { case SearchResult(item, distance)
+              if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceOrdering.lt(distance, threshold)) =>
+              Neighbor[TId, TDistance](item.id, distance)
+            }
 
-            val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
-            queue ++= neighbors
+          val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
+          queue ++= neighbors
 
-            id -> queue
+          id -> queue
 
-          }
-        } yield queryIdAndCandidates
-      }})
+        }
+      } yield queryIdAndCandidates
+    )
 
     // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
 
