@@ -133,4 +133,4 @@ Suggested configuration
 - set `spark.yarn.executor.memoryOverhead` to a value higher than `executorMemory * 0.10` if you get the "Container killed by YARN for exceeding memory limits" error
 - set `spark.kryo.registrator` to com.github.jelmerk.spark.HnswLibKryoRegistrator
 
-Note that as it stands increasing the number of partitions will speed up fitting the model but not querying the model.
+Note that as it stands increasing the number of partitions will speed up fitting the model but not querying the model. The only way to speed up querying is by increasing the number of replicas
