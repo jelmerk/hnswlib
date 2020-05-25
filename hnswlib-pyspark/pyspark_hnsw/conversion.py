@@ -9,7 +9,7 @@ __all__ = ['VectorConverter']
 @inherit_doc
 class VectorConverter(JavaTransformer, HasInputCol, HasOutputCol, JavaMLReadable, JavaMLWritable):
     """
-    Converts the input vector to a float array.
+    Converts the input vector to a vector of another type.
     """
 
     outputType = Param(Params._dummy(), "outputType", "type of vector to produce. one of array<float>, array<double>, vector",

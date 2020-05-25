@@ -36,7 +36,7 @@ private[conversion] trait VectorConverterParams extends HasInputCol with HasOutp
 }
 
 /**
-  * Converts the input vector to a float array.
+  * Converts the input vector to a vector of another type.
   *
   * @param uid identifier
   */
