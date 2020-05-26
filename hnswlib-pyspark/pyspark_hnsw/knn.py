@@ -81,10 +81,6 @@ class _KnnParams(_KnnModelParams):
                              "euclidean, inner-product, manhattan or the fully qualified classname " +
                              "of a distance function", typeConverter=TypeConverters.toString)
 
-    storageLevel = Param(Params._dummy(), "storageLevel",
-                         "storageLevel for the indices. Pass in a string representation of StorageLevel",
-                         typeConverter=TypeConverters.toString)
-
     def getIdentifierCol(self):
         """
         Gets the value of identifierCol or its default value.
@@ -102,12 +98,6 @@ class _KnnParams(_KnnModelParams):
         Gets the value of distanceFunction or its default value.
         """
         return self.getOrDefault(self.distanceFunction)
-
-    def getStorageLevel(self):
-        """
-        Gets the value of storageLevel or its default value.
-        """
-        return self.getOrDefault(self.storageLevel)
 
 
 @inherit_doc
@@ -166,7 +156,7 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
         self._setDefault(identifierCol="id", numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine",
-                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY")
+                         excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -225,16 +215,10 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         """
         return self._set(outputFormat=value)
 
-    def setStorageLevel(self, value):
-        """
-        Sets the value of :py:attr:`storageLevel`.
-        """
-        return self._set(storageLevel=value)
-
     @keyword_only
     def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
                   numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
+                  similarityThreshold=-1.0, outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -298,8 +282,7 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.HnswSimilarity", self.uid)
 
         self._setDefault(identifierCol="id", m=16, ef=10, efConstruction=200, numPartitions=1, numReplicas=0, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
-                         storageLevel="MEMORY_ONLY")
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -358,12 +341,6 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         """
         return self._set(outputFormat=value)
 
-    def setStorageLevel(self, value):
-        """
-        Sets the value of :py:attr:`storageLevel`.
-        """
-        return self._set(storageLevel=value)
-
     def setM(self, value):
         """
         Sets the value of :py:attr:`m`.
@@ -385,7 +362,7 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
     @keyword_only
     def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
                   efConstruction=200, numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full", storageLevel="MEMORY_ONLY"):
+                  similarityThreshold=-1.0, outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

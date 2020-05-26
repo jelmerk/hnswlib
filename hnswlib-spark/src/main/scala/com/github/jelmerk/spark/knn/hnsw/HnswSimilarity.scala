@@ -4,12 +4,10 @@ import java.io.InputStream
 
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
-
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
-
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
@@ -72,25 +70,14 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
 
   private[hnsw] class HnswModelReader extends KnnModelReader[HnswSimilarityModel] {
 
-    override protected type TIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] = HnswIndex[TId, TVector, TItem, TDistance]
-
     override protected def createModel[
       TId: TypeTag,
       TVector: TypeTag,
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
-    ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
+    ](uid: String, indices: RDD[(Int, String)])
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
-        new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
-
-    override protected def newIndexLoader[
-      TId: TypeTag,
-      TVector: TypeTag,
-      TItem <: Item[TId, TVector] with Product: TypeTag,
-      TDistance : TypeTag
-    ]: InputStream => HnswIndex[TId, TVector, TItem, TDistance] =
-      HnswIndex.load[TId, TVector, TItem, TDistance]
-
+        new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
   }
 
   override def read: MLReader[HnswSimilarityModel] = new HnswModelReader
@@ -107,26 +94,29 @@ abstract class HnswSimilarityModel extends KnnModelBase[HnswSimilarityModel] wit
 
 }
 
-private[knn] class GenericHnswSimilarityModel[
+private[knn] class HnswSimilarityModelImpl[
   TId : TypeTag,
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, private[knn] val indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
+](override val uid: String, private[knn] val indices: RDD[(Int, String)])
   (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
     extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
-  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(indices, dataset)
+  override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): HnswSimilarityModel = {
-    val copied = new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
+    val copied = new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
     copyValues(copied, extra).setParent(parent)
   }
 
-  override private[knn] def transformIndex(index: HnswIndex[TId, TVector, TItem, TDistance]): Unit =
-    index.ef = getEf
-
   override def write: MLWriter = new KnnModelWriter[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]](this)
+
+  override protected def loadIndex(in: InputStream): HnswIndex[TId, TVector, TItem, TDistance] = {
+    val index = HnswIndex.load[TId, TVector, TItem, TDistance](in)
+    index.ef = getEf
+    index
+  }
 }
 
 
@@ -167,8 +157,8 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
     TVector: TypeTag,
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
-  ](uid: String, indices: RDD[(Int, HnswIndex[TId, TVector, TItem, TDistance])])
+  ](uid: String, indices: RDD[(Int, String)])
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : HnswSimilarityModel =
-      new GenericHnswSimilarityModel[TId, TVector, TItem, TDistance](uid, indices)
+      new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
 }
 

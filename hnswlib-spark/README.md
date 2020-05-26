@@ -30,6 +30,8 @@ Basic:
 ```scala
 import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 
+spark.sparkContext.setCheckpointDir("/path/to/checkpoints")
+
 val hnsw = new HnswSimilarity()
   .setIdentifierCol("id")
   .setQueryIdentifierCol("id")
@@ -57,6 +59,8 @@ import com.github.jelmerk.spark.knn.evaluation.KnnSimilarityEvaluator
 import com.github.jelmerk.spark.knn.hnsw.HnswSimilarity
 import com.github.jelmerk.spark.linalg.Normalizer
 import com.github.jelmerk.spark.conversion.VectorConverter
+
+spark.sparkContext.setCheckpointDir("/path/to/checkpoints")
 
 // often it is acceptable to use float instead of double precision. 
 // this uses less memory and will be faster 
@@ -131,6 +135,5 @@ Suggested configuration
 - set `spark.driver.memory`: to some arbitrary low value for instance `2g` will do because the model does not run on the driver
 - set `spark.executor.memory`: to a value appropriate to the size of your data, typically the will be a large value 
 - set `spark.yarn.executor.memoryOverhead` to a value higher than `executorMemory * 0.10` if you get the "Container killed by YARN for exceeding memory limits" error
-- set `spark.kryo.registrator` to com.github.jelmerk.spark.HnswLibKryoRegistrator
 
 Note that as it stands increasing the number of partitions will speed up fitting the model but not querying the model. The only way to speed up querying is by increasing the number of replicas

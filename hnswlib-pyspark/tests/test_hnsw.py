@@ -4,8 +4,12 @@ from pyspark_hnsw.knn import HnswSimilarity
 from pyspark.ml.linalg import Vectors
 from pyspark.sql import SQLContext
 
+from tempfile import gettempdir
+
 
 def test_hnsw(spark_context):
+
+    spark_context.setCheckpointDir(gettempdir())
 
     sql_context = SQLContext(spark_context)
 

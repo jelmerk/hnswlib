@@ -14,8 +14,6 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
-import com.github.jelmerk.spark.HnswLibKryoRegistrator
-
 case class InputRow[TId, TVector](id: TId, vector: TVector)
 
 case class Neighbor[TId, TDistance](neighbor: TId, distance: TDistance)
