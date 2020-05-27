@@ -2,6 +2,7 @@ package com.github.jelmerk.spark.knn
 
 import java.io.InputStream
 import java.net.InetAddress
+import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
 
 import scala.language.{higherKinds, implicitConversions}
@@ -9,25 +10,27 @@ import scala.math.abs
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
+
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
+import org.apache.spark.Partitioner
+import org.apache.spark.internal.Logging
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.param._
+import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasPredictionCol}
+import org.apache.spark.ml.util.{MLReader, MLWriter}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
-import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
-import org.apache.spark.Partitioner
-import org.apache.spark.ml.util.{MLReader, MLWriter}
-import org.apache.spark.rdd.RDD
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
+
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.BoundedPriorityQueue
-import org.apache.hadoop.conf.Configuration
-import org.apache.spark.internal.Logging
-import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasPredictionCol}
-import org.apache.spark.scheduler.{SparkListener, SparkListenerApplicationEnd}
 
 private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
   override def dimensions: Int = vector.length
@@ -690,7 +693,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
           val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
           val fileSystem = FileSystem.get(hadoopConfiguration)
 
-          val path = new Path(outputDir, partition.toString)
+          val path = new Path(outputDir, createRandomId())
 
           val outputStream = fileSystem.create(path)
 
@@ -720,11 +723,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     case "euclidean" => floatEuclideanDistance
     case "inner-product" => floatInnerProduct
     case "manhattan" => floatManhattanDistance
-    case value =>
-      Try(Class.forName(value).getDeclaredConstructor().newInstance())
-        .toOption
-        .collect { case f: DistanceFunction[Array[Float] @unchecked, Float @unchecked] => f }
-        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
+    case value => userDistanceFunction(value)
   }
 
   implicit private def doubleArrayDistanceFunction(name: String): DistanceFunction[Array[Double], Double] = name match {
@@ -735,11 +734,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     case "euclidean" => doubleEuclideanDistance
     case "inner-product" => doubleInnerProduct
     case "manhattan" => doubleManhattanDistance
-    case value =>
-      Try(Class.forName(value).getDeclaredConstructor().newInstance())
-        .toOption
-        .collect { case f: DistanceFunction[Array[Double] @unchecked, Double @unchecked] => f }
-        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance function."))
+    case value => userDistanceFunction(value)
   }
 
   implicit private def vectorDistanceFunction(name: String): DistanceFunction[Vector, Double] = name match {
@@ -750,13 +745,16 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     case "euclidean" => VectorDistanceFunctions.euclideanDistance
     case "inner-product" => VectorDistanceFunctions.innerProduct
     case "manhattan" => VectorDistanceFunctions.manhattanDistance
-    case value =>
-      Try(Class.forName(value).getDeclaredConstructor().newInstance())
-        .toOption
-        .collect { case f: DistanceFunction[Vector @unchecked, Double @unchecked] => f }
-        .getOrElse(throw new IllegalArgumentException(s"$value is not a valid distance functions."))
+    case value => userDistanceFunction(value)
   }
 
+  private def userDistanceFunction[TVector, TDistance](name: String): DistanceFunction[TVector, TDistance] =
+    Try(Class.forName(name).getDeclaredConstructor().newInstance())
+      .toOption
+      .collect { case f: DistanceFunction[TVector @unchecked, TDistance @unchecked] => f }
+      .getOrElse(throw new IllegalArgumentException(s"$name is not a valid distance functions."))
+
+  private def createRandomId(): String = UUID.randomUUID().toString
 }
 
 private[knn] class CleanupListener(dir: String) extends SparkListener with Logging {
