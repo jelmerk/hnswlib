@@ -131,7 +131,7 @@ class HnswIndexTest {
 
     @Test
     void addNewerItem() {
-        TestItem newerItem = new TestItem(item1.id(), new float[0], item1.version() + 1);
+        TestItem newerItem = new TestItem(item1.id(), new float[] { 0.f, 0.f }, item1.version() + 1);
 
         index.add(item1);
         index.add(newerItem);
@@ -142,7 +142,7 @@ class HnswIndexTest {
 
     @Test
     void addOlderItem() {
-        TestItem olderItem = new TestItem(item1.id(), new float[0], item1.version() - 1);
+        TestItem olderItem = new TestItem(item1.id(), new float[] { 0.f, 0.f }, item1.version() - 1);
 
         index.add(item1);
         index.add(olderItem);

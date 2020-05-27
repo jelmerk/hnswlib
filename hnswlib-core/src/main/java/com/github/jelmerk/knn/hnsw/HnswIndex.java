@@ -203,6 +203,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean add(TItem item) {
+        if (item.dimensions() != dimensions) {
+            throw new IllegalArgumentException("Item does not have dimensionality of : " + dimensions);
+        }
 
         int randomLevel = assignLevel(item.id(), this.levelLambda);
 
