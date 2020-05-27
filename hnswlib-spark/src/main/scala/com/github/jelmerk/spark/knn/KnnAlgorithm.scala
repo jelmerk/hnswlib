@@ -32,23 +32,41 @@ import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.BoundedPriorityQueue
 
+/**
+  * An item contained in a knn index.
+  *
+  * @param id identifier of this item
+  * @param vector vector to perform the distance calculation on
+  *
+  * @tparam TId type of the index item identifier
+  * @tparam TComponent type element type contained in the array
+  */
 private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
   override def dimensions: Int = vector.length
 }
 
+/**
+  * An item contained in a knn index.
+  *
+  * @param id identifier of this item
+  * @param vector vector to perform the distance calculation on
+  *
+  * @tparam TId type of the index item identifier
+  */
 private[knn] case class VectorIndexItem[TId](id: TId, vector: Vector) extends Item[TId, Vector] {
   override def dimensions: Int = vector.size
 }
 
 /**
-  * Neighbor of an item
+  * Neighbor of an item.
   *
   * @param neighbor identifies the neighbor
   * @param distance distance to the item
+  *
+  * @tparam TId type of the index item identifier
+  * @tparam TDistance type of distance
   */
 private[knn] case class Neighbor[TId, TDistance] (neighbor: TId, distance: TDistance)
-
-
 
 /**
   * Common params for KnnAlgorithm and KnnModel.
@@ -161,6 +179,9 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   }
 }
 
+/**
+  * Params for KnnModel.
+  */
 private[knn] trait KnnAlgorithmParams extends KnnModelParams {
 
   /**
@@ -187,7 +208,6 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
 
   setDefault(distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
 }
-
 
 /**
   * Persists a knn model.

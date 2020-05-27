@@ -86,7 +86,7 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates cosine distance.
+         * Calculates the cosine distance.
          *
          * @param u Left vector.
          * @param v Right vector.
@@ -117,7 +117,7 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates inner product.
+         * Calculates the inner product.
          *
          * @param u Left vector.
          * @param v Right vector.
@@ -143,7 +143,7 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates euclidean distance.
+         * Calculates the euclidean distance.
          *
          * @param u Left vector.
          * @param v Right vector.
@@ -268,12 +268,12 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates the Bray Curtis distance.
+         * Calculates the manhattan distance.
          *
          * @param u Left vector.
          * @param v Right vector.
          *
-         * @return Bray Curtis distance between u and v.
+         * @return Manhattan distance between u and v.
          */
         @Override
         public Float distance(float[] u, float[] v) {
@@ -475,12 +475,12 @@ public final class DistanceFunctions {
         private static final long serialVersionUID = 1L;
 
         /**
-         * Calculates the Bray Curtis distance.
+         * Calculates the manhattan distance.
          *
          * @param u Left vector.
          * @param v Right vector.
          *
-         * @return Bray Curtis distance between u and v.
+         * @return Manhattan distance between u and v.
          */
         @Override
         public Double distance(double[] u, double[] v) {
