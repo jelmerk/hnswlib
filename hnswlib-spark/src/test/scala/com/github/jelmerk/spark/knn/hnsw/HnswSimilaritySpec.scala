@@ -90,6 +90,14 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       rows.find(_.id == 3000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(3000000, 2000000, 1000000))
     }
 
+    val floatArraySimilarityThresholdScenarioValidator: DataFrame => Unit= df => {
+      val rows = df.as[FullOutputRow[String, Array[Float], Float]].collect()
+
+      rows.find(_.id == "1000000").toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq("1000000", "3000000"))
+      rows.find(_.id == "2000000").toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq("2000000", "3000000"))
+      rows.find(_.id == "3000000").toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq("3000000", "2000000", "1000000"))
+    }
+
     val doubleArrayInput = sc.parallelize(Seq(
        InputRow(1000000, Array(0.0110, 0.2341)),
        InputRow(2000000, Array(0.2300, 0.3891)),
@@ -130,6 +138,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       ("full",         false,         1,                     denseVectorInput,  denseVectorScenarioValidator),
       ("minimal",      false,         1,                     denseVectorInput,  minimalDenseVectorScenarioValidator),
       ("full",         false,         0.1,                   denseVectorInput,  similarityThresholdScenarioValidator),
+      ("full",         false,         0.1,                   floatArrayInput,   floatArraySimilarityThresholdScenarioValidator),
       ("full",         false,         noSimilarityThreshold, doubleArrayInput,  doubleArrayScenarioValidator),
       ("full",         false,         noSimilarityThreshold, floatArrayInput,   floatArrayScenarioValidator),
       ("full",         true,          noSimilarityThreshold, denseVectorInput,  excludeSelfScenarioValidator),

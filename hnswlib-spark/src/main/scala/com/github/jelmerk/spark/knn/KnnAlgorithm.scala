@@ -342,14 +342,14 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](uid: String, indices: RDD[(Int, String)])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : TModel
+  ](uid: String, indices: RDD[(Int, String)])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : TModel
 
   private def loadModel[
     TId : TypeTag,
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance : TypeTag
-  ](uid: String, indicesPath: String, numPartitions: Int)(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]): TModel = {
+  ](uid: String, indicesPath: String, numPartitions: Int)(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]): TModel = {
 
     val partitionedIndices = sc.parallelize(Seq.range(0, numPartitions).map(partition => partition -> new Path(indicesPath, partition.toString).toString))
       .partitionBy(new PartitionIdPassthrough(numPartitions))
@@ -422,19 +422,15 @@ private[knn] trait KnnModelOps[
   protected def loadIndex(in: InputStream): TIndex
 
   protected def typedTransform(dataset: Dataset[_])
-                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : DataFrame =
+                              (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : DataFrame =
     if (isSet(queryIdentifierCol)) typedTransformWithQueryCol[TId](dataset, getQueryIdentifierCol)
     else typedTransformWithQueryCol[Long](dataset.withColumn("_query_id", monotonically_increasing_id), "_query_id").drop("_query_id")
 
   protected def typedTransformWithQueryCol[TQueryId](dataset: Dataset[_], queryIdCol: String)
-                                                    (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], ev5: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], evQueryId: ClassTag[TQueryId], distanceOrdering: Ordering[TDistance]) : DataFrame = {
+                                                    (implicit ev1: TypeTag[TId], ev2: TypeTag[TVector], ev3: TypeTag[TDistance], ev4: TypeTag[TIndex], ev5: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evIndex: ClassTag[TIndex], evDistance: ClassTag[TDistance], evQueryId: ClassTag[TQueryId], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : DataFrame = {
     import dataset.sparkSession.implicits._
 
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
-
-    // this works because distance is always either float or double right now this is not very nice and I should probably come up with something more robust
-
-    val threshold = getSimilarityThreshold.asInstanceOf[TDistance]
 
     // replicate the indices if numReplicas > 0 this means we can parallelize the querying
 
@@ -486,8 +482,8 @@ private[knn] trait KnnModelOps[
 
           val neighbors = index.findNearest(vector, fetchSize)
             .collect { case SearchResult(item, distance)
-              if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceOrdering.lt(distance, threshold)) =>
-              Neighbor[TId, TDistance](item.id, distance)
+              if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distanceNumeric.toDouble(distance) < getSimilarityThreshold) =>
+                Neighbor[TId, TDistance](item.id, distance)
             }
 
           val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
@@ -657,7 +653,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](uid: String, indices: RDD[(Int, String)])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+  ](uid: String, indices: RDD[(Int, String)])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance])
     : TModel
 
   private def typedFit[
@@ -665,7 +661,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](dataset: Dataset[_])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceFunctionFactory: String => DistanceFunction[TVector, TDistance])
+  ](dataset: Dataset[_])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance], distanceFunctionFactory: String => DistanceFunction[TVector, TDistance])
     : TModel = {
 
     val sc = dataset.sparkSession

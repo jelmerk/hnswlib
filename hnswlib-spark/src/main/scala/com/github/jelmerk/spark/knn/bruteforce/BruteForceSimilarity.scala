@@ -25,7 +25,7 @@ object BruteForceSimilarityModel extends MLReadable[BruteForceSimilarityModel] {
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
     ](uid: String, indices: RDD[(Int, String)])
-      (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
+      (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : BruteForceSimilarityModel =
         new BruteForceSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
 
   }
@@ -45,7 +45,7 @@ private[knn] class BruteForceSimilarityModelImpl[
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
 ](override val uid: String, private[knn] val indices: RDD[(Int, String)])
- (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance])
+ (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance])
     extends BruteForceSimilarityModel with KnnModelOps[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
@@ -95,7 +95,7 @@ class BruteForceSimilarity(override val uid: String) extends KnnAlgorithm[BruteF
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
   ](uid: String, indices: RDD[(Int, String)])
-    (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance]) : BruteForceSimilarityModel =
+    (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : BruteForceSimilarityModel =
       new BruteForceSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
 
 }
