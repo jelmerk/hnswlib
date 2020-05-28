@@ -76,7 +76,7 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
     ](uid: String, indices: RDD[(Int, String)])
-      (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
+      (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
         new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
   }
 
@@ -100,7 +100,7 @@ private[knn] class HnswSimilarityModelImpl[
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
 ](override val uid: String, private[knn] val indices: RDD[(Int, String)])
-  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance])
+  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance])
     extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
@@ -158,7 +158,7 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
   ](uid: String, indices: RDD[(Int, String)])
-    (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], evDistance: ClassTag[TDistance], distanceOrdering: Ordering[TDistance], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
+    (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
       new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
 }
 
