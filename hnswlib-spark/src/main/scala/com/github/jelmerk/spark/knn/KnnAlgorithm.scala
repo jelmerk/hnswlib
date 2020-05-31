@@ -32,28 +32,42 @@ import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.BoundedPriorityQueue
 
-/**
-  * An item contained in a knn index.
-  *
-  * @param id identifier of this item
-  * @param vector vector to perform the distance calculation on
-  *
-  * @tparam TId type of the index item identifier
-  * @tparam TComponent type element type contained in the array
-  */
-private[knn] case class ArrayIndexItem[TId, TComponent](id: TId, vector: Array[TComponent]) extends Item[TId, Array[TComponent]] {
+
+private[knn] case class IntDoubleArrayIndexItem(id: Int, vector: Array[Double]) extends Item[Int, Array[Double]] {
   override def dimensions: Int = vector.length
 }
 
-/**
-  * An item contained in a knn index.
-  *
-  * @param id identifier of this item
-  * @param vector vector to perform the distance calculation on
-  *
-  * @tparam TId type of the index item identifier
-  */
-private[knn] case class VectorIndexItem[TId](id: TId, vector: Vector) extends Item[TId, Vector] {
+private[knn] case class LongDoubleArrayIndexItem(id: Long, vector: Array[Double]) extends Item[Long, Array[Double]] {
+  override def dimensions: Int = vector.length
+}
+
+private[knn] case class StringDoubleArrayIndexItem(id: String, vector: Array[Double]) extends Item[String, Array[Double]] {
+  override def dimensions: Int = vector.length
+}
+
+
+private[knn] case class IntFloatArrayIndexItem(id: Int, vector: Array[Float]) extends Item[Int, Array[Float]] {
+  override def dimensions: Int = vector.length
+}
+
+private[knn] case class LongFloatArrayIndexItem(id: Long, vector: Array[Float]) extends Item[Long, Array[Float]] {
+  override def dimensions: Int = vector.length
+}
+
+private[knn] case class StringFloatArrayIndexItem(id: String, vector: Array[Float]) extends Item[String, Array[Float]] {
+  override def dimensions: Int = vector.length
+}
+
+
+private[knn] case class IntVectorIndexItem(id: Int, vector: Vector) extends Item[Int, Vector] {
+  override def dimensions: Int = vector.size
+}
+
+private[knn] case class LongVectorIndexItem(id: Long, vector: Vector) extends Item[Long, Vector] {
+  override def dimensions: Int = vector.size
+}
+
+private[knn] case class StringVectorIndexItem(id: String, vector: Vector) extends Item[String, Vector] {
   override def dimensions: Int = vector.size
 }
 
@@ -304,17 +318,17 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     val indicesPath = new Path(path, "indices").toString
 
     val model = (identifierType, vectorType) match {
-      case ("int", "float_array") => loadModel[Int, Array[Float], ArrayIndexItem[Int, Float], Float](uid, indicesPath, partitions)
-      case ("int", "double_array") => loadModel[Int, Array[Double], ArrayIndexItem[Int, Double], Double](uid, indicesPath, partitions)
-      case ("int", "vector") => loadModel[Int, Vector, VectorIndexItem[Int], Double](uid, indicesPath, partitions)
+      case ("int", "float_array") => loadModel[Int, Array[Float], IntFloatArrayIndexItem, Float](uid, indicesPath, partitions)
+      case ("int", "double_array") => loadModel[Int, Array[Double], IntDoubleArrayIndexItem, Double](uid, indicesPath, partitions)
+      case ("int", "vector") => loadModel[Int, Vector, IntVectorIndexItem, Double](uid, indicesPath, partitions)
 
-      case ("long", "float_array") => loadModel[Long, Array[Float], ArrayIndexItem[Long, Float], Float](uid, indicesPath, partitions)
-      case ("long", "double_array") => loadModel[Long, Array[Double], ArrayIndexItem[Long, Double], Double](uid, indicesPath, partitions)
-      case ("long", "vector") => loadModel[Long, Vector, VectorIndexItem[Long], Double](uid, indicesPath, partitions)
+      case ("long", "float_array") => loadModel[Long, Array[Float], LongFloatArrayIndexItem, Float](uid, indicesPath, partitions)
+      case ("long", "double_array") => loadModel[Long, Array[Double], LongDoubleArrayIndexItem, Double](uid, indicesPath, partitions)
+      case ("long", "vector") => loadModel[Long, Vector, LongVectorIndexItem, Double](uid, indicesPath, partitions)
 
-      case ("string", "float_array") => loadModel[String, Array[Float], ArrayIndexItem[String, Float], Float](uid, indicesPath, partitions)
-      case ("string", "double_array") => loadModel[String, Array[Double], ArrayIndexItem[String, Double], Double](uid, indicesPath, partitions)
-      case ("string", "vector") => loadModel[String, Vector, VectorIndexItem[String], Double](uid, indicesPath, partitions)
+      case ("string", "float_array") => loadModel[String, Array[Float], StringFloatArrayIndexItem, Float](uid, indicesPath, partitions)
+      case ("string", "double_array") => loadModel[String, Array[Double], StringDoubleArrayIndexItem, Double](uid, indicesPath, partitions)
+      case ("string", "vector") => loadModel[String, Vector, StringVectorIndexItem, Double](uid, indicesPath, partitions)
     }
 
     paramMap.obj.foreach { case (paramName, jsonValue) =>
@@ -596,15 +610,15 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     val vectorType = dataset.schema(getFeaturesCol).dataType
 
     val model = (identifierType, vectorType) match {
-      case (IntegerType, ArrayType(FloatType, _)) => typedFit[Int, Array[Float], ArrayIndexItem[Int, Float], Float](dataset)
-      case (IntegerType, ArrayType(DoubleType, _)) => typedFit[Int, Array[Double], ArrayIndexItem[Int, Double], Double](dataset)
-      case (IntegerType, t) if t.typeName == "vector" => typedFit[Int, Vector, VectorIndexItem[Int], Double](dataset)
-      case (LongType, ArrayType(FloatType, _)) => typedFit[Long, Array[Float], ArrayIndexItem[Long, Float], Float](dataset)
-      case (LongType, ArrayType(DoubleType, _)) => typedFit[Long, Array[Double], ArrayIndexItem[Long, Double], Double](dataset)
-      case (LongType, t) if t.typeName == "vector" => typedFit[Long, Vector, VectorIndexItem[Long], Double](dataset)
-      case (StringType, ArrayType(FloatType, _)) => typedFit[String, Array[Float], ArrayIndexItem[String, Float], Float](dataset)
-      case (StringType, ArrayType(DoubleType, _)) => typedFit[String, Array[Double], ArrayIndexItem[String, Double], Double](dataset)
-      case (StringType, t) if t.typeName == "vector" => typedFit[String, Vector, VectorIndexItem[String], Double](dataset)
+      case (IntegerType, ArrayType(FloatType, _)) => typedFit[Int, Array[Float], IntFloatArrayIndexItem, Float](dataset)
+      case (IntegerType, ArrayType(DoubleType, _)) => typedFit[Int, Array[Double], IntDoubleArrayIndexItem, Double](dataset)
+      case (IntegerType, t) if t.typeName == "vector" => typedFit[Int, Vector, IntVectorIndexItem, Double](dataset)
+      case (LongType, ArrayType(FloatType, _)) => typedFit[Long, Array[Float], LongFloatArrayIndexItem, Float](dataset)
+      case (LongType, ArrayType(DoubleType, _)) => typedFit[Long, Array[Double], LongDoubleArrayIndexItem, Double](dataset)
+      case (LongType, t) if t.typeName == "vector" => typedFit[Long, Vector, LongVectorIndexItem, Double](dataset)
+      case (StringType, ArrayType(FloatType, _)) => typedFit[String, Array[Float], StringFloatArrayIndexItem, Float](dataset)
+      case (StringType, ArrayType(DoubleType, _)) => typedFit[String, Array[Double], StringDoubleArrayIndexItem, Double](dataset)
+      case (StringType, t) if t.typeName == "vector" => typedFit[String, Vector, StringVectorIndexItem, Double](dataset)
       case _ => throw new IllegalArgumentException(s"Cannot create index for items with identifier of type " +
         s"${identifierType.simpleString} and vector of type ${vectorType.simpleString}. " +
         s"Supported identifiers are string, int, long and string. Supported vectors are array<float>, array<double> and vector ")
