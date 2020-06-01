@@ -2,6 +2,8 @@ package com.github.jelmerk.spark.knn.hnsw
 
 import java.io.InputStream
 
+import com.github.jelmerk.knn
+
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
@@ -141,7 +143,7 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
   def setEfConstruction(value: Int): this.type = set(efConstruction, value)
 
   override protected def createIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance]
-    (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance])
+    (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance], idSerializer: knn.ObjectSerializer[TId], itemSerializer: knn.ObjectSerializer[TItem])
       : HnswIndex[TId, TVector, TItem, TDistance] =
            HnswIndex[TId, TVector, TItem, TDistance](
             dimensions,
@@ -149,7 +151,10 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
             maxItemCount,
             getM,
             getEf,
-            getEfConstruction
+            getEfConstruction,
+            removeEnabled = false,
+            idSerializer,
+            itemSerializer
           )
 
   override protected def createModel[

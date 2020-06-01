@@ -2,7 +2,7 @@ package com.github.jelmerk.knn.scalalike.hnsw
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 
-import com.github.jelmerk.knn.hnsw.JavaObjectSerializer
+import com.github.jelmerk.knn.JavaObjectSerializer
 import com.github.jelmerk.knn.scalalike._
 import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.matchers.should.Matchers._

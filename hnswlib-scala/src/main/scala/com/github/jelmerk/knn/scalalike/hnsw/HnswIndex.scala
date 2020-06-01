@@ -3,7 +3,8 @@ package com.github.jelmerk.knn.scalalike.hnsw
 import java.io.{File, InputStream}
 import java.nio.file.Path
 
-import com.github.jelmerk.knn.hnsw.{JavaObjectSerializer, HnswIndex => JHnswIndex}
+import com.github.jelmerk.knn.JavaObjectSerializer
+import com.github.jelmerk.knn.hnsw.{HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.scalalike._
 
 object HnswIndex {

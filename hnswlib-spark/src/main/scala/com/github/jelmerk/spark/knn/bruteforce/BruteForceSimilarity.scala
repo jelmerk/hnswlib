@@ -2,6 +2,8 @@ package com.github.jelmerk.spark.knn.bruteforce
 
 import java.io.InputStream
 
+import com.github.jelmerk.knn.ObjectSerializer
+
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
@@ -75,7 +77,7 @@ class BruteForceSimilarity(override val uid: String) extends KnnAlgorithm[BruteF
   def this() = this(Identifiable.randomUID("brute_force"))
 
   override protected def createIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance]
-      (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance])
+    (dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance], idSerializer: ObjectSerializer[TId], itemSerializer: ObjectSerializer[TItem])
         : BruteForceIndex[TId, TVector, TItem, TDistance] =
             BruteForceIndex[TId, TVector, TItem, TDistance](
               dimensions,

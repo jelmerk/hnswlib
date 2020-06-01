@@ -5,12 +5,13 @@ import java.net.InetAddress
 import java.util.UUID
 import java.util.concurrent.ThreadLocalRandom
 
+import com.github.jelmerk.knn.ObjectSerializer
+
 import scala.language.{higherKinds, implicitConversions}
 import scala.math.abs
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
-
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 import org.apache.spark.Partitioner
@@ -27,7 +28,6 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
-
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.BoundedPriorityQueue
@@ -194,7 +194,7 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
 }
 
 /**
-  * Params for KnnModel.
+  * Params for knn algorithms.
   */
 private[knn] trait KnnAlgorithmParams extends KnnModelParams {
 
@@ -636,6 +636,10 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     *
     * @param dimensions dimensionality of the items stored in the index
     * @param maxItemCount maximum number of items the index can hold
+    * @param distanceFunction the distance function
+    * @param distanceOrdering the distance ordering
+    * @param idSerializer invoked for serializing ids when saving the index
+    * @param itemSerializer invoked for serializing items when saving items
     *
     * @tparam TId type of the index item identifier
     * @tparam TVector type of the index item vector
@@ -648,7 +652,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector,
     TItem <: Item[TId, TVector] with Product,
     TDistance
-  ](dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance])
+  ](dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])(implicit distanceOrdering: Ordering[TDistance], idSerializer: ObjectSerializer[TId], itemSerializer: ObjectSerializer[TItem])
       : TIndex[TId, TVector, TItem, TDistance]
 
   /**
@@ -676,7 +680,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     TVector : TypeTag,
     TItem <: Item[TId, TVector] with Product : TypeTag,
     TDistance: TypeTag
-  ](dataset: Dataset[_])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], distanceNumeric: Numeric[TDistance], distanceFunctionFactory: String => DistanceFunction[TVector, TDistance])
+  ](dataset: Dataset[_])(implicit ev: ClassTag[TId], evVector: ClassTag[TVector], evItem: ClassTag[TItem], distanceNumeric: Numeric[TDistance], distanceFunctionFactory: String => DistanceFunction[TVector, TDistance], idSerializer: ObjectSerializer[TId], itemSerializer: ObjectSerializer[TItem])
     : TModel = {
 
     val sc = dataset.sparkSession

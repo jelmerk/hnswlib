@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.hnsw;
+package com.github.jelmerk.knn;
 
 import java.io.IOException;
 import java.io.ObjectInput;

@@ -5,6 +5,13 @@ import com.github.jelmerk.knn.{ DistanceFunctions => JDistanceFunctions }
 package object scalalike {
 
   /**
+   * Serializes objects
+   *
+   * @tparam T type of object to serialize
+   */
+  type ObjectSerializer[T] = com.github.jelmerk.knn.ObjectSerializer[T]
+
+  /**
     * Item that can be indexed
     *
     * @tparam TId Type of the vector to perform distance calculation on
