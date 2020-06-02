@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.github.jelmerk</groupId>
         <artifactId>hnswlib-parent-pom</artifactId>
-        <version>0.0.37</version>
+        <version>0.0.38</version>
         <relativePath>..</relativePath>
     </parent>
 
@@ -30,13 +30,13 @@
         <dependency>
             <groupId>com.github.jelmerk</groupId>
             <artifactId>hnswlib-utils</artifactId>
-            <version>0.0.37</version>
+            <version>0.0.38</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.jelmerk</groupId>
             <artifactId>hnswlib-scala_2.11</artifactId>
-            <version>0.0.37</version>
+            <version>0.0.38</version>
         </dependency>
 
         <!-- workaround for https://github.com/holdenk/spark-testing-base/issues/148 -->
@@ -72,13 +72,6 @@
             <groupId>com.holdenkarau</groupId>
             <artifactId>spark-testing-base_2.11</artifactId>
             <version>2.3.0_0.12.0</version>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>com.github.jbellis</groupId>
-            <artifactId>jamm</artifactId>
-            <version>0.3.4-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
 

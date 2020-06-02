@@ -7,22 +7,22 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
 
 package object knn {
 
-  implicit object StringSerializer extends ObjectSerializer[String] {
+  private[knn] implicit object StringSerializer extends ObjectSerializer[String] {
     override def write(item: String, out: ObjectOutput): Unit = out.writeUTF(item)
     override def read(in: ObjectInput): String = in.readUTF()
   }
 
-  implicit object IntSerializer extends ObjectSerializer[Int] {
+  private[knn] implicit object IntSerializer extends ObjectSerializer[Int] {
     override def write(item: Int, out: ObjectOutput): Unit = out.writeInt(item)
     override def read(in: ObjectInput): Int = in.readInt()
   }
 
-  implicit object LongSerializer extends ObjectSerializer[Long] {
+  private[knn] implicit object LongSerializer extends ObjectSerializer[Long] {
     override def write(item: Long, out: ObjectOutput): Unit = out.writeLong(item)
     override def read(in: ObjectInput): Long = in.readLong()
   }
 
-  implicit object FloatArraySerializer extends ObjectSerializer[Array[Float]] {
+  private[knn] implicit object FloatArraySerializer extends ObjectSerializer[Array[Float]] {
     override def write(item: Array[Float], out: ObjectOutput): Unit = {
       out.writeInt(item.length)
       item.foreach(out.writeFloat)
@@ -39,7 +39,7 @@ package object knn {
     }
   }
 
-  implicit object DoubleArraySerializer extends ObjectSerializer[Array[Double]] {
+  private[knn] implicit object DoubleArraySerializer extends ObjectSerializer[Array[Double]] {
     override def write(item: Array[Double], out: ObjectOutput): Unit = {
       out.writeInt(item.length)
       item.foreach(out.writeDouble)
@@ -57,7 +57,7 @@ package object knn {
   }
 
 
-  implicit object VectorSerializer extends ObjectSerializer[Vector] {
+  private[knn] implicit object VectorSerializer extends ObjectSerializer[Vector] {
     override def write(item: Vector, out: ObjectOutput): Unit = item match {
       case v: DenseVector =>
         out.writeBoolean(true)
@@ -104,7 +104,7 @@ package object knn {
   }
 
 
-  implicit object IntVectorIndexItemSerializer extends ObjectSerializer[IntVectorIndexItem] {
+  private[knn] implicit object IntVectorIndexItemSerializer extends ObjectSerializer[IntVectorIndexItem] {
     override def write(item: IntVectorIndexItem, out: ObjectOutput): Unit = {
       IntSerializer.write(item.id, out)
       VectorSerializer.write(item.vector, out)
@@ -117,7 +117,7 @@ package object knn {
     }
   }
 
-  implicit object LongVectorIndexItemSerializer extends ObjectSerializer[LongVectorIndexItem] {
+  private[knn] implicit object LongVectorIndexItemSerializer extends ObjectSerializer[LongVectorIndexItem] {
     override def write(item: LongVectorIndexItem, out: ObjectOutput): Unit = {
       LongSerializer.write(item.id, out)
       VectorSerializer.write(item.vector, out)
@@ -130,7 +130,7 @@ package object knn {
     }
   }
 
-  implicit object StringVectorIndexItemSerializer extends ObjectSerializer[StringVectorIndexItem] {
+  private[knn] implicit object StringVectorIndexItemSerializer extends ObjectSerializer[StringVectorIndexItem] {
     override def write(item: StringVectorIndexItem, out: ObjectOutput): Unit = {
       StringSerializer.write(item.id, out)
       VectorSerializer.write(item.vector, out)
@@ -144,7 +144,7 @@ package object knn {
   }
 
 
-  implicit object IntFloatArrayIndexItemSerializer extends ObjectSerializer[IntFloatArrayIndexItem] {
+  private[knn] implicit object IntFloatArrayIndexItemSerializer extends ObjectSerializer[IntFloatArrayIndexItem] {
     override def write(item: IntFloatArrayIndexItem, out: ObjectOutput): Unit = {
       IntSerializer.write(item.id, out)
       FloatArraySerializer.write(item.vector, out)
@@ -157,7 +157,7 @@ package object knn {
     }
   }
 
-  implicit object LongFloatArrayIndexItemSerializer extends ObjectSerializer[LongFloatArrayIndexItem] {
+  private[knn] implicit object LongFloatArrayIndexItemSerializer extends ObjectSerializer[LongFloatArrayIndexItem] {
     override def write(item: LongFloatArrayIndexItem, out: ObjectOutput): Unit = {
       LongSerializer.write(item.id, out)
       FloatArraySerializer.write(item.vector, out)
@@ -170,7 +170,7 @@ package object knn {
     }
   }
 
-  implicit object StringFloatArrayIndexItemSerializer extends ObjectSerializer[StringFloatArrayIndexItem] {
+  private[knn] implicit object StringFloatArrayIndexItemSerializer extends ObjectSerializer[StringFloatArrayIndexItem] {
     override def write(item: StringFloatArrayIndexItem, out: ObjectOutput): Unit = {
       StringSerializer.write(item.id, out)
       FloatArraySerializer.write(item.vector, out)
@@ -184,7 +184,7 @@ package object knn {
   }
 
 
-  implicit object IntDoubleArrayIndexItemSerializer extends ObjectSerializer[IntDoubleArrayIndexItem] {
+  private[knn] implicit object IntDoubleArrayIndexItemSerializer extends ObjectSerializer[IntDoubleArrayIndexItem] {
     override def write(item: IntDoubleArrayIndexItem, out: ObjectOutput): Unit = {
       IntSerializer.write(item.id, out)
       DoubleArraySerializer.write(item.vector, out)
@@ -197,7 +197,7 @@ package object knn {
     }
   }
 
-  implicit object LongDoubleArrayIndexItemSerializer extends ObjectSerializer[LongDoubleArrayIndexItem] {
+  private[knn] implicit object LongDoubleArrayIndexItemSerializer extends ObjectSerializer[LongDoubleArrayIndexItem] {
     override def write(item: LongDoubleArrayIndexItem, out: ObjectOutput): Unit = {
       LongSerializer.write(item.id, out)
       DoubleArraySerializer.write(item.vector, out)
@@ -210,7 +210,7 @@ package object knn {
     }
   }
 
-  implicit object StringDoubleArrayIndexItemSerializer extends ObjectSerializer[StringDoubleArrayIndexItem] {
+  private[knn] implicit object StringDoubleArrayIndexItemSerializer extends ObjectSerializer[StringDoubleArrayIndexItem] {
     override def write(item: StringDoubleArrayIndexItem, out: ObjectOutput): Unit = {
       StringSerializer.write(item.id, out)
       DoubleArraySerializer.write(item.vector, out)

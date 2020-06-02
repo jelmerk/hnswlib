@@ -8,7 +8,6 @@ import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{DataFrame, Dataset}
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import com.github.jelmerk.knn.scalalike.hnsw._
@@ -77,9 +76,9 @@ object HnswSimilarityModel extends MLReadable[HnswSimilarityModel]  {
       TVector: TypeTag,
       TItem <: Item[TId, TVector] with Product: TypeTag,
       TDistance : TypeTag
-    ](uid: String, indices: RDD[(Int, String)])
+    ](uid: String, outputDir: String, numPartitions: Int)
       (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
-        new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
+        new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, outputDir, numPartitions)
   }
 
   override def read: MLReader[HnswSimilarityModel] = new HnswModelReader
@@ -101,14 +100,14 @@ private[knn] class HnswSimilarityModelImpl[
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, private[knn] val indices: RDD[(Int, String)])
+](override val uid: String, val outputDir: String, val numPartitions: Int)
   (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance])
     extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
   override def copy(extra: ParamMap): HnswSimilarityModel = {
-    val copied = new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
+    val copied = new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, outputDir, numPartitions)
     copyValues(copied, extra).setParent(parent)
   }
 
@@ -162,8 +161,8 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
     TVector: TypeTag,
     TItem <: Item[TId, TVector] with Product: TypeTag,
     TDistance : TypeTag
-  ](uid: String, indices: RDD[(Int, String)])
+  ](uid: String, outputDir: String, numPartitions: Int)
     (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : HnswSimilarityModel =
-      new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, indices)
+      new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, outputDir, numPartitions)
 }
 
