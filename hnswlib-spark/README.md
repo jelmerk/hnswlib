@@ -20,7 +20,7 @@ Setup
 
 Pass the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.38'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.39'
 
 Example usage 
 -------------

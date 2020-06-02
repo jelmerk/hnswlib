@@ -691,7 +691,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     // Transform vectors or double arrays into float arrays for performance reasons.
 
     val partitionedIndexItems = items
-      .repartition(getNumPartitions, col(getIdentifierCol))
+      .repartition(getNumPartitions, $"id")
 
     // On each partition collect all the items into memory and construct the HNSW indices.
     // The result is a rdd that has a single row per partition containing the index
