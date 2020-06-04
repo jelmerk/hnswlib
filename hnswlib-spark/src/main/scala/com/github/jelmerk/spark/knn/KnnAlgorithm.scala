@@ -27,7 +27,7 @@ import org.json4s.jackson.JsonMethods._
 import org.json4s._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
-import com.github.jelmerk.spark.util.BoundedPriorityQueue
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 
 private[knn] case class IntDoubleArrayIndexItem(id: Int, vector: Array[Double]) extends Item[Int, Array[Double]] {
@@ -435,29 +435,30 @@ private[knn] trait KnnModelOps[
     import dataset.sparkSession.implicits._
     import distanceNumeric._
 
+    implicit val encoder: Encoder[TQueryId] = ExpressionEncoder()
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
-
-    // replicate the indices if numReplicas > 0 this means we can parallelize the querying
 
     val numPartitionCopies = getNumReplicas + 1
 
-    // read the items and duplicate the rows in the query dataset with the number of partitions, assign a different partition to each copy
+    // find the nearest neighbors on each partition (or partition replica)
 
-    val queryDs = for {
-      queryIdAndVector <- dataset.select(col(queryIdCol), col(getFeaturesCol)).as[(TQueryId, TVector)]
-      partition <- Range(0, numPartitions)
-    } yield {
-      val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
-      val physicalPartition = (partition * numPartitionCopies) + randomCopy
-      physicalPartition -> queryIdAndVector
-    }
-
-    // query all the indices
-
-    val neighborsOnAllShards = queryDs.rdd
+    val neighborsOnAllShards = dataset.select(col(queryIdCol), col(getFeaturesCol))
+      .as[(TQueryId, TVector)]
+      // copy the the query row num partitions times and make sure that each copy ends up on its own partition
+      // when using replicas a random replica is selected
+      .flatMap { case (queryId, vector) =>
+        Range(0, numPartitions).map { partition =>
+          val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
+          val physicalPartition = (partition * numPartitionCopies) + randomCopy
+          (physicalPartition, (queryId, vector))
+        }
+      }
+      .rdd
       .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
-      .mapPartitions(it => it.map { case (_, queryIdAndVector) => queryIdAndVector}, preservesPartitioning = true)
       .mapPartitions { queries =>
+
+        // load the partitioned index and execute all queries.
+
         val physicalPartitionId = TaskContext.getPartitionId()
 
         val partition = physicalPartitionId / numPartitionCopies
@@ -474,36 +475,33 @@ private[knn] trait KnnModelOps[
           val index = loadIndex(fileSystem.open(indexPath))
           logInfo(partition, replica, s"finished loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
 
-          for {
-            batch <- new LoggingIterator(partition, replica, queries.grouped(20480))
-            queryIdAndCandidates <- batch.par.map { case (id, vector) =>
-              val fetchSize =
-                if (getExcludeSelf) getK + 1
-                else getK
+          new LoggingIterator(partition, replica, queries.grouped(20480))
+            .flatMap { batch =>
+              batch.par.map { case (_, (id, vector)) =>
+                val fetchSize =
+                  if (getExcludeSelf) getK + 1
+                  else getK
 
-              val neighbors = index.findNearest(vector, fetchSize)
-                .collect { case SearchResult(item, distance)
-                  if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance.toDouble < getSimilarityThreshold) =>
-                    Neighbor[TId, TDistance](item.id, distance)
-                }
+                val neighbors = index.findNearest(vector, fetchSize)
+                  .collect { case SearchResult(item, distance)
+                    if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance.toDouble < getSimilarityThreshold) =>
+                      Neighbor[TId, TDistance](item.id, distance)
+                  }
 
-              val queue = new BoundedPriorityQueue[Neighbor[TId, TDistance]](getK)(neighborOrdering.reverse)
-              queue ++= neighbors
-
-              (id, queue)
+                id -> neighbors
+              }
             }
-          } yield queryIdAndCandidates
         }
-      }
+      }.toDS()
 
-    // reduce the top k neighbors on each shard to the top k neighbors over all shards, holding on to only the best matches
+    // take the best k results from all partitions
 
     val topNeighbors = neighborsOnAllShards
-      .reduceByKey { case (neighborsA, neighborsB) =>
-        neighborsA ++= neighborsB
-        neighborsA
+      .groupByKey { case (queryId, _) => queryId }
+      .flatMapGroups { case (queryId, groups) =>
+        val allNeighbors = groups.flatMap { case (_, neighbors) => neighbors}.toList
+        Iterator.single(queryId -> allNeighbors.sortBy(_.distance).take(getK))
       }
-      .mapValues(_.toArray.sorted(neighborOrdering))
       .toDF(queryIdCol, getPredictionCol)
 
     if (getOutputFormat == "minimal") topNeighbors
@@ -679,22 +677,18 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
       .map (path => new Path(path,s"${uid}_${System.currentTimeMillis()}").toString)
       .getOrElse(throw new IllegalStateException("Please define checkpoint dir with spark.sparkContext.setCheckpointDir"))
 
-    // spark does not like huge dataframes so instead of putting the index in an rdd we write it to disk and reload it when doing the search
-    // this does raise the question of when to delete these temporary files. We do this after the application ends
-
     sparkContext.addSparkListener(new CleanupListener(outputDir))
 
     val items = dataset.select(col(getIdentifierCol).as("id"), col(getFeaturesCol).as("vector"))
-      .as[TItem]
 
     // read the id and vector from the input dataset and and repartition them over numPartitions amount of partitions.
-    // Transform vectors or double arrays into float arrays for performance reasons.
 
     val partitionedIndexItems = items
       .repartition(getNumPartitions, $"id")
+      .as[TItem]
 
     // On each partition collect all the items into memory and construct the HNSW indices.
-    // The result is a rdd that has a single row per partition containing the index
+    // Save these indices to the hadoop filesystem
 
     partitionedIndexItems
       .foreachPartition { it =>

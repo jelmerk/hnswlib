@@ -7,7 +7,7 @@ import java.util.UUID
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, TaskContext}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
@@ -152,7 +152,7 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
         .setQueryIdentifierCol("id")
         .setFeaturesCol("vector")
         .setNumPartitions(5)
-//        .setNumReplicas(3)
+        .setNumReplicas(3)
         .setK(10)
         .setExcludeSelf(excludeSelf)
         .setSimilarityThreshold(similarityThreshold)
