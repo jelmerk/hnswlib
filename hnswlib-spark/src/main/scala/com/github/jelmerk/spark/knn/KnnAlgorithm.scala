@@ -2,7 +2,8 @@ package com.github.jelmerk.spark.knn
 
 import java.io.InputStream
 import java.net.InetAddress
-import java.util.concurrent.ThreadLocalRandom
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{CountDownLatch, Executors, LinkedBlockingQueue, ThreadLocalRandom, TimeUnit}
 
 import com.github.jelmerk.knn.ObjectSerializer
 
@@ -28,6 +29,8 @@ import org.json4s._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+
+import scala.annotation.tailrec
 
 
 private[knn] case class IntDoubleArrayIndexItem(id: Int, vector: Array[Double]) extends Item[Int, Array[Double]] {
@@ -455,42 +458,108 @@ private[knn] trait KnnModelOps[
       }
       .rdd
       .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
-      .mapPartitions { queries =>
+      .mapPartitions { queriesWithPartition =>
+
+        val queries = queriesWithPartition.map(_._2)
 
         // load the partitioned index and execute all queries.
 
         val physicalPartitionId = TaskContext.getPartitionId()
 
-        val partition = physicalPartitionId / numPartitionCopies
+        val partitionId = physicalPartitionId / numPartitionCopies
         val replica = physicalPartitionId % numPartitionCopies
 
         val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
         val fileSystem = FileSystem.get(hadoopConfiguration)
 
-        val indexPath = new Path(outputDir, partition.toString)
+        val indexPath = new Path(outputDir, partitionId.toString)
 
         if (!fileSystem.exists(indexPath)) Iterator.empty
         else {
-          logInfo(partition, replica, s"started loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
+
+          logInfo(partitionId, replica, s"started loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
           val index = loadIndex(fileSystem.open(indexPath))
-          logInfo(partition, replica, s"finished loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(partitionId, replica, s"finished loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
 
-          new LoggingIterator(partition, replica, queries.grouped(20480))
-            .flatMap { batch =>
-              batch.par.map { case (_, (id, vector)) =>
-                val fetchSize =
-                  if (getExcludeSelf) getK + 1
-                  else getK
+          // execute queries in parallel on multiple threads
+          new Iterator[(TQueryId, Seq[Neighbor[TId, TDistance]])] {
 
-                val neighbors = index.findNearest(vector, fetchSize)
-                  .collect { case SearchResult(item, distance)
-                    if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance.toDouble < getSimilarityThreshold) =>
-                      Neighbor[TId, TDistance](item.id, distance)
-                  }
+            private[this] var first = true
+            private[this] var count = 0
 
-                id -> neighbors
+            private[this] val parallelism = sys.runtime.availableProcessors
+
+            private[this] val batchSize = 1000
+            private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * parallelism)
+            private[this] val executorService = Executors.newFixedThreadPool(parallelism)
+
+            private[this] val activeWorkers = new CountDownLatch(parallelism)
+            Range(0, parallelism).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
+
+            override def hasNext: Boolean = {
+              if (!queue.isEmpty) true
+              else if (queries.synchronized { queries.hasNext }) true
+              else {
+                // in theory all workers could have just picked up the last new work but not started processing any of it.
+                activeWorkers.await()
+                !queue.isEmpty
               }
             }
+
+            override def next(): (TQueryId, Seq[Neighbor[TId, TDistance]]) = {
+              if (first) {
+                logInfo(partitionId, replica, s"started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
+                first  = false
+              }
+
+              val value = queue.poll(1, TimeUnit.MINUTES)
+
+              count += 1
+
+              if (!hasNext) {
+                logInfo(partitionId, replica, s"finished querying $count items on host ${InetAddress.getLocalHost.getHostName}")
+
+                executorService.shutdown()
+              }
+
+              value
+            }
+
+            class Worker(val id: Int, queries: Iterator[(TQueryId, TVector)], activeWorkers: CountDownLatch, batchSize: Int) extends Runnable {
+
+              private[this] var work = List.empty[(TQueryId, TVector)]
+
+              private[this] val fetchSize =
+                if (getExcludeSelf) getK + 1
+                else getK
+
+              @tailrec final override def run(): Unit = {
+
+                work.foreach { case (id, vector) =>
+
+                  val neighbors = index.findNearest(vector, fetchSize)
+                    .collect { case SearchResult(item, distance)
+                      if (!getExcludeSelf || item.id != id) && (getSimilarityThreshold < 0 || distance.toDouble < getSimilarityThreshold) =>
+                        Neighbor[TId, TDistance](item.id, distance)
+                    }
+
+                  queue.put(id -> neighbors)
+                }
+
+                work = queries.synchronized {
+                  Iterator.range(0, batchSize).filter(_ => queries.hasNext).foldLeft(List.empty[(TQueryId, TVector)]) { case (acc, _) =>
+                    queries.next() :: acc
+                  }
+                }
+
+                if (work.nonEmpty) {
+                  run()
+                } else {
+                  activeWorkers.countDown()
+                }
+              }
+            }
+          }
         }
       }.toDS()
 
@@ -513,30 +582,6 @@ private[knn] trait KnnModelOps[
   private def logInfo(partition: Int, replica: Int, message: String): Unit =
     logInfo(f"partition $partition%04d replica $replica%04d: $message")
 
-  private class LoggingIterator[T](partition: Int, replica: Int, delegate: Iterator[T]) extends Iterator[T] {
-
-    private[this] var count = 0
-    private[this] var first = true
-
-    override def hasNext: Boolean = delegate.hasNext
-
-    override def next(): T = {
-      if (first) {
-        logInfo(partition, replica, s"started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
-        first  = false
-      }
-
-      val value = delegate.next()
-
-      count += 1
-
-      if (!hasNext) {
-        logInfo(partition, replica, s"finished querying $count items on host ${InetAddress.getLocalHost.getHostName}")
-      }
-
-      value
-    }
-  }
 }
 
 private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String)
