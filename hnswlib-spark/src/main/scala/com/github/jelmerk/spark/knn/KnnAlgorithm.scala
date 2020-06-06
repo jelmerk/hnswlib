@@ -2,8 +2,7 @@ package com.github.jelmerk.spark.knn
 
 import java.io.InputStream
 import java.net.InetAddress
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{CountDownLatch, Executors, LinkedBlockingQueue, ThreadLocalRandom, TimeUnit}
+import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
 
 import com.github.jelmerk.knn.ObjectSerializer
 
@@ -27,6 +26,7 @@ import org.apache.spark.sql.types._
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
 import com.github.jelmerk.knn.scalalike._
+import com.github.jelmerk.knn.util.NamedThreadFactory
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
@@ -491,7 +491,13 @@ private[knn] trait KnnModelOps[
 
             private[this] val batchSize = 1000
             private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * parallelism)
-            private[this] val executorService = Executors.newFixedThreadPool(parallelism)
+            private[this] val executorService = new ThreadPoolExecutor(parallelism, parallelism, 0L,
+              TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable], new NamedThreadFactory("searcher-%d")) {
+              override def afterExecute(r: Runnable, t: Throwable): Unit = {
+                super.afterExecute(r, t)
+                Option(t).foreach(e => logError("Error in worker.", e))
+              }
+            }
 
             private[this] val activeWorkers = new CountDownLatch(parallelism)
             Range(0, parallelism).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
@@ -501,7 +507,9 @@ private[knn] trait KnnModelOps[
               else if (queries.synchronized { queries.hasNext }) true
               else {
                 // in theory all workers could have just picked up the last new work but not started processing any of it.
-                activeWorkers.await()
+                if (!activeWorkers.await(2, TimeUnit.MINUTES)) {
+                  throw new IllegalStateException("Workers failed to complete.")
+                }
                 !queue.isEmpty
               }
             }
@@ -547,9 +555,7 @@ private[knn] trait KnnModelOps[
                 }
 
                 work = queries.synchronized {
-                  Iterator.range(0, batchSize).filter(_ => queries.hasNext).foldLeft(List.empty[(TQueryId, TVector)]) { case (acc, _) =>
-                    queries.next() :: acc
-                  }
+                  queries.take(batchSize).toList
                 }
 
                 if (work.nonEmpty) {
