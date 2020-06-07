@@ -6,10 +6,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -105,8 +102,10 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(numThreads,
+        ThreadPoolExecutor executorService = new ThreadPoolExecutor(numThreads, numThreads, 60L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("indexer-%d"));
+        executorService.allowCoreThreadTimeOut(true);
 
         int numItems = items.size();
 

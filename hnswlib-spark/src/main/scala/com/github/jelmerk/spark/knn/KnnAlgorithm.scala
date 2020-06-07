@@ -491,13 +491,14 @@ private[knn] trait KnnModelOps[
 
             private[this] val batchSize = 1000
             private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * parallelism)
-            private[this] val executorService = new ThreadPoolExecutor(parallelism, parallelism, 0L,
-              TimeUnit.MILLISECONDS, new LinkedBlockingQueue[Runnable], new NamedThreadFactory("searcher-%d")) {
+            private[this] val executorService = new ThreadPoolExecutor(parallelism, parallelism, 60L,
+              TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable], new NamedThreadFactory("searcher-%d")) {
               override def afterExecute(r: Runnable, t: Throwable): Unit = {
                 super.afterExecute(r, t)
                 Option(t).foreach(e => logError("Error in worker.", e))
               }
             }
+            executorService.allowCoreThreadTimeOut(true)
 
             private[this] val activeWorkers = new CountDownLatch(parallelism)
             Range(0, parallelism).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
