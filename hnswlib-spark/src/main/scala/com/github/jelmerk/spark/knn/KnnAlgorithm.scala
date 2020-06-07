@@ -10,7 +10,6 @@ import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 import org.apache.spark.{Partitioner, TaskContext}
 import org.apache.spark.internal.Logging
@@ -28,6 +27,7 @@ import org.json4s._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.util.NamedThreadFactory
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
+import com.github.jelmerk.spark.util.SerializableConfiguration
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 import scala.annotation.tailrec
@@ -280,15 +280,16 @@ private[knn] class KnnModelWriter[
 
     val modelOutputDir = instance.outputDir
 
+    val serializableConfiguration = new SerializableConfiguration(sc.hadoopConfiguration)
+
     sc.range(start = 0, end = instance.numPartitions).foreach { partitionId =>
-      val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
-      val fileSystem = FileSystem.get(hadoopConfiguration)
+      val fileSystem = FileSystem.get(serializableConfiguration.value)
 
       val originPath = new Path(modelOutputDir, partitionId.toString)
 
       if (fileSystem.exists(originPath)) {
         val destinationPath = new Path(indicesPath, partitionId.toString)
-        FileUtil.copy(fileSystem, originPath, fileSystem, destinationPath, false, hadoopConfiguration)
+        FileUtil.copy(fileSystem, originPath, fileSystem, destinationPath, false, serializableConfiguration.value)
       }
     }
   }
@@ -455,6 +456,8 @@ private[knn] trait KnnModelOps[
     implicit val encoder: Encoder[TQueryId] = ExpressionEncoder()
     implicit val neighborOrdering: Ordering[Neighbor[TId, TDistance]] = Ordering.by(_.distance)
 
+    val serializableHadoopConfiguration = new SerializableConfiguration(dataset.sparkSession.sparkContext.hadoopConfiguration)
+
     val numPartitionCopies = getNumReplicas + 1
 
     // find the nearest neighbors on each partition (or partition replica)
@@ -483,8 +486,7 @@ private[knn] trait KnnModelOps[
         val partitionId = physicalPartitionId / numPartitionCopies
         val replica = physicalPartitionId % numPartitionCopies
 
-        val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
-        val fileSystem = FileSystem.get(hadoopConfiguration)
+        val fileSystem = FileSystem.get(serializableHadoopConfiguration.value)
 
         val indexPath = new Path(outputDir, partitionId.toString)
 
@@ -740,13 +742,15 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     val sc = dataset.sparkSession
     val sparkContext = sc.sparkContext
 
+    val serializableHadoopConfiguration = new SerializableConfiguration(sparkContext.hadoopConfiguration)
+
     import sc.implicits._
 
     val outputDir = sparkContext.getCheckpointDir
       .map (path => new Path(path,s"${uid}_${System.currentTimeMillis()}").toString)
       .getOrElse(throw new IllegalStateException("Please define checkpoint dir with spark.sparkContext.setCheckpointDir"))
 
-    sparkContext.addSparkListener(new CleanupListener(outputDir))
+    sparkContext.addSparkListener(new CleanupListener(outputDir, serializableHadoopConfiguration))
 
     val items = dataset.select(col(getIdentifierCol).as("id"), col(getFeaturesCol).as("vector"))
 
@@ -775,8 +779,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
           logInfo(partitionId, f"finished indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
-          val fileSystem = FileSystem.get(hadoopConfiguration)
+          val fileSystem = FileSystem.get(serializableHadoopConfiguration.value)
 
           val path = new Path(outputDir, partitionId.toString)
 
@@ -835,10 +838,9 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
       .getOrElse(throw new IllegalArgumentException(s"$name is not a valid distance functions."))
 }
 
-private[knn] class CleanupListener(dir: String) extends SparkListener with Logging {
+private[knn] class CleanupListener(dir: String, serializableConfiguration: SerializableConfiguration) extends SparkListener with Logging {
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
-    val hadoopConfiguration = new Configuration() // should come from sc.hadoopConfiguration but it's not serializable any options ? ..
-    val fileSystem = FileSystem.get(hadoopConfiguration)
+    val fileSystem = FileSystem.get(serializableConfiguration.value)
 
     logInfo(s"Deleting files below $dir")
     fileSystem.delete(new Path(dir), true)
