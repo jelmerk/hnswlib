@@ -15,6 +15,8 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
     queryIdentifierCol = Param(Params._dummy(), "queryIdentifierCol", "the column name for the query identifier",
                                typeConverter=TypeConverters.toString)
 
+    parallelism = Param(Params._dummy(), "parallelism", "number of threads to use", typeConverter=TypeConverters.toInt)
+
     k = Param(Params._dummy(), "k", "number of neighbors to find", typeConverter=TypeConverters.toInt)
 
     numReplicas = Param(Params._dummy(), "numReplicas", "number of index replicas to create when querying", typeConverter=TypeConverters.toInt)
@@ -34,6 +36,12 @@ class _KnnModelParams(HasFeaturesCol, HasPredictionCol):
         Gets the value of queryIdentifierCol or its default value.
         """
         return self.getOrDefault(self.queryIdentifierCol)
+
+    def getParallelism(self):
+        """
+        Gets the value of parallelism or its default value.
+        """
+        return self.getOrDefault(self.parallelism)
 
     def getK(self):
         """
@@ -149,9 +157,9 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
-                 numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                 similarityThreshold=-1.0, outputFormat="full"):
+    def __init__(self, identifierCol="id", queryIdentifierCol=None, parallelism= None, featuresCol="features",
+                 predictionCol="prediction", numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine",
+                 excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
         super(BruteForceSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
@@ -172,6 +180,12 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         Sets the value of :py:attr:`queryIdentifierCol`.
         """
         return self._set(queryIdentifierCol=value)
+
+    def setParallelism(self, value):
+        """
+        Sets the value of :py:attr:`parallelism`.
+        """
+        return self._set(parallelism=value)
 
     def setNumPartitions(self, value):
         """
@@ -216,9 +230,9 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         return self._set(outputFormat=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction",
-                  numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full"):
+    def setParams(self, identifierCol="id", queryIdentifierCol=None, parallelism=None, featuresCol="features",
+                  predictionCol="prediction",numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine",
+                  excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -236,6 +250,12 @@ class BruteForceSimilarityModel(JavaModel, _KnnModelParams, JavaMLReadable, Java
         Sets the value of :py:attr:`queryIdentifierCol`.
         """
         return self._set(queryIdentifierCol=value)
+
+    def setParallelism(self, value):
+        """
+        Sets the value of :py:attr:`parallelism`.
+        """
+        return self._set(parallelism=value)
 
     def setK(self, value):
         """
@@ -275,9 +295,9 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
     """
 
     @keyword_only
-    def __init__(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
-                 efConstruction=200, numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                 similarityThreshold=-1.0, outputFormat="full"):
+    def __init__(self, identifierCol="id", queryIdentifierCol=None, parallelism=None, featuresCol="features",
+                 predictionCol="prediction", m=16, ef=10, efConstruction=200, numPartitions=1, numReplicas=0, k=5,
+                 distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
         super(HnswSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.HnswSimilarity", self.uid)
 
@@ -298,6 +318,12 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         Sets the value of :py:attr:`queryIdentifierCol`.
         """
         return self._set(queryIdentifierCol=value)
+
+    def setParallelism(self, value):
+        """
+        Sets the value of :py:attr:`parallelism`.
+        """
+        return self._set(parallelism=value)
 
     def setNumPartitions(self, value):
         """
@@ -360,9 +386,9 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         return self._set(efConstruction=value)
 
     @keyword_only
-    def setParams(self, identifierCol="id", queryIdentifierCol=None, featuresCol="features", predictionCol="prediction", m=16, ef=10,
-                  efConstruction=200, numPartitions=1, numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False,
-                  similarityThreshold=-1.0, outputFormat="full"):
+    def setParams(self, identifierCol="id", queryIdentifierCol=None, parallelism=None, featuresCol="features",
+                  predictionCol="prediction", m=16, ef=10, efConstruction=200, numPartitions=1, numReplicas=0, k=5,
+                  distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -380,6 +406,12 @@ class HnswSimilarityModel(JavaModel, _HnswModelParams, JavaMLReadable, JavaMLWri
         Sets the value of :py:attr:`queryIdentifierCol`.
         """
         return self._set(queryIdentifierCol=value)
+
+    def setParallelism(self, value):
+        """
+        Sets the value of :py:attr:`parallelism`.
+        """
+        return self._set(parallelism=value)
 
     def setK(self, value):
         """

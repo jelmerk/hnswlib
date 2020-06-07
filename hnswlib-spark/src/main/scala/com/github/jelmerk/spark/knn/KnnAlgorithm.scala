@@ -154,6 +154,17 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   def getNumReplicas: Int = $(numReplicas)
 
   /**
+    * Param that specifies the number of threads to use.
+    * Default: number of processors available to the Java virtual machine
+    *
+    * @group param
+    */
+  val parallelism = new IntParam(this, "parallelism", "number of threads to use")
+
+  /** @group getParam */
+  def getParallelism: Int = $(parallelism)
+
+  /**
     * Param for the output format to produce. One of "full", "minimal" Setting this to minimal is more efficient
     * when all you need is the identifier with its neighbors
     *
@@ -398,6 +409,9 @@ private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[
   def setNumReplicas(value: Int): this.type = set(numReplicas, value)
 
   /** @group setParam */
+  def setParallelism(value: Int): this.type = set(parallelism, value)
+
+  /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
 }
@@ -487,11 +501,11 @@ private[knn] trait KnnModelOps[
             private[this] var first = true
             private[this] var count = 0
 
-            private[this] val parallelism = sys.runtime.availableProcessors
+            private[this] val numThreads = if (isSet(parallelism)) getParallelism else sys.runtime.availableProcessors
 
             private[this] val batchSize = 1000
-            private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * parallelism)
-            private[this] val executorService = new ThreadPoolExecutor(parallelism, parallelism, 60L,
+            private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * numThreads)
+            private[this] val executorService = new ThreadPoolExecutor(numThreads, numThreads, 60L,
               TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable], new NamedThreadFactory("searcher-%d")) {
               override def afterExecute(r: Runnable, t: Throwable): Unit = {
                 super.afterExecute(r, t)
@@ -500,8 +514,8 @@ private[knn] trait KnnModelOps[
             }
             executorService.allowCoreThreadTimeOut(true)
 
-            private[this] val activeWorkers = new CountDownLatch(parallelism)
-            Range(0, parallelism).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
+            private[this] val activeWorkers = new CountDownLatch(numThreads)
+            Range(0, numThreads).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
 
             override def hasNext: Boolean = {
               if (!queue.isEmpty) true
@@ -635,6 +649,9 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   def setNumReplicas(value: Int): this.type = set(numReplicas, value)
 
   /** @group setParam */
+  def setParallelism(value: Int): this.type = set(parallelism, value)
+
+  /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
   override def fit(dataset: Dataset[_]): TModel = {
@@ -745,6 +762,8 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     partitionedIndexItems
       .foreachPartition { it =>
         if (it.hasNext) {
+
+          val numThreads = if (isSet(parallelism)) getParallelism else sys.runtime.availableProcessors
           val partitionId = TaskContext.getPartitionId()
 
           val items = it.toSeq
@@ -752,7 +771,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
           logInfo(partitionId,f"started indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           val index = createIndex[TId, TVector, TItem, TDistance](items.head.dimensions, items.size, distanceFunctionFactory(getDistanceFunction))
-          index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partitionId%04d: Indexed $workDone of $max items"))
+          index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partitionId%04d: Indexed $workDone of $max items"), numThreads = numThreads)
 
           logInfo(partitionId, f"finished indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
