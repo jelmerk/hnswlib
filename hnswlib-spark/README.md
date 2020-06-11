@@ -13,7 +13,9 @@ This does mean you'll have to allocate a lot of cores and memory to the driver.
 
 The alternative to this is to use this module to shard the index across multiple executors 
 and parallelize the indexing / querying. This may be  faster if you have many executors at your disposal and is
-appropriate if your dataset won't fit in the driver memory
+appropriate when your dataset does not fit in the driver memory
+
+Distance functions optimized for use with sparse vectors will automatically be selected when the feature vector of the input dataset is a sparse vector.
 
 Setup
 -----
