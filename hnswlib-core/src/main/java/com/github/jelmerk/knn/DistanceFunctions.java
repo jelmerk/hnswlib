@@ -178,13 +178,13 @@ public final class DistanceFunctions {
          */
         @Override
         public Float distance(float[] u, float[] v) {
-            float distance = 0;
-
+            float sum = 0;
             for (int i = 0; i < u.length; i++) {
-                distance += Math.abs(u[i] - v[i]) / (Math.abs(u[i]) + Math.abs(v[i]));
+                float num = Math.abs(u[i] - v[i]);
+                float denom = Math.abs(u[i]) + Math.abs(v[i]);
+                sum += num == 0.0 && denom == 0.0 ? 0.0 : num / denom;
             }
-
-            return distance;
+            return sum;
         }
     }
 
@@ -385,13 +385,13 @@ public final class DistanceFunctions {
          */
         @Override
         public Double distance(double[] u, double[] v) {
-            double distance = 0;
-
+            double sum = 0;
             for (int i = 0; i < u.length; i++) {
-                distance += Math.abs(u[i] - v[i]) / (Math.abs(u[i]) + Math.abs(v[i]));
+                double num = Math.abs(u[i] - v[i]);
+                double denom = Math.abs(u[i]) + Math.abs(v[i]);
+                sum += num == 0.0 && denom == 0.0 ? 0.0 : num / denom;
             }
-
-            return distance;
+            return sum;
         }
     }
 
