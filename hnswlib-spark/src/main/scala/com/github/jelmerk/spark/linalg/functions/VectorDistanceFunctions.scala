@@ -44,8 +44,8 @@ object VectorDistanceFunctions {
   def brayCurtisDistance(u: Vector, v: Vector): Double = (u, v) match {
     case (ud: DenseVector, vd: DenseVector) => DenseVectorDistanceFunctions.brayCurtisDistance(ud, vd)
     case (us: SparseVector, vs: SparseVector) => SparseVectorDistanceFunctions.brayCurtisDistance(us, vs)
-    case (us: SparseVector, vd: DenseVector) => DenseVectorDistanceFunctions.brayCurtisDistance(us.toDense, vd)
-    case (ud: DenseVector, vs: SparseVector) => DenseVectorDistanceFunctions.brayCurtisDistance(ud, vs.toDense)
+    case (us: SparseVector, vd: DenseVector) => SparseVectorDistanceFunctions.brayCurtisDistance(us, vd.toSparse)
+    case (ud: DenseVector, vs: SparseVector) => SparseVectorDistanceFunctions.brayCurtisDistance(ud.toSparse, vs)
   }
 
   /**
@@ -59,8 +59,8 @@ object VectorDistanceFunctions {
   def canberraDistance(u: Vector, v: Vector): Double = (u, v) match {
     case (ud: DenseVector, vd: DenseVector) => DenseVectorDistanceFunctions.canberraDistance(ud, vd)
     case (us: SparseVector, vs: SparseVector) => SparseVectorDistanceFunctions.canberraDistance(us, vs)
-    case (ud: DenseVector, vs: SparseVector) => DenseVectorDistanceFunctions.canberraDistance(ud, vs.toDense)
-    case (us: SparseVector, vd: DenseVector) => DenseVectorDistanceFunctions.canberraDistance(us.toDense, vd)
+    case (ud: DenseVector, vs: SparseVector) => SparseVectorDistanceFunctions.canberraDistance(ud.toSparse, vs)
+    case (us: SparseVector, vd: DenseVector) => SparseVectorDistanceFunctions.canberraDistance(us, vd.toSparse)
   }
 
   /**
@@ -88,9 +88,9 @@ object VectorDistanceFunctions {
    */
   def euclideanDistance(u: Vector, v: Vector): Double = (u, v) match {
     case (ud: DenseVector, vd: DenseVector) => DenseVectorDistanceFunctions.euclideanDistance(ud, vd)
-    case (us: SparseVector, vd: DenseVector) => DenseVectorDistanceFunctions.euclideanDistance(us.toDense, vd)
+    case (us: SparseVector, vd: DenseVector) => SparseVectorDistanceFunctions.euclideanDistance(us, vd.toSparse)
     case (us: SparseVector, vs: SparseVector) => SparseVectorDistanceFunctions.euclideanDistance(us, vs)
-    case (ud: DenseVector, vs: SparseVector) => DenseVectorDistanceFunctions.euclideanDistance(ud, vs.toDense)
+    case (ud: DenseVector, vs: SparseVector) => SparseVectorDistanceFunctions.euclideanDistance(ud.toSparse, vs)
   }
 
   /**
@@ -104,7 +104,7 @@ object VectorDistanceFunctions {
   def manhattanDistance(u: Vector, v: Vector): Double = (u, v) match {
     case (ud: DenseVector, vd: DenseVector) => DenseVectorDistanceFunctions.manhattanDistance(ud, vd)
     case (us: SparseVector, vs: SparseVector) => SparseVectorDistanceFunctions.manhattanDistance(us, vs)
-    case (ud: DenseVector, vs: SparseVector) => DenseVectorDistanceFunctions.manhattanDistance(ud, vs.toDense)
-    case (us: SparseVector, vd: DenseVector) => DenseVectorDistanceFunctions.manhattanDistance(us.toDense, vd)
+    case (ud: DenseVector, vs: SparseVector) => SparseVectorDistanceFunctions.manhattanDistance(ud.toSparse.toSparse, vs)
+    case (us: SparseVector, vd: DenseVector) => SparseVectorDistanceFunctions.manhattanDistance(us, vd.toSparse)
   }
 }
