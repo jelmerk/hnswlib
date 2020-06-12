@@ -15,7 +15,7 @@ The alternative to this is to use this module to shard the index across multiple
 and parallelize the indexing / querying. This may be  faster if you have many executors at your disposal and is
 appropriate when your dataset does not fit in the driver memory
 
-Distance functions optimized for use with sparse vectors will automatically be selected when the feature vector of the input dataset is a sparse vector.
+Distance functions optimized for use with sparse vectors will automatically be selected base on the input type
 
 Setup
 -----
