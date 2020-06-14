@@ -12,6 +12,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item}
 import com.github.jelmerk.knn.scalalike.hnsw._
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.sql.types.StructType
 
 private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
 
@@ -110,6 +111,8 @@ private[knn] class HnswSimilarityModelImpl[
     val copied = new HnswSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, outputDir, numPartitions)
     copyValues(copied, extra).setParent(parent)
   }
+
+  override def transformSchema(schema: StructType): StructType = typedTransformSchema[TId](schema)
 
   override def write: MLWriter = new KnnModelWriter[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]](this)
 

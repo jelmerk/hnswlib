@@ -88,17 +88,6 @@ private[knn] case class Neighbor[TId, TDistance] (neighbor: TId, distance: TDist
 private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPredictionCol {
 
   /**
-    * Param for the column name for the row identifier.
-    * Default: "id"
-    *
-    * @group param
-    */
-  val identifierCol = new Param[String](this, "identifierCol", "column name for the row identifier")
-
-  /** @group getParam */
-  def getIdentifierCol: String = $(identifierCol)
-
-  /**
     * Param for the column name for the query identifier.
     *
     * @group param
@@ -177,23 +166,21 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   /** @group getParam */
   def getOutputFormat: String = $(outputFormat)
 
-  setDefault(k -> 5, predictionCol -> "prediction", identifierCol -> "id", featuresCol -> "features",
+  setDefault(k -> 5, predictionCol -> "prediction", featuresCol -> "features",
     excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
 
-  protected def validateAndTransformSchema(schema: StructType): StructType = {
-
-    val identifierColSchema = schema(getIdentifierCol)
+  protected def validateAndTransformSchema(schema: StructType, identifierDataType: DataType): StructType = {
 
     val distanceType = schema(getFeaturesCol).dataType match {
       case ArrayType(FloatType, _) => FloatType
       case _ => DoubleType
     }
 
-    val neighborsField = StructField(getPredictionCol, ArrayType(StructType(Seq(StructField("neighbor", identifierColSchema.dataType, identifierColSchema.nullable), StructField("distance", distanceType)))))
+    val neighborsField = StructField(getPredictionCol, ArrayType(StructType(Seq(StructField("neighbor", identifierDataType, nullable = false), StructField("distance", distanceType)))))
 
     getOutputFormat match {
-      case "minimal" => StructType(Array(identifierColSchema, neighborsField))
-
+      case "minimal" if !isSet(queryIdentifierCol) => throw new IllegalArgumentException("queryIdentifierCol must be set when using outputFormat minimal.")
+      case "minimal" => StructType(Array(schema(getQueryIdentifierCol), neighborsField))
       case _ =>
         if (schema.fieldNames.contains(getPredictionCol)) {
           throw new IllegalArgumentException(s"Output column $getPredictionCol already exists.")
@@ -208,6 +195,17 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   * Params for knn algorithms.
   */
 private[knn] trait KnnAlgorithmParams extends KnnModelParams {
+
+  /**
+    * Param for the column name for the row identifier.
+    * Default: "id"
+    *
+    * @group param
+    */
+  val identifierCol = new Param[String](this, "identifierCol", "column name for the row identifier")
+
+  /** @group getParam */
+  def getIdentifierCol: String = $(identifierCol)
 
   /**
     * Number of partitions (default: 1)
@@ -230,8 +228,7 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   /** @group getParam */
   def getDistanceFunction: String = $(distanceFunction)
 
-
-  setDefault(distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
+  setDefault(identifierCol -> "id", distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
 }
 
 /**
@@ -600,7 +597,14 @@ private[knn] trait KnnModelOps[
     else dataset.join(topNeighbors, Seq(queryIdCol))
   }
 
-  override def transformSchema(schema: StructType): StructType = validateAndTransformSchema(schema)
+  protected def typedTransformSchema[T: TypeTag](schema: StructType): StructType = {
+    val idDataType = typeOf[T] match {
+      case t if t =:= typeOf[Int] => IntegerType
+      case t if t =:= typeOf[Long] => LongType
+      case _ => StringType
+    }
+    validateAndTransformSchema(schema, idDataType)
+  }
 
   private def logInfo(partition: Int, replica: Int, message: String): Unit =
     logInfo(f"partition $partition%04d replica $replica%04d: $message")
@@ -679,7 +683,8 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     copyValues(model)
   }
 
-  override def transformSchema(schema: StructType): StructType = validateAndTransformSchema(schema)
+  override def transformSchema(schema: StructType): StructType =
+    validateAndTransformSchema(schema, schema(getIdentifierCol).dataType)
 
   override def copy(extra: ParamMap): Estimator[TModel] = defaultCopy(extra)
 

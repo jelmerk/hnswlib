@@ -11,6 +11,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
 import com.github.jelmerk.knn.scalalike.bruteforce.BruteForceIndex
 import com.github.jelmerk.spark.knn._
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 /**
@@ -55,6 +56,8 @@ private[knn] class BruteForceSimilarityModelImpl[
     val copied = new BruteForceSimilarityModelImpl[TId, TVector, TItem, TDistance](uid, outputDir, numPartitions)
     copyValues(copied, extra).setParent(parent)
   }
+
+  override def transformSchema(schema: StructType): StructType = typedTransformSchema[TId](schema)
 
   override def write: MLWriter = new KnnModelWriter[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]](this)
 
