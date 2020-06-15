@@ -2,7 +2,7 @@ package com.github.jelmerk.spark.knn
 
 import java.io.InputStream
 import java.net.InetAddress
-import java.util.concurrent.{CountDownLatch, LinkedBlockingQueue, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
+import java.util.concurrent.{CountDownLatch, ExecutionException, FutureTask, LinkedBlockingQueue, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
 
 import com.github.jelmerk.knn.ObjectSerializer
 
@@ -31,6 +31,7 @@ import com.github.jelmerk.spark.util.SerializableConfiguration
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 import scala.annotation.tailrec
+import scala.util.control.NonFatal
 
 
 private[knn] case class IntDoubleArrayIndexItem(id: Int, vector: Array[Double]) extends Item[Int, Array[Double]] {
@@ -508,7 +509,21 @@ private[knn] trait KnnModelOps[
               TimeUnit.SECONDS, new LinkedBlockingQueue[Runnable], new NamedThreadFactory("searcher-%d")) {
               override def afterExecute(r: Runnable, t: Throwable): Unit = {
                 super.afterExecute(r, t)
-                Option(t).foreach(e => logError("Error in worker.", e))
+
+                Option(t).orElse {
+                  r match {
+                    case t: FutureTask[_] => Try(t.get()).failed.toOption.map {
+                      case e: ExecutionException => e.getCause
+                      case e: InterruptedException =>
+                        Thread.currentThread().interrupt()
+                        e
+                      case NonFatal(e) => e
+                    }
+                    case _ => None
+                  }
+                }.foreach { e =>
+                  logError("Error in worker.", e)
+                }
               }
             }
             executorService.allowCoreThreadTimeOut(true)
