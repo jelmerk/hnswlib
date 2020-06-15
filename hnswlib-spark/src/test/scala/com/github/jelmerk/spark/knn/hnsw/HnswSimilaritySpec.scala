@@ -7,7 +7,7 @@ import java.util.UUID
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.commons.io.FileUtils
 import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
-import org.apache.spark.{SparkConf, TaskContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
 import org.scalatest.FunSuite
@@ -37,7 +37,6 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-//    .set("spark.kryo.registrator", classOf[HnswLibKryoRegistrator].getName)
 
   test("find neighbors") {
 
@@ -46,11 +45,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
 
     val noSimilarityThreshold = -1.0
 
-    val denseVectorInput = sc.parallelize(Seq(
+    val denseVectorInput = Seq(
       InputRow(1000000, Vectors.dense(0.0110, 0.2341)),
       InputRow(2000000, Vectors.dense(0.2300, 0.3891)),
       InputRow(3000000, Vectors.dense(0.4300, 0.9891))
-    )).toDF()
+    ).toDF()
 
     val denseVectorScenarioValidator: DataFrame => Unit = df => {
       val rows = df.as[FullOutputRow[Int, DenseVector, Double]].collect()
@@ -68,11 +67,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       rows.find(_.id == 3000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(3000000, 2000000, 1000000))
     }
 
-    val sparseVectorInput = sc.parallelize(Seq(
+    val sparseVectorInput = Seq(
       InputRow(1000000, Vectors.sparse(2, Array(0, 1), Array(0.0110, 0.2341))),
       InputRow(2000000, Vectors.sparse(2, Array(0, 1), Array(0.2300, 0.3891))),
       InputRow(3000000, Vectors.sparse(2, Array(0, 1), Array(0.4300, 0.9891)))
-    )).toDF()
+    ).toDF()
 
     val sparseVectorScenarioValidator: DataFrame => Unit = df => {
       val rows = df.as[FullOutputRow[Int, SparseVector, Double]].collect()
@@ -98,11 +97,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       rows.find(_.id == "3000000").toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq("3000000", "2000000", "1000000"))
     }
 
-    val doubleArrayInput = sc.parallelize(Seq(
+    val doubleArrayInput = Seq(
        InputRow(1000000, Array(0.0110, 0.2341)),
        InputRow(2000000, Array(0.2300, 0.3891)),
        InputRow(3000000, Array(0.4300, 0.9891))
-     )).toDF()
+     ).toDF()
 
     val doubleArrayScenarioValidator: DataFrame => Unit = df => {
       val rows = df.as[FullOutputRow[Int, Array[Double], Double]].collect()
@@ -112,11 +111,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       rows.find(_.id == 3000000).toSeq.flatMap(_.neighbors.map(_.neighbor)) should be (Seq(3000000, 2000000, 1000000))
     }
 
-    val floatArrayInput = sc.parallelize(Seq(
+    val floatArrayInput = Seq(
       InputRow("1000000", Array(0.0110f, 0.2341f)),
       InputRow("2000000", Array(0.2300f, 0.3891f)),
       InputRow("3000000", Array(0.4300f, 0.9891f))
-    )).toDF()
+    ).toDF()
 
     val floatArrayScenarioValidator: DataFrame => Unit = df =>
       df.as[FullOutputRow[String, Array[Float], Float]].collect() should contain only (
@@ -178,11 +177,11 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
       .setPredictionCol("neighbors")
       .setOutputFormat("minimal")
 
-    val items = sc.parallelize(Seq(
+    val items = Seq(
       InputRow(1000000, Array(0.0110f, 0.2341f)),
       InputRow(2000000, Array(0.2300f, 0.3891f)),
       InputRow(3000000, Array(0.4300f, 0.9891f))
-    )).toDF()
+    ).toDF()
 
     withTempFolder { folder =>
 
@@ -192,9 +191,9 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
 
       val model = HnswSimilarityModel.load(path)
 
-      val queryItems = sc.parallelize(Seq(
+      val queryItems = Seq(
         InputRow(1000000, Array(0.0110f, 0.2341f))
-      )).toDF()
+      ).toDF()
 
       val results = model.transform(queryItems).as[MinimalOutputRow[Int, Float]].collect()
 

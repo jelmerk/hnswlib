@@ -16,10 +16,10 @@ class KnnSimilarityEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
       .setApproximateNeighborsCol("approximate")
       .setExactNeighborsCol("exact")
 
-    val df = sc.parallelize(Seq(
+    val df = Seq(
       Seq(Neighbor("1", 0.1f), Neighbor("2", 0.2f)) -> Seq(Neighbor("1", 0.1f), Neighbor("2", 0.2f)),
       Seq(Neighbor("3", 0.1f)) -> Seq(Neighbor("3", 0.1f), Neighbor("4", 0.9f))
-    )).toDF("approximate", "exact")
+    ).toDF("approximate", "exact")
 
     evaluator.evaluate(df) should be (0.75)
   }
@@ -32,9 +32,9 @@ class KnnSimilarityEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
       .setApproximateNeighborsCol("approximate")
       .setExactNeighborsCol("exact")
 
-    val df = sc.parallelize(Seq(
+    val df = Seq(
       Seq.empty[Neighbor[Int, Float]] -> Seq.empty[Neighbor[Int, Float]]
-    )).toDF("approximate", "exact")
+    ).toDF("approximate", "exact")
 
     evaluator.evaluate(df) should be (1)
   }
