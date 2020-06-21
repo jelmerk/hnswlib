@@ -13,7 +13,7 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, FloatType, StructField, StructType}
 
 /**
-  * Companion class for VectorTransformer.
+  * Companion class for VectorConverter.
   */
 object VectorConverter extends DefaultParamsReadable[Normalizer] {
   override def load(path: String): Normalizer = super.load(path)

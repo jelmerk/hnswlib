@@ -304,7 +304,7 @@ private[knn] class KnnModelWriter[
 }
 
 /**
-  * Reads a knn model from persistent stotage.
+  * Reads a knn model from persistent storage.
   *
   * @param ev classtag
   * @tparam TModel type of model
@@ -375,7 +375,6 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
     TDistance: TypeTag
   ](uid: String, outputDir: String, numPartitions: Int)
     (implicit ev: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : TModel
-
 
 }
 

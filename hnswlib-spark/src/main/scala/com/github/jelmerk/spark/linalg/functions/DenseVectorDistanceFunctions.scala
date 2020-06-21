@@ -21,7 +21,7 @@ object DenseVectorDistanceFunctions {
    * @param u Left vector.
    * @param v Right vector.
    *
-   * @return Cosine distance between u and v.
+   * @return Inner product between u and v.
    */
   def innerProduct(u: DenseVector, v: DenseVector): Double = doubleInnerProduct(u.values, v.values)
 

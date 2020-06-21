@@ -8,7 +8,8 @@ object VectorDistanceFunctions {
    * Calculates the cosine distance.
    *
    * @param u Left vector.
-   * @param v Right vector.
+   * @param v Right vector
+   *
    * @return Cosine distance between u and v.
    */
   def cosineDistance(u: Vector, v: Vector): Double = (u, v) match {
@@ -24,7 +25,7 @@ object VectorDistanceFunctions {
    * @param u Left vector.
    * @param v Right vector.
    *
-   * @return Cosine distance between u and v.
+   * @return Inner product between u and v.
    */
   def innerProduct(u: Vector, v: Vector): Double = (u, v) match {
     case (ud: DenseVector, vd: DenseVector) => DenseVectorDistanceFunctions.innerProduct(ud, vd)

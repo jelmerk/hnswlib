@@ -27,7 +27,7 @@ object SparseVectorDistanceFunctions {
    * @param u Left vector.
    * @param v Right vector.
    *
-   * @return Cosine distance between u and v.
+   * @return Inner product between u and v.
    */
   def innerProductDistance(u: SparseVector, v: SparseVector): Double = 1 - innerProduct(u, v)
 
