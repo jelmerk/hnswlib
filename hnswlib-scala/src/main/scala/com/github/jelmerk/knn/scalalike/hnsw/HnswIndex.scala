@@ -13,6 +13,7 @@ object HnswIndex {
     * Restores a [[HnswIndex]] from an InputStream.
     *
     * @param inputStream InputStream to restore the index from
+    * @param classLoader the classloader to use
     *
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
@@ -20,13 +21,15 @@ object HnswIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
-    : HnswIndex[TId, TVector, TItem, TDistance] = new HnswIndex(JHnswIndex.load(inputStream))
+  def loadFromInputStream[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream,
+                                                                                 classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
+    : HnswIndex[TId, TVector, TItem, TDistance] = new HnswIndex(JHnswIndex.load(inputStream, classLoader))
 
   /**
     * Restores a [[HnswIndex]] from a File.
     *
     * @param file File to read from
+    * @param classLoader the classloader to use
     *
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
@@ -34,9 +37,10 @@ object HnswIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File)
+  def loadFromFile[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File,
+                                                                          classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
     : HnswIndex[TId, TVector, TItem, TDistance] =
-      new HnswIndex(JHnswIndex.load(file))
+      new HnswIndex(JHnswIndex.load(file, classLoader))
 
   /**
     * Restores a [[HnswIndex]] from a Path.
@@ -49,9 +53,10 @@ object HnswIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path)
+  def loadFromPath[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path,
+                                                                          classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
     : HnswIndex[TId, TVector, TItem, TDistance] =
-      new HnswIndex(JHnswIndex.load(path))
+      new HnswIndex(JHnswIndex.load(path, classLoader))
 
   /**
     * Construct a new [[HnswIndex]].

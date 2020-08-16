@@ -843,6 +843,23 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Restores a {@link HnswIndex} from a File.
+     *
+     * @param file        File to restore the index from
+     * @param classLoader the classloader to use
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @return The restored index
+     * @throws IOException in case of an I/O exception
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(File file, ClassLoader classLoader)
+            throws IOException {
+        return load(new FileInputStream(file), classLoader);
+    }
+
+    /**
      * Restores a {@link HnswIndex} from a Path.
      *
      * @param path        Path to restore the index from
@@ -859,6 +876,24 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
+     * Restores a {@link HnswIndex} from a Path.
+     *
+     * @param path        Path to restore the index from
+     * @param classLoader the classloader to use
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     *
+     * @return The restored index
+     * @throws IOException in case of an I/O exception
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(Path path, ClassLoader classLoader)
+            throws IOException {
+        return load(Files.newInputStream(path), classLoader);
+    }
+
+    /**
      * Restores a {@link HnswIndex} from an InputStream.
      *
      * @param inputStream InputStream to restore the index from
@@ -870,11 +905,29 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @throws IOException              in case of an I/O exception
      * @throws IllegalArgumentException in case the file cannot be read
      */
-    @SuppressWarnings("unchecked")
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream)
             throws IOException {
+        return load(inputStream, Thread.currentThread().getContextClassLoader());
+    }
 
-        try (ObjectInputStream ois = new ObjectInputStream(inputStream)) {
+    /**
+     * Restores a {@link HnswIndex} from an InputStream.
+     *
+     * @param inputStream InputStream to restore the index from
+     * @param classLoader the classloader to use
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ...).
+     * @return The restored index
+     * @throws IOException              in case of an I/O exception
+     * @throws IllegalArgumentException in case the file cannot be read
+     */
+    @SuppressWarnings("unchecked")
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream, ClassLoader classLoader)
+            throws IOException {
+
+        try(ObjectInputStream ois = new ClassLoaderObjectInputStream(classLoader, inputStream)) {
             return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);

@@ -175,7 +175,7 @@ class HnswIndexSpec extends AnyFunSuite {
 
     index.save(baos)
 
-    val loaded = HnswIndex.load[String, Array[Float], TestItem, Float](new ByteArrayInputStream(baos.toByteArray))
+    val loaded = HnswIndex.loadFromInputStream[String, Array[Float], TestItem, Float](new ByteArrayInputStream(baos.toByteArray))
 
     loaded.size should be (1)
   }

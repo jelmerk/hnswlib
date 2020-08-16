@@ -117,7 +117,7 @@ private[knn] class HnswSimilarityModelImpl[
   override def write: MLWriter = new KnnModelWriter[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]](this)
 
   override protected def loadIndex(in: InputStream): HnswIndex[TId, TVector, TItem, TDistance] = {
-    val index = HnswIndex.load[TId, TVector, TItem, TDistance](in)
+    val index = HnswIndex.loadFromInputStream[TId, TVector, TItem, TDistance](in)
     index.ef = getEf
     index
   }

@@ -14,6 +14,7 @@ object BruteForceIndex {
     * Restores a BruteForceIndex from an InputStream.
     *
     * @param inputStream InputStream to restore the index from
+    * @param classLoader the classloader to use
     *
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
@@ -21,14 +22,16 @@ object BruteForceIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream)
+  def loadFromInputStream[TId,  TVector, TItem <: Item[TId, TVector], TDistance](inputStream: InputStream,
+                                                                                 classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
     : BruteForceIndex[TId, TVector, TItem, TDistance] =
-      new BruteForceIndex(JBruteForceIndex.load(inputStream))
+      new BruteForceIndex(JBruteForceIndex.load(inputStream, classLoader))
 
   /**
     * Restores a BruteForceIndex from a File.
     *
     * @param file File to read from
+    * @param classLoader the classloader to use
     *
     * @tparam TId Type of the external identifier of an item
     * @tparam TVector Type of the vector to perform distance calculation on
@@ -36,12 +39,14 @@ object BruteForceIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File)
+  def loadFromFile[TId,  TVector, TItem <: Item[TId, TVector], TDistance](file: File,
+                                                                          classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
     : BruteForceIndex[TId, TVector, TItem, TDistance] =
-      new BruteForceIndex(JBruteForceIndex.load(file))
+      new BruteForceIndex(JBruteForceIndex.load(file, classLoader))
 
   /**
     * Restores a BruteForceIndex from a Path.
+    * @param classLoader the classloader to use
     *
     * @param path Path to read from
     *
@@ -51,9 +56,10 @@ object BruteForceIndex {
     * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
     * @return The restored index
     */
-  def load[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path)
+  def loadFromPath[TId,  TVector, TItem <: Item[TId, TVector], TDistance](path: Path,
+                                                                          classLoader: ClassLoader = Thread.currentThread.getContextClassLoader)
     : BruteForceIndex[TId, TVector, TItem, TDistance] =
-      new BruteForceIndex(JBruteForceIndex.load(path))
+      new BruteForceIndex(JBruteForceIndex.load(path, classLoader))
 
   /**
     * Construct a new [[BruteForceIndex]].

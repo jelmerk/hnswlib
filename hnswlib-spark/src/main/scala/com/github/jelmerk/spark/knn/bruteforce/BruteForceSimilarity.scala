@@ -62,7 +62,7 @@ private[knn] class BruteForceSimilarityModelImpl[
   override def write: MLWriter = new KnnModelWriter[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]](this)
 
   override protected def loadIndex(in: InputStream): BruteForceIndex[TId, TVector, TItem, TDistance] =
-    BruteForceIndex.load[TId, TVector, TItem, TDistance](in)
+    BruteForceIndex.loadFromInputStream[TId, TVector, TItem, TDistance](in)
 
 }
 
