@@ -22,9 +22,9 @@ Setup
 
 Pass the following argument to spark
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.44'
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.46'
 
-Example usage 
+Example usage
 -------------
 
 Basic:
