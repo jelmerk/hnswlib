@@ -8,7 +8,6 @@ import java.nio.file.Path;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -99,9 +98,6 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     default void addAll(Collection<TItem> items, int numThreads, ProgressListener listener, int progressUpdateInterval)
             throws InterruptedException {
-
-        AtomicReference<RuntimeException> throwableHolder = new AtomicReference<>();
-
         ThreadPoolExecutor executorService = new ThreadPoolExecutor(numThreads, numThreads, 60L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
                 new NamedThreadFactory("indexer-%d"));
@@ -113,38 +109,30 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         try {
             Queue<TItem> queue = new LinkedBlockingDeque<>(items);
-
-            CountDownLatch latch = new CountDownLatch(numThreads);
+            List<Future<?>> futures = new ArrayList<>();
 
             for (int threadId = 0; threadId < numThreads; threadId++) {
-
-                executorService.submit(() -> {
+                futures.add(executorService.submit(() -> {
                     TItem item;
-                    while(throwableHolder.get() == null && (item = queue.poll()) != null) {
-                        try {
-                            add(item);
+                    while((item = queue.poll()) != null) {
+                        add(item);
 
-                            int done = workDone.incrementAndGet();
-
-                            if (done % progressUpdateInterval == 0 || numItems == done) {
-                                listener.updateProgress(done, items.size());
-                            }
-
-                        } catch (RuntimeException t) {
-                            throwableHolder.set(t);
+                        int done = workDone.incrementAndGet();
+                        if (done % progressUpdateInterval == 0 || numItems == done) {
+                            listener.updateProgress(done, items.size());
                         }
                     }
-
-                    latch.countDown();
-                });
+                }));
             }
 
-            latch.await();
-
-            RuntimeException throwable = throwableHolder.get();
-
-            if (throwable != null) {
-                throw throwable;
+            for(Future<?> future : futures) {
+                try {
+                    future.get();
+                } catch (ExecutionException e) {
+                    Throwable cause = e.getCause();
+                    if(cause instanceof RuntimeException)
+                        throw (RuntimeException) cause;
+                }
             }
 
         } finally {
