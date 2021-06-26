@@ -129,7 +129,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 try {
                     future.get();
                 } catch (ExecutionException e) {
-                    throw new IndexNestedException("An exception was thrown by one of the threads.", e.getCause());
+                    throw new UncategorizedIndexException("An exception was thrown by one of the threads.", e.getCause());
                 }
             }
 
