@@ -244,11 +244,15 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                 return false;
             }
 
-            if (nodeCount >= this.maxItemCount) {
+            if (nodeCount >= this.maxItemCount && existingNodeId == NO_NODE_ID) {
                 throw new SizeLimitExceededException("The number of elements exceeds the specified limit.");
             }
-
-            int newNodeId = nodeCount++;
+            
+            int newNodeId = existingNodeId;
+            
+            if (existingNodeId == NO_NODE_ID) {
+            	newNodeId = nodeCount++;
+            }
 
             excludedCandidates.add(newNodeId);
 
