@@ -108,7 +108,7 @@ public interface Index<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         AtomicInteger workDone = new AtomicInteger();
 
         try {
-            Queue<TItem> queue = new LinkedBlockingDeque<>(items);
+            Queue<TItem> queue = new LinkedBlockingQueue<>(items);
             List<Future<?>> futures = new ArrayList<>();
 
             for (int threadId = 0; threadId < numThreads; threadId++) {
