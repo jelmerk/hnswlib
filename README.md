@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/jelmerk/hnswlib.svg?branch=master)](https://travis-ci.org/jelmerk/hnswlib)
+[![Build Status](https://travis-ci.com/jelmerk/hnswlib.svg?branch=master)](https://travis-ci.com/jelmerk/hnswlib)
 
 Hnswlib
 =======
