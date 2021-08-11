@@ -18,12 +18,6 @@
     <dependencies>
 
         <dependency>
-            <groupId>com.stepstone.search.hnswlib.jna</groupId>
-            <artifactId>hnswlib-jna</artifactId>
-            <version>1.3.0</version>
-        </dependency>
-
-        <dependency>
             <groupId>org.eclipse.collections</groupId>
             <artifactId>eclipse-collections</artifactId>
         </dependency>
