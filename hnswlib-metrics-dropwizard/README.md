@@ -1,4 +1,4 @@
-[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.jelmerk/hnswlib-metrics-dropwizard/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.jelmerk/hnswlib-metrics-dropwizard) [![Javadoc](http://javadoc-badge.appspot.com/com.github.jelmerk/hnswlib-metrics-dropwizard.svg?label=javadoc)](http://javadoc-badge.appspot.com/com.github.jelmerk/hnswlib-metrics-dropwizard)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.jelmerk/hnswlib-metrics-dropwizard/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.jelmerk/hnswlib-metrics-dropwizard) [![Javadoc](https://javadoc.io/badge2/com.github.jelmerk/hnswlib-metrics-dropwizard/javadoc.svg)](https://javadoc.io/doc/com.github.jelmerk/hnswlib-metrics-dropwizard)
 
 hnswlib-metrics-dropwizard
 ==========================
