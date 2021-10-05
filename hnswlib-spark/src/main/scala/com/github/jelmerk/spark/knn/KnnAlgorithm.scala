@@ -10,7 +10,7 @@ import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
-import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
+import org.apache.hadoop.fs.{FileUtil, Path}
 import org.apache.spark.{Partitioner, TaskContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.{Estimator, Model}
@@ -281,13 +281,13 @@ private[knn] class KnnModelWriter[
     val serializableConfiguration = new SerializableConfiguration(sc.hadoopConfiguration)
 
     sc.range(start = 0, end = instance.numPartitions).foreach { partitionId =>
-      val fileSystem = FileSystem.get(serializableConfiguration.value)
-
       val originPath = new Path(modelOutputDir, partitionId.toString)
+      val originFileSystem = originPath.getFileSystem(serializableConfiguration.value)
 
-      if (fileSystem.exists(originPath)) {
+      if (originFileSystem.exists(originPath)) {
         val destinationPath = new Path(indicesPath, partitionId.toString)
-        FileUtil.copy(fileSystem, originPath, fileSystem, destinationPath, false, serializableConfiguration.value)
+        val destinationFileSystem = destinationPath.getFileSystem(serializableConfiguration.value)
+        FileUtil.copy(originFileSystem, originPath, destinationFileSystem, destinationPath, false, serializableConfiguration.value)
       }
     }
   }
@@ -483,9 +483,9 @@ private[knn] trait KnnModelOps[
         val partitionId = physicalPartitionId / numPartitionCopies
         val replica = physicalPartitionId % numPartitionCopies
 
-        val fileSystem = FileSystem.get(serializableHadoopConfiguration.value)
-
         val indexPath = new Path(outputDir, partitionId.toString)
+
+        val fileSystem = indexPath.getFileSystem(serializableHadoopConfiguration.value)
 
         if (!fileSystem.exists(indexPath)) Iterator.empty
         else {
@@ -798,9 +798,8 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
           logInfo(partitionId, f"finished indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          val fileSystem = FileSystem.get(serializableHadoopConfiguration.value)
-
           val path = new Path(outputDir, partitionId.toString)
+          val fileSystem = path.getFileSystem(serializableHadoopConfiguration.value)
 
           val outputStream = fileSystem.create(path)
 
@@ -859,10 +858,12 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
 private[knn] class CleanupListener(dir: String, serializableConfiguration: SerializableConfiguration) extends SparkListener with Logging {
   override def onApplicationEnd(applicationEnd: SparkListenerApplicationEnd): Unit = {
-    val fileSystem = FileSystem.get(serializableConfiguration.value)
+
+    val path = new Path(dir)
+    val fileSystem = path.getFileSystem(serializableConfiguration.value)
 
     logInfo(s"Deleting files below $dir")
-    fileSystem.delete(new Path(dir), true)
+    fileSystem.delete(path, true)
   }
 }
 
