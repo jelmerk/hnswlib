@@ -14,6 +14,10 @@ import org.scalatest.FunSuite
 import org.scalatest.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
+case class PrePartitionedInputRow[TId, TVector](partition: Int, id: TId, vector: TVector)
+
+case class QueryRow[TId, TVector](partitions: Seq[Int], id: TId, vector: TVector)
+
 case class InputRow[TId, TVector](id: TId, vector: TVector)
 
 case class Neighbor[TId, TDistance](neighbor: TId, distance: TDistance)
@@ -37,6 +41,41 @@ class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf
     .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+
+  test("prepartitioned data") {
+
+    val sqlCtx = sqlContext
+    import sqlCtx.implicits._
+
+    val hnsw = new HnswSimilarity()
+      .setIdentifierCol("id")
+      .setQueryIdentifierCol("id")
+      .setFeaturesCol("vector")
+      .setPartitionCol("partition")
+      .setQueryPartitionsCol("partitions")
+      .setNumPartitions(2)
+      .setNumReplicas(3)
+      .setK(10)
+
+    val indexItems = Seq(
+      PrePartitionedInputRow(partition = 0, id = 1000000, vector = Vectors.dense(0.0110, 0.2341)),
+      PrePartitionedInputRow(partition = 0, id = 2000000, vector = Vectors.dense(0.2300, 0.3891)),
+      PrePartitionedInputRow(partition = 1, id = 3000000, vector = Vectors.dense(0.4300, 0.9891))
+    ).toDF()
+
+    val model = hnsw.fit(indexItems).setPredictionCol("neighbors").setEf(10)
+
+    val queries = Seq(
+      QueryRow(partitions = Seq(0), id = 123, vector = Vectors.dense(0.2400, 0.3891))
+    ).toDF()
+
+    val result = model.transform(queries)
+      .as[FullOutputRow[Int, DenseVector, Double]]
+      .collect()
+      .head
+
+    result.neighbors.size should be (2) // it couldn't see 3000000 because we only query partition 0
+  }
 
   test("find neighbors") {
 

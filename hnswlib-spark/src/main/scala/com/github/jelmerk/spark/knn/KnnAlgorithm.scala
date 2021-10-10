@@ -99,6 +99,16 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
   def getQueryIdentifierCol: String = $(queryIdentifierCol)
 
   /**
+   * Param for the column name for the query partitions.
+   *
+   * @group param
+   */
+  val queryPartitionsCol = new Param[String](this, "queryPartitionsCol", "column name for the query partitions")
+
+  /** @group getParam */
+  def getQueryPartitionsCol: String = $(queryPartitionsCol)
+
+  /**
     * Param for number of neighbors to find (> 0).
     * Default: 5
     *
@@ -224,10 +234,15 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
     *
     * @group param
     */
-  val distanceFunction = new Param[String](this, "distanceFunction", "column names for returned neighbors")
+  val distanceFunction = new Param[String](this, "distanceFunction", "distance function to use")
 
   /** @group getParam */
   def getDistanceFunction: String = $(distanceFunction)
+
+  val partitionCol = new Param[String](this, "partitionCol", "column name for the partition identifier")
+
+  /** @group getParam */
+  def getPartitionCol: String = $(partitionCol)
 
   setDefault(identifierCol -> "id", distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
 }
@@ -389,6 +404,9 @@ private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[
   def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
 
   /** @group setParam */
+  def setQueryPartitionsCol(value: String): this.type = set(queryPartitionsCol, value)
+
+  /** @group setParam */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
 
   /** @group setParam */
@@ -455,23 +473,44 @@ private[knn] trait KnnModelOps[
 
     val serializableHadoopConfiguration = new SerializableConfiguration(dataset.sparkSession.sparkContext.hadoopConfiguration)
 
+    // construct the queries to the distributed indices. when query partitions are specified we only query those partitions
+    // otherwise we query all partitions
+    val logicalPartitionAndQueries =
+      if (isDefined(queryPartitionsCol)) dataset
+        .select(
+          col(getQueryPartitionsCol),
+          col(queryIdCol),
+          col(getFeaturesCol)
+        )
+        .as[(Seq[Int], TQueryId, TVector)]
+        .rdd
+        .flatMap { case (queryPartitions, queryId, vector) =>
+          queryPartitions.map { partition => (partition, (queryId, vector)) }
+        }
+      else dataset
+        .select(
+          col(queryIdCol),
+          col(getFeaturesCol)
+        )
+        .as[(TQueryId, TVector)]
+        .rdd
+        .flatMap { case (queryId, vector) =>
+          Range(0, numPartitions).map { partition =>
+            (partition, (queryId, vector))
+          }
+        }
+
     val numPartitionCopies = getNumReplicas + 1
 
-    // find the nearest neighbors on each partition (or partition replica)
-
-    val neighborsOnAllShards = dataset.select(col(queryIdCol), col(getFeaturesCol))
-      .as[(TQueryId, TVector)]
-      // copy the the query row num partitions times and make sure that each copy ends up on its own partition
-      // when using replicas a random replica is selected
-      .flatMap { case (queryId, vector) =>
-        Range(0, numPartitions).map { partition =>
-          val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
-          val physicalPartition = (partition * numPartitionCopies) + randomCopy
-          (physicalPartition, (queryId, vector))
-        }
+    val physicalPartitionAndQueries = logicalPartitionAndQueries
+      .map { case (partition, (queryId, vector)) =>
+        val randomCopy = ThreadLocalRandom.current().nextInt(numPartitionCopies)
+        val physicalPartition = (partition * numPartitionCopies) + randomCopy
+        (physicalPartition, (queryId, vector))
       }
-      .rdd
       .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
+
+    val neighborsOnAlllQueryPartitions = physicalPartitionAndQueries
       .mapPartitions { queriesWithPartition =>
 
         val queries = queriesWithPartition.map(_._2)
@@ -480,19 +519,19 @@ private[knn] trait KnnModelOps[
 
         val physicalPartitionId = TaskContext.getPartitionId()
 
-        val partitionId = physicalPartitionId / numPartitionCopies
+        val logicalPartitionId = physicalPartitionId / numPartitionCopies
         val replica = physicalPartitionId % numPartitionCopies
 
-        val indexPath = new Path(outputDir, partitionId.toString)
+        val indexPath = new Path(outputDir, logicalPartitionId.toString)
 
         val fileSystem = indexPath.getFileSystem(serializableHadoopConfiguration.value)
 
         if (!fileSystem.exists(indexPath)) Iterator.empty
         else {
 
-          logInfo(partitionId, replica, s"started loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(logicalPartitionId, replica, s"started loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
           val index = loadIndex(fileSystem.open(indexPath))
-          logInfo(partitionId, replica, s"finished loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(logicalPartitionId, replica, s"finished loading index from $indexPath on host ${InetAddress.getLocalHost.getHostName}")
 
           // execute queries in parallel on multiple threads
           new Iterator[(TQueryId, Seq[Neighbor[TId, TDistance]])] {
@@ -544,7 +583,7 @@ private[knn] trait KnnModelOps[
 
             override def next(): (TQueryId, Seq[Neighbor[TId, TDistance]]) = {
               if (first) {
-                logInfo(partitionId, replica, s"started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
+                logInfo(logicalPartitionId, replica, s"started querying on host ${InetAddress.getLocalHost.getHostName} with ${sys.runtime.availableProcessors} available processors.")
                 first  = false
               }
 
@@ -553,7 +592,7 @@ private[knn] trait KnnModelOps[
               count += 1
 
               if (!hasNext) {
-                logInfo(partitionId, replica, s"finished querying $count items on host ${InetAddress.getLocalHost.getHostName}")
+                logInfo(logicalPartitionId, replica, s"finished querying $count items on host ${InetAddress.getLocalHost.getHostName}")
 
                 executorService.shutdown()
               }
@@ -599,7 +638,7 @@ private[knn] trait KnnModelOps[
 
     // take the best k results from all partitions
 
-    val topNeighbors = neighborsOnAllShards
+    val topNeighbors = neighborsOnAlllQueryPartitions
       .groupByKey { case (queryId, _) => queryId }
       .flatMapGroups { case (queryId, groups) =>
         val allNeighbors = groups.flatMap { case (_, neighbors) => neighbors}.toList
@@ -643,6 +682,12 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
   /** @group setParam */
   def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
+
+  /** @group setParam */
+  def setPartitionCol(value: String): this.type = set(partitionCol, value)
+
+  /** @group setParam */
+  def setQueryPartitionsCol(value: String): this.type = set(queryPartitionsCol, value)
 
   /** @group setParam */
   def setFeaturesCol(value: String): this.type = set(featuresCol, value)
@@ -771,13 +816,27 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
     sparkContext.addSparkListener(new CleanupListener(outputDir, serializableHadoopConfiguration))
 
-    val items = dataset.select(col(getIdentifierCol).as("id"), col(getFeaturesCol).as("vector"))
-
     // read the id and vector from the input dataset and and repartition them over numPartitions amount of partitions.
-
-    val partitionedIndexItems = items
-      .repartition(getNumPartitions, $"id")
-      .as[TItem]
+    // if the data is pre-partitioned by the user repartition the input data by the user defined partition key, use a
+    // hash of the item id otherwise.
+    val partitionedIndexItems = {
+      if (isDefined(partitionCol)) dataset
+        .select(
+          col(getPartitionCol).as("partition"),
+          struct(col(getIdentifierCol).as("id"), col(getFeaturesCol).as("vector"))
+        )
+        .as[(Int, TItem)]
+        .rdd
+        .partitionBy(new PartitionIdPassthrough(getNumPartitions))
+        .values
+        .toDS
+      else dataset
+        .select(
+          col(getIdentifierCol).as("id"),
+          col(getFeaturesCol).as("vector"))
+        .as[TItem]
+        .repartition(getNumPartitions, $"id")
+    }
 
     // On each partition collect all the items into memory and construct the HNSW indices.
     // Save these indices to the hadoop filesystem
