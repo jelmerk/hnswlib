@@ -3,6 +3,8 @@ package com.github.jelmerk.knn.scalalike.hnsw
 import java.io.{File, InputStream}
 import java.nio.file.Path
 
+import scala.collection.JavaConverters._
+
 import com.github.jelmerk.knn.JavaObjectSerializer
 import com.github.jelmerk.knn.hnsw.{HnswIndex => JHnswIndex}
 import com.github.jelmerk.knn.scalalike._
@@ -194,5 +196,14 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
     * Searches will be really slow but give the correct result every time.
     */
   def asExactIndex: Index[TId, TVector, TItem, TDistance] = new ScalaIndexAdapter(delegate.asExactIndex())
+
+  /**
+   * Get the connections of an item in the HNSW graph at the specified level.
+   *
+   * @param id unique identifier or the item to find the closest connections
+   * @param level the level
+   * @return the connections of an item in the HNSW graph at the specified level
+   */
+  def connections(id: TId, level: Int): Iterable[TItem] = delegate.connections(id, level).asScala
 
 }

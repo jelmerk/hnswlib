@@ -178,6 +178,17 @@ class HnswIndexTest {
     }
 
     @Test
+    void fetchConnectionsAtLevel() {
+        index.add(item1);
+        index.add(item2);
+        index.add(item3);
+
+        Collection<TestItem> connections = index.connections(item1.id(), 0);
+
+        assertThat(connections.size(), is(2));
+    }
+
+    @Test
     void findNeighbors() throws InterruptedException {
         index.addAll(Arrays.asList(item1, item2, item3));
 

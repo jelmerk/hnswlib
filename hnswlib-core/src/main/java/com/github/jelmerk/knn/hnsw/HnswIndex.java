@@ -4,6 +4,7 @@ package com.github.jelmerk.knn.hnsw;
 import com.github.jelmerk.knn.*;
 import com.github.jelmerk.knn.util.*;
 import com.github.jelmerk.knn.util.BitSet;
+import org.eclipse.collections.api.block.function.primitive.IntToObjectFunction;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
@@ -607,7 +608,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     /**
-     * Creates a read only view on top of this index that uses pairwise comparision when doing distance search. And as
+     * Creates a read only view on top of this index that uses pairwise comparison when doing distance search. And as
      * such can be used as a baseline for assessing the precision of the index.
      * Searches will be really slow but give the correct result every time.
      *
@@ -615,6 +616,27 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     public Index<TId, TVector, TItem, TDistance> asExactIndex() {
         return exactView;
+    }
+
+    /**
+     * Get the connections of an item in the HNSW graph at the specified level. 
+     * 
+     * @param id unique identifier or the item to find the closest connections 
+     * @param level the level
+     * @return the connections of an item in the HNSW graph at the specified level
+     */
+    public Collection<TItem> connections(TId id, int level) {
+        globalLock.lock();
+        try {
+            int nodeId = lookup.getOrThrow(id);
+            Node<TItem> node = nodes.get(nodeId);
+
+            return level > node.maxLevel() ? Collections.emptyList() 
+                    : node.connections[level]
+                    .collect((IntToObjectFunction<TItem>) currentNodeId -> nodes.get(currentNodeId).item);
+        } finally {
+            globalLock.unlock();
+        }
     }
 
     /**
