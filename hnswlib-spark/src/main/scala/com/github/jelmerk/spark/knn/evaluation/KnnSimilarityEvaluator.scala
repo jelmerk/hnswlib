@@ -32,17 +32,17 @@ class KnnSimilarityEvaluator(override val uid: String) extends Evaluator with De
     *
     * @group param
     */
-  val approximateNeighborsCol = new Param[String](this, "approximateNeighborsCol", "column containing the approximate neighbors")
+  final val approximateNeighborsCol = new Param[String](this, "approximateNeighborsCol", "column containing the approximate neighbors")
 
   /**
     * @group getParam
     */
-  def getApproximateNeighborsCol: String = $(approximateNeighborsCol)
+  final def getApproximateNeighborsCol: String = $(approximateNeighborsCol)
 
   /**
     * @group setParam
     */
-  def setApproximateNeighborsCol(value: String): this.type = set(approximateNeighborsCol, value)
+  final def setApproximateNeighborsCol(value: String): this.type = set(approximateNeighborsCol, value)
 
   /**
     * Param for the column name for the exact results.
@@ -50,17 +50,17 @@ class KnnSimilarityEvaluator(override val uid: String) extends Evaluator with De
     *
     * @group param
     */
-  val exactNeighborsCol = new Param[String](this, "exactNeighborsCol", "column containing the exact neighbors")
+  final val exactNeighborsCol = new Param[String](this, "exactNeighborsCol", "column containing the exact neighbors")
 
   /**
     * @group getParam
     */
-  def getExactNeighborsCol: String = $(exactNeighborsCol)
+  final def getExactNeighborsCol: String = $(exactNeighborsCol)
 
   /**
     * @group setParam
     */
-  def setExactNeighborsCol(value: String): this.type = set(exactNeighborsCol, value)
+  final def setExactNeighborsCol(value: String): this.type = set(exactNeighborsCol, value)
 
   /**
     * Returns the accuracy of the approximate results.

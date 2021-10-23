@@ -23,11 +23,11 @@ private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
     *
     * @group param
     */
-  val m = new IntParam(this, "m",
+  final val m = new IntParam(this, "m",
     "number of bi-directional links created for every new element during construction", ParamValidators.gt(0))
 
   /** @group getParam */
-  def getM: Int = $(m)
+  final def getM: Int = $(m)
 
   /**
     * Has the same meaning as ef, but controls the index time / index precision.
@@ -35,11 +35,11 @@ private[hnsw] trait HnswParams extends KnnAlgorithmParams with HnswModelParams {
     *
     * @group param
     */
-  val efConstruction = new IntParam(this, "efConstruction",
+  final val efConstruction = new IntParam(this, "efConstruction",
     "has the same meaning as ef, but controls the index time / index precision", ParamValidators.gt(0))
 
   /** @group getParam */
-  def getEfConstruction: Int = $(efConstruction)
+  final def getEfConstruction: Int = $(efConstruction)
 
   setDefault(m -> 16, efConstruction -> 200)
 }
@@ -55,11 +55,11 @@ private[hnsw] trait HnswModelParams extends KnnModelParams {
     *
     * @group param
     */
-  val ef = new IntParam(this, "ef",
+  final val ef = new IntParam(this, "ef",
     "size of the dynamic list for the nearest neighbors (used during the search)", ParamValidators.gt(0))
 
   /** @group getParam */
-  def getEf: Int = $(ef)
+  final def getEf: Int = $(ef)
 
   setDefault(ef -> 10)
 }

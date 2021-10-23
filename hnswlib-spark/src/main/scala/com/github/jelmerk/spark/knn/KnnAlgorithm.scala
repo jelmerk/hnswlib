@@ -93,20 +93,20 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val queryIdentifierCol = new Param[String](this, "queryIdentifierCol", "column name for the query identifier")
+  final val queryIdentifierCol = new Param[String](this, "queryIdentifierCol", "column name for the query identifier")
 
   /** @group getParam */
-  def getQueryIdentifierCol: String = $(queryIdentifierCol)
+  final def getQueryIdentifierCol: String = $(queryIdentifierCol)
 
   /**
    * Param for the column name for the query partitions.
    *
    * @group param
    */
-  val queryPartitionsCol = new Param[String](this, "queryPartitionsCol", "column name for the query partitions")
+  final val queryPartitionsCol = new Param[String](this, "queryPartitionsCol", "column name for the query partitions")
 
   /** @group getParam */
-  def getQueryPartitionsCol: String = $(queryPartitionsCol)
+  final def getQueryPartitionsCol: String = $(queryPartitionsCol)
 
   /**
     * Param for number of neighbors to find (> 0).
@@ -114,10 +114,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val k = new IntParam(this, "k", "number of neighbors to find", ParamValidators.gt(0))
+  final val k = new IntParam(this, "k", "number of neighbors to find", ParamValidators.gt(0))
 
   /** @group getParam */
-  def getK: Int = $(k)
+  final def getK: Int = $(k)
 
   /**
     * Param that indicates whether to not return the a candidate when it's identifier equals the query identifier
@@ -125,10 +125,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val excludeSelf = new BooleanParam(this, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
+  final val excludeSelf = new BooleanParam(this, "excludeSelf", "whether to include the row identifier as a candidate neighbor")
 
   /** @group getParam */
-  def getExcludeSelf: Boolean = $(excludeSelf)
+  final def getExcludeSelf: Boolean = $(excludeSelf)
 
   /**
     * Param for the threshold value for inclusion. -1 indicates no threshold
@@ -136,10 +136,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val similarityThreshold = new DoubleParam(this, "similarityThreshold", "do not return neighbors further away than this distance")
+  final val similarityThreshold = new DoubleParam(this, "similarityThreshold", "do not return neighbors further away than this distance")
 
   /** @group getParam */
-  def getSimilarityThreshold: Double = $(similarityThreshold)
+  final def getSimilarityThreshold: Double = $(similarityThreshold)
 
   /**
     * Param that specifies the number of index replicas to create when querying the index. More replicas means you can
@@ -148,10 +148,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val numReplicas = new IntParam(this, "numReplicas", "number of index replicas to create when querying")
+  final val numReplicas = new IntParam(this, "numReplicas", "number of index replicas to create when querying")
 
   /** @group getParam */
-  def getNumReplicas: Int = $(numReplicas)
+  final def getNumReplicas: Int = $(numReplicas)
 
   /**
     * Param that specifies the number of threads to use.
@@ -159,10 +159,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val parallelism = new IntParam(this, "parallelism", "number of threads to use")
+  final val parallelism = new IntParam(this, "parallelism", "number of threads to use")
 
   /** @group getParam */
-  def getParallelism: Int = $(parallelism)
+  final def getParallelism: Int = $(parallelism)
 
   /**
     * Param for the output format to produce. One of "full", "minimal" Setting this to minimal is more efficient
@@ -172,10 +172,10 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
     *
     * @group param
     */
-  val outputFormat = new Param[String](this, "outputFormat", "output format to produce")
+  final val outputFormat = new Param[String](this, "outputFormat", "output format to produce")
 
   /** @group getParam */
-  def getOutputFormat: String = $(outputFormat)
+  final def getOutputFormat: String = $(outputFormat)
 
   setDefault(k -> 5, predictionCol -> "prediction", featuresCol -> "features",
     excludeSelf -> false, similarityThreshold -> -1, outputFormat -> "full")
@@ -213,19 +213,19 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
     *
     * @group param
     */
-  val identifierCol = new Param[String](this, "identifierCol", "column name for the row identifier")
+  final val identifierCol = new Param[String](this, "identifierCol", "column name for the row identifier")
 
   /** @group getParam */
-  def getIdentifierCol: String = $(identifierCol)
+  final def getIdentifierCol: String = $(identifierCol)
 
   /**
     * Number of partitions (default: 1)
     */
-  val numPartitions = new IntParam(this, "numPartitions",
+  final val numPartitions = new IntParam(this, "numPartitions",
     "number of partitions", ParamValidators.gt(0))
 
   /** @group getParam */
-  def getNumPartitions: Int = $(numPartitions)
+  final def getNumPartitions: Int = $(numPartitions)
 
   /**
     * Param for the distance function to use. One of "bray-curtis", "canberra",  "cosine", "correlation", "euclidean",
@@ -234,15 +234,15 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
     *
     * @group param
     */
-  val distanceFunction = new Param[String](this, "distanceFunction", "distance function to use")
+  final val distanceFunction = new Param[String](this, "distanceFunction", "distance function to use")
 
   /** @group getParam */
-  def getDistanceFunction: String = $(distanceFunction)
+  final def getDistanceFunction: String = $(distanceFunction)
 
-  val partitionCol = new Param[String](this, "partitionCol", "column name for the partition identifier")
+  final val partitionCol = new Param[String](this, "partitionCol", "column name for the partition identifier")
 
   /** @group getParam */
-  def getPartitionCol: String = $(partitionCol)
+  final def getPartitionCol: String = $(partitionCol)
 
   setDefault(identifierCol -> "id", distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
 }

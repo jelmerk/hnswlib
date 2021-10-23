@@ -27,10 +27,10 @@ private[conversion] trait VectorConverterParams extends HasInputCol with HasOutp
     *
     * @group param
     */
-  val outputType: Param[String] = new Param[String](this, "outputType", "type of vector to produce")
+  final val outputType: Param[String] = new Param[String](this, "outputType", "type of vector to produce")
 
   /** @group getParam */
-  def getOutputType: String = $(outputType)
+  final def getOutputType: String = $(outputType)
 
   setDefault(outputType -> "array<float>")
 }
