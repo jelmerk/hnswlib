@@ -13,11 +13,7 @@
 
     <artifactId>hnswlib-spark_2.3.0_2.11</artifactId>
 
-    <description>Spark integrations</description>
-
-    <properties>
-        <spark.version>2.3.0</spark.version>
-    </properties>
+    <description>Spark integration</description>
 
     <dependencies>
 

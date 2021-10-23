@@ -360,6 +360,7 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
       case ("string", "float_array") => createModel[String, Array[Float], StringFloatArrayIndexItem, Float](uid, indicesPath, partitions)
       case ("string", "double_array") => createModel[String, Array[Double], StringDoubleArrayIndexItem, Double](uid, indicesPath, partitions)
       case ("string", "vector") => createModel[String, Vector, StringVectorIndexItem, Double](uid, indicesPath, partitions)
+      case _ => throw new IllegalStateException(s"Cannot create model for identifier type $identifierType and vector type $vectorType.")
     }
 
     paramMap.obj.foreach { case (paramName, jsonValue) =>
@@ -842,7 +843,7 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     // Save these indices to the hadoop filesystem
 
     partitionedIndexItems
-      .foreachPartition { it =>
+      .foreachPartition { it: Iterator[TItem] =>
         if (it.hasNext) {
 
           val numThreads = if (isSet(parallelism)) getParallelism else sys.runtime.availableProcessors
