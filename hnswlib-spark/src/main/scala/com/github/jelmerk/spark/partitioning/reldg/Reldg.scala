@@ -7,10 +7,11 @@ import com.github.jelmerk.knn.util.ReLdg
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.{Estimator, Model}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoder}
 import org.apache.spark.ml.param.shared.HasFeaturesCol
 import org.apache.spark.ml.param.{DoubleParam, IntParam, Param, ParamMap, ParamValidators, Params}
 import org.apache.spark.ml.util.{DefaultParamsWritable, Identifiable, MLReadable, MLReader, MLWritable, MLWriter}
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.expressions.{UserDefinedFunction, Window}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, IntegerType, StructField, StructType}
@@ -173,6 +174,15 @@ class ReldgModelImpl[
     val partitionAssignments = ReLdg.reldg(reordered, getNumPartitions, getNumIterations, getEpsilon)
 
     println("partitionAssignments " + partitionAssignments.size)
+    val assignments = partitionAssignments.zipWithIndex.foldLeft(Map.empty[Int, Set[Int]]) { case (acc, (assigned, index)) =>
+      val ids = acc.getOrElse(assigned, Set.empty)
+      acc.updated(assigned, ids + index)
+    }
+    .toList.sortBy(_._1)
+
+    assignments.foreach { case (id, ids) =>
+      println(id + " " + ids.toList.sorted.mkString(","))
+    }
 
 
     val toPartition: UserDefinedFunction = udf { clusterId: Int =>
@@ -254,12 +264,18 @@ class Reldg(override val uid: String) extends Estimator[ReldgModel] with ReldgPa
 
     import dataset.sparkSession.implicits._
 
-    val window = Window.orderBy($"vector")
+    implicit val encoder: Encoder[TVector] = ExpressionEncoder()
+
     val items = dataset.
       select(
-        col(getFeaturesCol).as("vector")
+        col(getFeaturesCol)
       )
-      .withColumn("id", row_number().over(window) - 1)
+      .repartition(numPartitions = 1)
+      .as[TVector]
+      .mapPartitions { it: Iterator[TVector] =>
+        it.zipWithIndex
+      }
+      .toDF("vector", "id")
       .as[TItem]
       .collect()
 
