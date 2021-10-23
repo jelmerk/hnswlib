@@ -12,8 +12,10 @@ trap cleanup EXIT
 
 ARGS=$*
 
-mvn $ARGS -pl hnswlib-utils
+mvn $ARGS -pl hnswlib-utils -am
+
 mvn $ARGS -pl hnswlib-core
+
 mvn $ARGS -pl hnswlib-metrics-dropwizard
 
 cp ./hnswlib-scala/pom-scala-2_11.xml ./hnswlib-scala/pom.xml

@@ -21,9 +21,19 @@ Distance functions optimized for use with sparse vectors will automatically be s
 Setup
 -----
 
-Pass the following argument to spark
+Find the package appropriate for your spark setup
 
-    --packages 'com.github.jelmerk:hnswlib-spark_2.3.0_2.11:0.0.48'
+|             | Scala 2.11                                       | Scala 2.12                                       |
+| ----------- | ------------------------------------------------ | ------------------------------------------------ |
+| Spark 2.3.x | com.github.jelmerk:hnswlib-spark_2.3_2.11:0.0.49 |                                                  |
+| Scala 2.4.x | com.github.jelmerk:hnswlib-spark_2.4_2.11:0.0.49 | com.github.jelmerk:hnswlib-spark_2.4_2.12:0.0.49 |
+| Scala 3.0.x |                                                  | com.github.jelmerk:hnswlib-spark_3.0_2.12:0.0.49 | 
+| Scala 3.1.x |                                                  | com.github.jelmerk:hnswlib-spark_3.1_2.12:0.0.49 |
+
+
+Pass this as an argument to spark
+
+    --packages 'com.github.jelmerk:hnswlib-spark_2.3_2.11:0.0.49'
 
 Example usage
 -------------
