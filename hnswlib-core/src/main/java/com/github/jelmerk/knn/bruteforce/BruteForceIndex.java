@@ -294,6 +294,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      *
      * @param dimensions the dimensionality of the vectors stored in the index
      * @param distanceFunction the distance function
+     * @param distanceComparator comparator for distances
      * @param <TVector> Type of the vector to perform distance calculation on
      * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
      * @return a builder
