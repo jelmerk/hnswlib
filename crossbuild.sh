@@ -41,3 +41,5 @@ mvn $ARGS -pl hnswlib-spark
 
 cp ./hnswlib-spark/pom-spark-3.1-scala-2_12.xml ./hnswlib-spark/pom.xml
 mvn $ARGS -pl hnswlib-spark
+
+mvn $ARGS -pl hnswlib-examples

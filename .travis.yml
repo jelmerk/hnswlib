@@ -5,7 +5,7 @@ dist: xenial
 language: java
 
 script:
-  - mvn clean package
+  - ./crossbuild.sh clean install
 
 jdk:
   - openjdk8
