@@ -12,7 +12,9 @@ trap cleanup EXIT
 
 ARGS=$*
 
-mvn $ARGS -pl hnswlib-utils -am
+mvn $ARGS -N
+
+mvn $ARGS -pl hnswlib-utils
 
 mvn $ARGS -pl hnswlib-core
 
