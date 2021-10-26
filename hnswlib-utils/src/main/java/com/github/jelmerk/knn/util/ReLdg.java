@@ -1,7 +1,10 @@
 package com.github.jelmerk.knn.util;
 
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import org.eclipse.collections.api.map.primitive.IntIntMap;
 import org.eclipse.collections.api.map.primitive.MutableIntIntMap;
@@ -319,27 +322,42 @@ public class ReLdg {
 
 
     public static void main(String[] args) throws Exception {
-        Node[] nodes = read(new FileInputStream("/home/jkuperus/dev/3rdparty/streamorder/data/web-NotreDame_edges.txt"));
+//        Node[] nodes = read(new FileInputStream("/home/jkuperus/dev/3rdparty/streamorder/data/web-NotreDame_edges.txt"));
+//
+//
+//        System.out.println(Arrays.stream(nodes).filter(v -> v.id() == 12129).findFirst().get().edges().length);
+//
+//        System.out.println(
+//                Arrays.stream(nodes).mapToInt(v -> v.edges().length).sum()
+//        );
+//
+//
+//        List<Node> reordered = bfsDisconnected(nodes);
+//
+//        System.out.println(
+//                reordered.stream().mapToInt(v -> v.edges().length).sum()
+//        );
+//
+//
+//
+//        reldg(reordered, 16, 10, 0.0);
 
 
-        System.out.println(Arrays.stream(nodes).filter(v -> v.id() == 12129).findFirst().get().edges().length);
+        List<String> lines = Files.readAllLines(Paths.get("/home/jkuperus/reldg-node-weight-connections.csv"));
 
-        System.out.println(
-                Arrays.stream(nodes).mapToInt(v -> v.edges().length).sum()
-        );
+        SimpleNode[] nodes = lines.stream().map(line -> {
+           String[] tokens = line.split(",");
+           int[] fields = Arrays.stream(tokens).mapToInt(Integer::valueOf).toArray();
+
+           int[] connections = new int[fields.length - 2];
+           System.arraycopy(fields, 2, connections, 0, connections.length);
+           return new SimpleNode(fields[0], connections, fields[1]);
+        }).toArray(SimpleNode[]::new);
 
 
         List<Node> reordered = bfsDisconnected(nodes);
 
-        System.out.println(
-                reordered.stream().mapToInt(v -> v.edges().length).sum()
-        );
-
-
-
-        reldg(reordered, 16, 10, 0.0);
-
-
+        reldg(reordered, 4, 10, 0.0);
 //        reordered.stream().mapToInt(Node::id).limit(1000).forEach(i -> System.out.println(i));
 //        System.out.println(nodes.length);
 

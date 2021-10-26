@@ -1,5 +1,7 @@
 package com.github.jelmerk.spark.partitioning.reldg
 
+import java.io.{File, FileWriter, PrintWriter}
+
 import com.github.jelmerk.knn.util.ReLdg.{Node, SimpleNode}
 import com.github.jelmerk.knn.scalalike.hnsw.HnswIndex
 import com.github.jelmerk.knn.scalalike.{DistanceFunction, Item, doubleBrayCurtisDistance, doubleCanberraDistance, doubleCorrelationDistance, doubleCosineDistance, doubleEuclideanDistance, doubleInnerProduct, doubleManhattanDistance, floatBrayCurtisDistance, floatCanberraDistance, floatCorrelationDistance, floatCosineDistance, floatEuclideanDistance, floatInnerProduct, floatManhattanDistance}
@@ -158,6 +160,22 @@ class ReldgModelImpl[
       println("  " + cluster + " " + count)
     }
 
+    // TODO hack hack
+    val writer = new PrintWriter(new FileWriter(new File("/home/jkuperus/reld-nodes.txt")))
+    index.foreach { item =>
+
+      val id = item.id
+      val connections = index.connections(id, level = 0).map(_.id)
+
+      val weight = clusterCounts.getOrElse(id, 0L).toInt
+
+
+      val line = id :: weight :: connections.toList mkString ","
+
+      writer.println(line)
+    }
+    writer.close()
+
     val nodes = index
       .map { item =>
         val clusterId = item.id
@@ -283,7 +301,7 @@ class Reldg(override val uid: String) extends Estimator[ReldgModel] with ReldgPa
 
     val distanceFunction = distanceFunctionFactory(getDistanceFunction)
 
-    val index: HnswIndex[Int, TVector, TItem, TDistance] = HnswIndex[Int, TVector, TItem, TDistance](
+    val index = HnswIndex[Int, TVector, TItem, TDistance](
       dimensions,
       distanceFunction,
       items.length
