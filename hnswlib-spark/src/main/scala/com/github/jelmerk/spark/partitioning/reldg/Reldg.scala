@@ -160,21 +160,21 @@ class ReldgModelImpl[
       println("  " + cluster + " " + count)
     }
 
-    // TODO hack hack
-    val writer = new PrintWriter(new FileWriter(new File("/home/jkuperus/reld-nodes.txt")))
-    index.foreach { item =>
-
-      val id = item.id
-      val connections = index.connections(id, level = 0).map(_.id)
-
-      val weight = clusterCounts.getOrElse(id, 0L).toInt
-
-
-      val line = id :: weight :: connections.toList mkString ","
-
-      writer.println(line)
-    }
-    writer.close()
+//    // TODO hack hack
+//    val writer = new PrintWriter(new FileWriter(new File("/home/jkuperus/reld-nodes.txt")))
+//    index.foreach { item =>
+//
+//      val id = item.id
+//      val connections = index.connections(id, level = 0).map(_.id)
+//
+//      val weight = clusterCounts.getOrElse(id, 0L).toInt
+//
+//
+//      val line = id :: weight :: connections.toList mkString ","
+//
+//      writer.println(line)
+//    }
+//    writer.close()
 
     val nodes = index
       .map { item =>

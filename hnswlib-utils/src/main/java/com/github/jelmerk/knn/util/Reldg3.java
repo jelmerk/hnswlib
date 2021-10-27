@@ -1,39 +1,33 @@
 package com.github.jelmerk.knn.util;
 
-import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.*;
-import java.util.stream.Collectors;
-
 import org.eclipse.collections.api.map.primitive.IntIntMap;
 import org.eclipse.collections.api.map.primitive.MutableIntIntMap;
 import org.eclipse.collections.api.map.primitive.MutableIntObjectMap;
 import org.eclipse.collections.impl.map.mutable.primitive.IntIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.IntObjectHashMap;
 
+import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.*;
 
-public class ReLdg {
+public class Reldg3 {
 
-    public interface Node {
+    interface Node {
 
         int id();
-
-        int weight();
 
         int[] edges();
     }
 
-    public static class SimpleNode implements Node {
+    static class SimpleNode implements Node {
 
         private final int id;
         private final int[] edges;
-        private final int weight;
 
-        public SimpleNode(int id, int[] edges, int weight) {
+        public SimpleNode(int id, int[] edges) {
             this.id = id;
             this.edges = edges;
-            this.weight = weight;
         }
 
         @Override
@@ -47,11 +41,6 @@ public class ReLdg {
         }
 
         @Override
-        public int weight() {
-            return weight;
-        }
-
-        @Override
         public String toString() {
             return "SimpleNode{" +
                     "id=" + id +
@@ -61,7 +50,7 @@ public class ReLdg {
     }
 
 
-
+    
 
     public static Node[] read(InputStream inputStream) throws IOException {
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
@@ -82,12 +71,12 @@ public class ReLdg {
             SimpleNode node = map.get(from);
 
             if (node == null) {
-                node = new SimpleNode(from, new int[] { to }, 1);
+                node = new SimpleNode(from, new int[] { to });
             } else {
                 int[] edges = new int[node.edges.length + 1];
                 System.arraycopy(node.edges,0, edges, 0, node.edges.length);
                 edges[node.edges.length] = to;
-                node = new SimpleNode(from, edges, 1);
+                node = new SimpleNode(from, edges);
             }
             map.put(from, node);
         }
@@ -117,7 +106,7 @@ public class ReLdg {
     }
 
 
-    public static List<Node> bfsDisconnected(Node[] nodes) {
+    static List<Node> bfsDisconnected(Node[] nodes) {
 
         // TODO maybe just change the type of the edges from int to node ?? otherwise we keep having to construct these maps
 
@@ -129,7 +118,7 @@ public class ReLdg {
         Arrays.sort(nodes, NodeDegreesComparator.INSTANCE); // TODO nasty, sorts in place
 
         Set<Node> visited = new HashSet<>();
-
+        
         List<Node> reordered = new ArrayList<>(nodes.length);
 
         for (Node current : nodes) {
@@ -221,13 +210,6 @@ public class ReLdg {
                               int numIterations,
                               double epsilon) {
 
-        int[] nodeWeights = new int[nodes.size()];
-
-        for (Node node : nodes) {
-            nodeWeights[node.id()] = node.weight();
-        }
-
-
         int[] partition = new int[nodes.size()];
         Arrays.fill(partition, UNDEFINED);
 
@@ -238,10 +220,7 @@ public class ReLdg {
             int[] partitionSizes = new int[numPartitions];
             int[] partitionVotes = new int[numPartitions];
 
-
-            int sumOfWeights = nodes.stream().mapToInt(Node::weight).sum();
-
-            int partitionCapacity = (int) Math.ceil(((double) sumOfWeights / (double) numPartitions) * (1.0 + epsilon));
+            int partitionCapacity = (int) Math.ceil (((double)nodes.size() / (double) numPartitions) * (1.0 + epsilon));
 
             for (Node node : nodes) {
 
@@ -253,20 +232,20 @@ public class ReLdg {
                     int edgePartition = partition[edge];
 
                     if (edgePartition != UNDEFINED) {
-                        partitionVotes[edgePartition] += nodeWeights[edge];
+                        partitionVotes[edgePartition] += 1;
                     }
                 }
 
 
                 // based on the cast votes assign the node to a partition
                 int selectedPartition = UNDEFINED;
-                long maxVal = 0;
+                int maxVal = 0;
 
                 for (int partitionNum = 0; partitionNum < numPartitions; partitionNum++) {
 
                     int spaceLeftInPartition = partitionCapacity - partitionSizes[partitionNum];
+                    int val = partitionVotes[partitionNum] * spaceLeftInPartition;
 
-                    long val = (long) partitionVotes[partitionNum] * (long) spaceLeftInPartition;
 
                     if (val > maxVal) {
                         selectedPartition = partitionNum;
@@ -296,10 +275,9 @@ public class ReLdg {
                         }
                     }
 
-
                 }
 
-                partitionSizes[selectedPartition] += node.weight();
+                partitionSizes[selectedPartition] += 1;
                 partition[node.id()] = selectedPartition;
                 Arrays.fill(partitionVotes, 0);
 
@@ -323,7 +301,7 @@ public class ReLdg {
 //        System.out.println(Arrays.stream(nodes).filter(v -> v.id() == 12129).findFirst().get().edges().length);
 //
 //        System.out.println(
-//                Arrays.stream(nodes).mapToInt(v -> v.edges().length).sum()
+//            Arrays.stream(nodes).mapToInt(v -> v.edges().length).sum()
 //        );
 //
 //
@@ -338,23 +316,24 @@ public class ReLdg {
 //        reldg(reordered, 16, 10, 0.0);
 
 
-        List<String> lines = Files.readAllLines(Paths.get("/home/jkuperus/reldg-node-weight-connections.csv"));
-
-        SimpleNode[] nodes = lines.stream().map(line -> {
-           String[] tokens = line.split(",");
-           int[] fields = Arrays.stream(tokens).mapToInt(Integer::valueOf).toArray();
-
-           int[] connections = new int[fields.length - 2];
-           System.arraycopy(fields, 2, connections, 0, connections.length);
-           return new SimpleNode(fields[0], connections, fields[1]);
-        }).toArray(SimpleNode[]::new);
-
-
-        List<Node> reordered = bfsDisconnected(nodes);
-
-        reldg(reordered, 4, 10, 0.0);
 //        reordered.stream().mapToInt(Node::id).limit(1000).forEach(i -> System.out.println(i));
 //        System.out.println(nodes.length);
+
+        List<String> lines = Files.readAllLines(Paths.get("/home/jkuperus/reldg-node-weight-connections.csv"));
+
+        Reldg3.SimpleNode[] nodes = lines.stream().map(line -> {
+            String[] tokens = line.split(",");
+            int[] fields = Arrays.stream(tokens).mapToInt(Integer::valueOf).toArray();
+
+            int[] connections = new int[fields.length - 2];
+            System.arraycopy(fields, 2, connections, 0, connections.length);
+            return new Reldg3.SimpleNode(fields[0], connections);
+        }).toArray(Reldg3.SimpleNode[]::new);
+
+
+        List<Reldg3.Node> reordered = bfsDisconnected(nodes);
+
+        reldg(reordered, 4, 100, 0.0);
 
     }
 
