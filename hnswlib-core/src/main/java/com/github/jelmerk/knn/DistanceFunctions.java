@@ -1,5 +1,8 @@
 package com.github.jelmerk.knn;
 
+/**
+ * Collection of distance functions.
+ */
 public final class DistanceFunctions {
 
     /**
