@@ -15,7 +15,7 @@ import com.github.jelmerk.knn.*;
 import com.github.jelmerk.knn.hnsw.*;
 
 HnswIndex<String, float[], Word, Float> index = HnswIndex
-    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, words.size())
+    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, dimensions, words.size())
         .withM(10)
         .build();
 
