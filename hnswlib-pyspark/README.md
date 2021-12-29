@@ -31,12 +31,12 @@ Example usage
 Basic:
 
 ```python
-from pyspark_hnsw.knn import Hnsw
+from pyspark_hnsw.knn import HnswSimilarity
 
 spark.sparkContext.setCheckpointDir('/path/to/checkpoints')
 
-hnsw = Hnsw(identifierCol='id', featuresCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
-            efConstruction=200, numPartitions=2, excludeSelf=True)
+hnsw = HnswSimilarity(identifierCol='id', featuresCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
+                      efConstruction=200, numPartitions=2, excludeSelf=True)
 
 model = hnsw.fit(index_items)
 
@@ -63,11 +63,11 @@ converter = VectorConverter(inputCol='features_as_ml_lib_vector', outputCol='fea
 
 normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
 
-hnsw = Hnsw(identifierCol='id', queryIdentifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
-            efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='approximate')
+hnsw = HnswSimilarity(identifierCol='id', queryIdentifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product', m=48, ef=5, k=200,
+                      efConstruction=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='approximate')
             
-brute_force = BruteForce(identifierCol='id', queryIdentifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product',
-                         k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='exact')
+brute_force = BruteForceSimilarity(identifierCol='id', queryIdentifierCol='id', featuresCol='normalized_features', distanceFunction='inner-product',
+                                   k=200, numPartitions=2, excludeSelf=True, similarityThreshold=0.4, predictionCol='exact')
  
 pipeline = Pipeline(stages=[converter, normalizer, hnsw, brute_force])
 
