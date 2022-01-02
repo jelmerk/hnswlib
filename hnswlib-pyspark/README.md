@@ -85,7 +85,7 @@ accuracy = evaluator.evaluate(output)
 print(accuracy)
 
 # save the model
-model.write.overwrite.save('/path/to/model')
+model.write().overwrite().save('/path/to/model')
 ```
 
 Suggested configuration
