@@ -511,6 +511,11 @@ private[knn] trait KnnModelOps[
       }
       .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
 
+
+    val numThreads =
+      if (isSet(parallelism)) getParallelism
+      else dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
+
     val neighborsOnAlllQueryPartitions = physicalPartitionAndQueries
       .mapPartitions { queriesWithPartition =>
 
@@ -539,8 +544,6 @@ private[knn] trait KnnModelOps[
 
             private[this] var first = true
             private[this] var count = 0
-
-            private[this] val numThreads = if (isSet(parallelism)) getParallelism else sys.runtime.availableProcessors
 
             private[this] val batchSize = 1000
             private[this] val queue = new LinkedBlockingQueue[(TQueryId, Seq[Neighbor[TId, TDistance]])](batchSize * numThreads)
@@ -842,11 +845,13 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     // On each partition collect all the items into memory and construct the HNSW indices.
     // Save these indices to the hadoop filesystem
 
+    val numThreads =
+      if (isSet(parallelism)) getParallelism
+      else sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
+
     partitionedIndexItems
       .foreachPartition { it: Iterator[TItem] =>
         if (it.hasNext) {
-
-          val numThreads = if (isSet(parallelism)) getParallelism else sys.runtime.availableProcessors
           val partitionId = TaskContext.getPartitionId()
 
           val items = it.toSeq
