@@ -511,9 +511,9 @@ private[knn] trait KnnModelOps[
       }
       .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
 
-
     val numThreads =
-      if (isSet(parallelism)) getParallelism
+      if (isSet(parallelism) && getParallelism <= 0) sys.runtime.availableProcessors
+      else if (isSet(parallelism)) getParallelism
       else dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
 
     val neighborsOnAlllQueryPartitions = physicalPartitionAndQueries
@@ -571,7 +571,7 @@ private[knn] trait KnnModelOps[
             executorService.allowCoreThreadTimeOut(true)
 
             private[this] val activeWorkers = new CountDownLatch(numThreads)
-            Range(0, numThreads).map(id => new Worker(id, queries, activeWorkers, batchSize)).foreach(executorService.submit)
+            Range(0, numThreads).map(_ => new Worker(queries, activeWorkers, batchSize)).foreach(executorService.submit)
 
             override def hasNext: Boolean = {
               if (!queue.isEmpty) true
@@ -604,7 +604,7 @@ private[knn] trait KnnModelOps[
               value
             }
 
-            class Worker(val id: Int, queries: Iterator[(TQueryId, TVector)], activeWorkers: CountDownLatch, batchSize: Int) extends Runnable {
+            class Worker(queries: Iterator[(TQueryId, TVector)], activeWorkers: CountDownLatch, batchSize: Int) extends Runnable {
 
               private[this] var work = List.empty[(TQueryId, TVector)]
 
@@ -846,8 +846,9 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     // Save these indices to the hadoop filesystem
 
     val numThreads =
-      if (isSet(parallelism)) getParallelism
-      else sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
+      if (isSet(parallelism) && getParallelism <= 0) sys.runtime.availableProcessors
+      else if (isSet(parallelism)) getParallelism
+      else dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
 
     partitionedIndexItems
       .foreachPartition { it: Iterator[TItem] =>
