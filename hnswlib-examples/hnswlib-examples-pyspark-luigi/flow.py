@@ -124,7 +124,8 @@ class HnswIndex(SparkSubmitTask):
                 'spark.task.cpus': str(self.executor_cores),
                 'spark.task.maxFailures': '1',
                 'spark.scheduler.minRegisteredResourcesRatio': '1.0',
-                'spark.scheduler.maxRegisteredResourcesWaitingTime': '3600s'}
+                'spark.scheduler.maxRegisteredResourcesWaitingTime': '3600s',
+                'spark.hnswlib.settings.index.cache_folder': '/tmp'}
 
     def requires(self):
         return Convert()
@@ -135,8 +136,7 @@ class HnswIndex(SparkSubmitTask):
             '--output', self.output().path,
             '--m', self.m,
             '--ef_construction', self.ef_construction,
-            '--num_partitions', str(self.num_executors),
-            '--checkpoint_path', '/tmp/checkpoints'
+            '--num_partitions', str(self.num_executors)
         ]
 
     def output(self):
@@ -241,7 +241,8 @@ class BruteForceIndex(SparkSubmitTask):
                 'spark.task.cpus': str(self.executor_cores),
                 'spark.task.maxFailures': '1',
                 'spark.scheduler.minRegisteredResourcesRatio': '1.0',
-                'spark.scheduler.maxRegisteredResourcesWaitingTime': '3600s'}
+                'spark.scheduler.maxRegisteredResourcesWaitingTime': '3600s',
+                'spark.hnswlib.settings.index.cache_folder': '/tmp'}
 
     def requires(self):
         return Convert()
@@ -250,8 +251,7 @@ class BruteForceIndex(SparkSubmitTask):
         return [
             '--input', self.input().path,
             '--output', self.output().path,
-            '--num_partitions', str(self.num_executors),
-            '--checkpoint_path', '/tmp/checkpoints'
+            '--num_partitions', str(self.num_executors)
         ]
 
     def output(self):

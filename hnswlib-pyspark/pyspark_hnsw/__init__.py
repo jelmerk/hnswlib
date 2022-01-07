@@ -10,6 +10,7 @@ def start(spark23=False,
           spark24=False,
           spark31=False,
           memory="16G",
+          cache_folder="/tmp",
           real_time_output=False,
           output_level=1):
     """Starts a PySpark instance with default parameters for Hnswlib.
@@ -32,6 +33,7 @@ def start(spark23=False,
             .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \\
             .config("spark.kryo.registrator", "com.github.jelmerk.spark.HnswLibKryoRegistrator") \\
             .config("spark.jars.packages", "com.github.jelmerk:hnswlib-spark_3.0_2.12:|release|") \\
+            .config("spark.hnswlib.settings.index.cache_folder", "/tmp") \\
             .getOrCreate()
 
 
@@ -62,7 +64,8 @@ def start(spark23=False,
     class HnswlibConfig:
 
         def __init__(self):
-            self.master, self.app_name = "local[*]", "Hnswlib"
+            self.master = "local[*]"
+            self.app_name = "Hnswlib"
             self.serializer = "org.apache.spark.serializer.KryoSerializer"
             self.registrator = "com.github.jelmerk.spark.HnswLibKryoRegistrator"
             # Hnswlib on Apache Spark 3.2.x
@@ -80,7 +83,8 @@ def start(spark23=False,
             .master(spark_nlp_config.master) \
             .config("spark.driver.memory", memory) \
             .config("spark.serializer", spark_nlp_config.serializer) \
-            .config("spark.kryo.registrator", spark_nlp_config.registrator)
+            .config("spark.kryo.registrator", spark_nlp_config.registrator) \
+            .config("spark.hnswlib.settings.index.cache_folder", cache_folder)
 
         if spark23:
             builder.config("spark.jars.packages", spark_nlp_config.maven_spark23)
@@ -103,6 +107,7 @@ def start(spark23=False,
                 spark_conf.set("spark.serializer", spark_nlp_config.serializer)
                 spark_conf.set("spark.kryo.registrator", spark_nlp_config.registrator)
                 spark_conf.set("spark.jars.packages", spark_nlp_config.maven_spark)
+                spark_conf.set("spark.hnswlib.settings.index.cache_folder", cache_folder)
 
                 # Make the py4j JVM stdout and stderr available without buffering
                 popen_kwargs = {

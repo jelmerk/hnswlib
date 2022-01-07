@@ -814,9 +814,9 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
     import sc.implicits._
 
-    val outputDir = sparkContext.getCheckpointDir
-      .map (path => new Path(path,s"${uid}_${System.currentTimeMillis()}").toString)
-      .getOrElse(throw new IllegalStateException("Please define checkpoint dir with spark.sparkContext.setCheckpointDir"))
+    val cacheFolder = sparkContext.getConf.get(key = "spark.hnswlib.settings.index.cache_folder", defaultValue = "/tmp")
+
+    val outputDir = new Path(cacheFolder,s"${uid}_${System.currentTimeMillis()}").toString
 
     sparkContext.addSparkListener(new CleanupListener(outputDir, serializableHadoopConfiguration))
 

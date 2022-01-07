@@ -15,11 +15,8 @@ def main(spark):
     parser.add_argument('--m', type=int)
     parser.add_argument('--ef_construction', type=int)
     parser.add_argument('--num_partitions', type=int)
-    parser.add_argument('--checkpoint_path', type=str)
 
     args = parser.parse_args()
-
-    spark.sparkContext.setCheckpointDir(args.checkpoint_path)
 
     normalizer = Normalizer(inputCol='features', outputCol='normalized_features')
 

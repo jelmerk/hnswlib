@@ -33,8 +33,6 @@ Basic:
 ```python
 from pyspark_hnsw.knn import HnswSimilarity
 
-spark.sparkContext.setCheckpointDir('/path/to/checkpoints')
-
 hnsw = HnswSimilarity(identifierCol='id', featuresCol='features', distanceFunction='cosine', m=48, ef=5, k=200,
                       efConstruction=200, numPartitions=2, excludeSelf=True)
 
@@ -51,8 +49,6 @@ from pyspark_hnsw.evaluation import KnnSimilarityEvaluator
 from pyspark_hnsw.knn import *
 from pyspark_hnsw.linalg import Normalizer
 from pyspark_hnsw.conversion import VectorConverter
-
-spark.sparkContext.setCheckpointDir('/path/to/checkpoints')
 
 # often it is acceptable to use float instead of double precision. 
 # this uses less memory and will be faster 
@@ -95,12 +91,14 @@ Suggested configuration
 - set `spark.executor.cores` to as high a value as feasible on your executors while not making your jobs impossible to schedule
 - set `spark.task.cpus` to the same value as `spark.executor.cores`
 - set `spark.scheduler.minRegisteredResourcesRatio` to `1.0`
+- set `spark.scheduler.maxRegisteredResourcesWaitingTime` to `3600`
 - set `spark.speculation` to `false`
 - set `spark.task.maxFailures` to `1`
 - set `spark.dynamicAllocation.enabled` to `false`
 - set `spark.driver.memory`: to some arbitrary low value for instance `2g` will do because the model does not run on the driver
 - set `spark.executor.memory`: to a value appropriate to the size of your data, typically this will be a large value 
 - set `spark.yarn.executor.memoryOverhead` to a value higher than `executorMemory * 0.10` if you get the "Container killed by YARN for exceeding memory limits" error
+- set `spark.hnswlib.settings.index.cache_folder` to a folder with plenty of space that you can write to. Defaults to /tmp
 
 Note that as it stands increasing the number of partitions will speed up fitting the model but not querying the model. The only way to speed up querying is by increasing the number of replicas
 
