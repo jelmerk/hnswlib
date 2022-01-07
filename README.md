@@ -4,7 +4,7 @@ Hnswlib
 =======
 
 
-Work in progress java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) (HNSW) algorithm for doing approximate nearest neighbour search.
+Java implementation of the [the Hierarchical Navigable Small World graphs](https://arxiv.org/abs/1603.09320) (HNSW) algorithm for doing approximate nearest neighbour search.
 
 The index is thread safe, serializable, supports adding items to the index incrementally and has experimental support for deletes. 
 

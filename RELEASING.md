@@ -13,7 +13,7 @@ Releasing a new version to maven central is a bit cumbersome because maven does 
        
 4. tag the release
 
-       git tag v0.x.x head
+       git tag v0.x.x HEAD
         
 5. ./crossbuild.sh clean deploy -DperformRelease=true
    
