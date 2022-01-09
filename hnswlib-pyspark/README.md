@@ -1,4 +1,4 @@
-![PyPI](https://img.shields.io/pypi/v/pyspark-hnsw)
+[![PyPI](https://img.shields.io/pypi/v/pyspark-hnsw)](https://pypi.org/project/pyspark-hnsw/)
 
 hnswlib-pyspark
 ===============
