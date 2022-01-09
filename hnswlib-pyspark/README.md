@@ -1,3 +1,5 @@
+[![](https://img.shields.io/pypi/v/badge.svg?maxAge=3600)](https://pypi.org/project/pyspark-hnsw/)
+
 hnswlib-pyspark
 ===============
 
