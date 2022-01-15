@@ -20,6 +20,8 @@ mvn $ARGS -pl hnswlib-core
 
 mvn $ARGS -pl hnswlib-metrics-dropwizard
 
+mvn $ARGS -pl hnswlib-core-jdk17
+
 cp ./hnswlib-scala/pom-scala-2_11.xml ./hnswlib-scala/pom.xml
 mvn $ARGS -pl hnswlib-scala
 
