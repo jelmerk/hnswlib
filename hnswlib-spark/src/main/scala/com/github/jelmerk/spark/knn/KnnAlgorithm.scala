@@ -460,9 +460,15 @@ private[knn] trait KnnModelOps[
   protected def loadIndex(in: InputStream): TIndex
 
   protected def typedTransform(dataset: Dataset[_])
-                              (implicit tId: TypeTag[TId], tVector: TypeTag[TVector], tDistance: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : DataFrame =
+                              (implicit tId: TypeTag[TId], tVector: TypeTag[TVector], tDistance: TypeTag[TDistance], evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance]) : DataFrame = {
+
+    if (!isSet(queryIdentifierCol) && getExcludeSelf) {
+      throw new IllegalArgumentException("QueryIdentifierCol must be defined when excludeSelf is true.")
+    }
+
     if (isSet(queryIdentifierCol)) typedTransformWithQueryCol[TId](dataset, getQueryIdentifierCol)
     else typedTransformWithQueryCol[Long](dataset.withColumn("_query_id", monotonically_increasing_id), "_query_id").drop("_query_id")
+  }
 
   protected def typedTransformWithQueryCol[TQueryId](dataset: Dataset[_], queryIdCol: String)
                                                     (implicit tId: TypeTag[TId], tVector: TypeTag[TVector], tDistance: TypeTag[TDistance], tQueryId: TypeTag[TQueryId], evId: ClassTag[TId], evVector: ClassTag[TVector], evQueryId: ClassTag[TQueryId], distanceNumeric: Numeric[TDistance]) : DataFrame = {
