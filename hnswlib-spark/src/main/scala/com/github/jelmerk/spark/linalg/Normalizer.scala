@@ -4,6 +4,7 @@ import com.github.jelmerk.knn.util.VectorUtils
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
@@ -36,8 +37,7 @@ class Normalizer(override val uid: String)
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
   override def transform(dataset: Dataset[_]): DataFrame = dataset.schema(getInputCol).dataType match {
-    case dataType: DataType if dataType.typeName == "vector" =>
-      dataset.withColumn(getOutputCol, normalizeVector(col(getInputCol)))
+    case VectorType => dataset.withColumn(getOutputCol, normalizeVector(col(getInputCol)))
     case ArrayType(FloatType, _) =>  dataset.withColumn(getOutputCol, normalizeFloatArray(col(getInputCol)))
     case ArrayType(DoubleType, _) => dataset.withColumn(getOutputCol, normalizeDoubleArray(col(getInputCol)))
   }
@@ -56,7 +56,7 @@ class Normalizer(override val uid: String)
     val inputColumnSchema = schema(getInputCol)
 
     val inputColHasValidDataType = inputColumnSchema.dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => true
+      case VectorType => true
       case ArrayType(FloatType, _) => true
       case ArrayType(DoubleType, _) => true
       case _ => false
@@ -66,8 +66,8 @@ class Normalizer(override val uid: String)
       throw new IllegalArgumentException(s"Input column $getInputCol must be a float array, double array or vector.")
     }
 
-    val outputFields = schema.fields :+ StructField(getOutputCol, inputColumnSchema.dataType, inputColumnSchema.nullable)
-    StructType(outputFields)
+    schema
+      .add(getOutputCol, inputColumnSchema.dataType, inputColumnSchema.nullable)
   }
 
   private def magnitude(vector: Vector): Double = {

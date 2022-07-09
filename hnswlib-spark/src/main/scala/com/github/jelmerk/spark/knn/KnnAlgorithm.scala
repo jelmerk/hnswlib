@@ -3,7 +3,6 @@ package com.github.jelmerk.spark.knn
 import java.io.InputStream
 import java.net.InetAddress
 import java.util.concurrent.{CountDownLatch, ExecutionException, FutureTask, LinkedBlockingQueue, ThreadLocalRandom, ThreadPoolExecutor, TimeUnit}
-
 import com.github.jelmerk.knn.ObjectSerializer
 
 import scala.language.{higherKinds, implicitConversions}
@@ -28,6 +27,7 @@ import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.util.NamedThreadFactory
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
 import com.github.jelmerk.spark.util.SerializableConfiguration
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 import scala.annotation.tailrec
@@ -187,17 +187,24 @@ private[knn] trait KnnModelParams extends Params with HasFeaturesCol with HasPre
       case _ => DoubleType
     }
 
-    val neighborsField = StructField(getPredictionCol, ArrayType(StructType(Seq(StructField("neighbor", identifierDataType, nullable = false), StructField("distance", distanceType)))))
+    val predictionStruct = new StructType()
+      .add("neighbor", identifierDataType, nullable = false)
+      .add("distance", distanceType, nullable = false)
+
+    val neighborsField = StructField(getPredictionCol, new ArrayType(predictionStruct, containsNull = false))
 
     getOutputFormat match {
       case "minimal" if !isSet(queryIdentifierCol) => throw new IllegalArgumentException("queryIdentifierCol must be set when using outputFormat minimal.")
-      case "minimal" => StructType(Array(schema(getQueryIdentifierCol), neighborsField))
+      case "minimal" =>
+        new StructType()
+          .add(schema(getQueryIdentifierCol))
+          .add(neighborsField)
       case _ =>
         if (schema.fieldNames.contains(getPredictionCol)) {
           throw new IllegalArgumentException(s"Output column $getPredictionCol already exists.")
         }
-
-        StructType(schema.fields :+ neighborsField)
+        schema
+          .add(neighborsField)
     }
   }
 }
@@ -737,14 +744,15 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
     val model = (identifierType, vectorType) match {
       case (IntegerType, ArrayType(FloatType, _)) => typedFit[Int, Array[Float], IntFloatArrayIndexItem, Float](dataset)
       case (IntegerType, ArrayType(DoubleType, _)) => typedFit[Int, Array[Double], IntDoubleArrayIndexItem, Double](dataset)
-      case (IntegerType, t) if t.typeName == "vector" => typedFit[Int, Vector, IntVectorIndexItem, Double](dataset)
+      case (IntegerType, VectorType) => typedFit[Int, Vector, IntVectorIndexItem, Double](dataset)
       case (LongType, ArrayType(FloatType, _)) => typedFit[Long, Array[Float], LongFloatArrayIndexItem, Float](dataset)
       case (LongType, ArrayType(DoubleType, _)) => typedFit[Long, Array[Double], LongDoubleArrayIndexItem, Double](dataset)
-      case (LongType, t) if t.typeName == "vector" => typedFit[Long, Vector, LongVectorIndexItem, Double](dataset)
+      case (LongType, VectorType)  => typedFit[Long, Vector, LongVectorIndexItem, Double](dataset)
       case (StringType, ArrayType(FloatType, _)) => typedFit[String, Array[Float], StringFloatArrayIndexItem, Float](dataset)
       case (StringType, ArrayType(DoubleType, _)) => typedFit[String, Array[Double], StringDoubleArrayIndexItem, Double](dataset)
-      case (StringType, t) if t.typeName == "vector" => typedFit[String, Vector, StringVectorIndexItem, Double](dataset)
-      case _ => throw new IllegalArgumentException(s"Cannot create index for items with identifier of type " +
+      case (StringType, VectorType) => typedFit[String, Vector, StringVectorIndexItem, Double](dataset)
+      case _ =>
+        throw new IllegalArgumentException(s"Cannot create index for items with identifier of type " +
         s"${identifierType.simpleString} and vector of type ${vectorType.simpleString}. " +
         s"Supported identifiers are string, int, long and string. Supported vectors are array<float>, array<double> and vector ")
     }

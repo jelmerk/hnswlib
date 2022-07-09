@@ -4,13 +4,14 @@ import com.github.jelmerk.spark.linalg.Normalizer
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.linalg.SQLDataTypes._
 import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, FloatType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, FloatType, StructType}
 
 /**
   * Companion class for VectorConverter.
@@ -63,8 +64,8 @@ class VectorConverter(override val uid: String)
       case (ArrayType(DoubleType, _), "array<float>") => doubleArrayToFloatArray(col(getInputCol))
       case (ArrayType(DoubleType, _), "vector") => doubleArrayToVector(col(getInputCol))
 
-      case (dataType, "array<float>") if dataType.typeName == "vector" => vectorToFloatArray(col(getInputCol))
-      case (dataType, "array<double>") if dataType.typeName == "vector" => vectorToDoubleArray(col(getInputCol))
+      case (VectorType, "array<float>") => vectorToFloatArray(col(getInputCol))
+      case (VectorType, "array<double>") => vectorToDoubleArray(col(getInputCol))
 
       case _ => throw new IllegalArgumentException("Cannot convert vector")
     })
@@ -84,7 +85,7 @@ class VectorConverter(override val uid: String)
     val inputColumnSchema = schema(getInputCol)
 
     val inputColHasValidDataType = inputColumnSchema.dataType match {
-      case dataType: DataType if dataType.typeName == "vector" => true
+      case VectorType => true
       case ArrayType(DoubleType, _) => true
       case _ => false
     }
@@ -93,8 +94,14 @@ class VectorConverter(override val uid: String)
       throw new IllegalArgumentException(s"Input column $getInputCol must be a double array or vector.")
     }
 
-    val outputFields = schema.fields :+ StructField(getOutputCol, ArrayType(FloatType), inputColumnSchema.nullable)
-    StructType(outputFields)
+    val outputType: DataType = getOutputType match {
+      case "array<double>" => ArrayType(DoubleType)
+      case "array<float>" => ArrayType(FloatType)
+      case "vector" => VectorType
+    }
+
+    schema
+      .add(getOutputCol, outputType, inputColumnSchema.nullable)
   }
 
   private val vectorToFloatArray: UserDefinedFunction = udf { vector: Vector => vector.toArray.map(_.toFloat) }
