@@ -101,9 +101,11 @@ private[knn] class HnswSimilarityModelImpl[
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, val outputDir: String, val numPartitions: Int)
+](override val uid: String, val outputDir: String, numPartitions: Int)
   (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance])
     extends HnswSimilarityModel with KnnModelOps[HnswSimilarityModel, TId, TVector, TItem, TDistance, HnswIndex[TId, TVector, TItem, TDistance]] {
+
+  override def getNumPartitions: Int = numPartitions
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
@@ -158,6 +160,14 @@ class HnswSimilarity(override val uid: String) extends KnnAlgorithm[HnswSimilari
             idSerializer,
             itemSerializer
           )
+
+  override protected def loadIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance]
+      (inputStream: InputStream, minCapacity: Int): HnswIndex[TId, TVector, TItem, TDistance] = {
+    val index = HnswIndex.loadFromInputStream[TId, TVector, TItem, TDistance](inputStream)
+    index.resize(index.maxItemCount + minCapacity)
+    index
+  }
+
 
   override protected def createModel[
     TId: TypeTag,

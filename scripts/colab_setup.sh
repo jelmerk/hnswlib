@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #default values for pyspark, pyspark-hnsw, and SPARK_HOME
-HNSWLIB="1.0.1"
+HNSWLIB="1.1.0"
 PYSPARK="3.0.3"
 
 while getopts s:p: option

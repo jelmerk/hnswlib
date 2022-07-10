@@ -69,7 +69,7 @@ class Convert(SparkSubmitTask):
 
     app = 'convert.py'
 
-    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.0.1']
+    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.1.0']
 
     def requires(self):
         return Unzip()
@@ -109,7 +109,7 @@ class HnswIndex(SparkSubmitTask):
 
     app = 'hnsw_index.py'
 
-    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.0.1']
+    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.1.0']
 
     m = IntParameter(default=16)
 
@@ -164,7 +164,7 @@ class Query(SparkSubmitTask):
 
     executor_cores = IntParameter(default=2)
 
-    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.0.1']
+    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.1.0']
 
     name = 'Query index'
 
@@ -230,7 +230,7 @@ class BruteForceIndex(SparkSubmitTask):
 
     app = 'bruteforce_index.py'
 
-    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.0.1']
+    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.1.0']
 
     @property
     def conf(self):
@@ -291,7 +291,7 @@ class Evaluate(SparkSubmitTask):
 
     app = 'evaluate_performance.py'
 
-    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.0.1']
+    packages = ['com.github.jelmerk:hnswlib-spark_2.4_2.11:1.1.0']
 
     @property
     def conf(self):

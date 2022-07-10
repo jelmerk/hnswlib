@@ -118,6 +118,9 @@ class _KnnParams(_KnnModelParams):
     partitionCol = Param(Params._dummy(), "partitionCol", "the column name for the partition",
                          typeConverter=TypeConverters.toString)
 
+    initialModelPath = Param(Params._dummy(), "initialModelPath", "path to the initial model",
+                             typeConverter=TypeConverters.toString)
+
     numPartitions = Param(Params._dummy(), "numPartitions", "number of partitions", typeConverter=TypeConverters.toInt)
 
     distanceFunction = Param(Params._dummy(), "distanceFunction",
@@ -136,6 +139,12 @@ class _KnnParams(_KnnModelParams):
         Gets the value of partitionCol or its default value.
         """
         return self.getOrDefault(self.partitionCol)
+
+    def getInitialModelPath(self):
+        """
+        Gets the value of initialModelPath or its default value.
+        """
+        return self.getOrDefault(self.initialModelPath)
 
     def getNumPartitions(self):
         """
@@ -201,7 +210,8 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
     @keyword_only
     def __init__(self, identifierCol="id", partitionCol=None, queryIdentifierCol=None, queryPartitionsCol=None,
                  parallelism= None, featuresCol="features", predictionCol="prediction", numPartitions=1, numReplicas=0,
-                 k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
+                 k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                 initialModelPath=None):
         super(BruteForceSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.bruteforce.BruteForceSimilarity", self.uid)
 
@@ -283,10 +293,17 @@ class BruteForceSimilarity(JavaEstimator, _KnnParams, JavaMLReadable, JavaMLWrit
         """
         return self._set(outputFormat=value)
 
+    def setInitialModelPath(self, value):
+        """
+        Sets the value of :py:attr:`initialModelPath`.
+        """
+        return self._set(initialModelPath=value)
+
     @keyword_only
     def setParams(self, identifierCol="id", queryIdentifierCol=None, queryPartitionsCol=None, parallelism=None,
                   featuresCol="features", predictionCol="prediction",numPartitions=1, numReplicas=0, k=5,
-                  distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full"):
+                  distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                  initialModelPath=None):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 
@@ -364,12 +381,13 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
     def __init__(self, identifierCol="id", queryIdentifierCol=None, queryPartitionsCol=None, parallelism=None,
                  featuresCol="features", predictionCol="prediction", m=16, ef=10, efConstruction=200, numPartitions=1,
                  numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                 outputFormat="full"):
+                 outputFormat="full", initialModelPath=None):
         super(HnswSimilarity, self).__init__()
         self._java_obj = self._new_java_obj("com.github.jelmerk.spark.knn.hnsw.HnswSimilarity", self.uid)
 
         self._setDefault(identifierCol="id", m=16, ef=10, efConstruction=200, numPartitions=1, numReplicas=0, k=5,
-                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full")
+                         distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0, outputFormat="full",
+                         initialModelPath=None)
 
         kwargs = self._input_kwargs
         self.setParams(**kwargs)
@@ -464,11 +482,17 @@ class HnswSimilarity(JavaEstimator, _HnswParams, JavaMLReadable, JavaMLWritable)
         """
         return self._set(efConstruction=value)
 
+    def setInitialModelPath(self, value):
+        """
+        Sets the value of :py:attr:`initialModelPath`.
+        """
+        return self._set(initialModelPath=value)
+
     @keyword_only
     def setParams(self, identifierCol="id", queryIdentifierCol=None, queryPartitionsCol=None, parallelism=None,
                   featuresCol="features", predictionCol="prediction", m=16, ef=10, efConstruction=200, numPartitions=1,
                   numReplicas=0, k=5, distanceFunction="cosine", excludeSelf=False, similarityThreshold=-1.0,
-                  outputFormat="full"):
+                  outputFormat="full", initialModelPath=None):
         kwargs = self._input_kwargs
         return self._set(**kwargs)
 

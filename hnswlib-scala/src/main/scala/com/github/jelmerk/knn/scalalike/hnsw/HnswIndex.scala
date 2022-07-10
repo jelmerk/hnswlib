@@ -189,6 +189,13 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
   val efConstruction: Int = delegate.getEfConstruction
 
   /**
+   * Changes the maximum capacity of the index.
+   *
+   * @param newSize new size of the index
+   */
+  def resize(newSize: Int): Unit = delegate.resize(newSize)
+
+  /**
     * Read only view on top of this index that uses pairwise comparision when doing distance search. And as
     * such can be used as a baseline for assessing the precision of the index.
     * Searches will be really slow but give the correct result every time.

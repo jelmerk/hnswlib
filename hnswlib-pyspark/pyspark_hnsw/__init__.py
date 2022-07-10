@@ -59,7 +59,7 @@ def start(spark23=False,
         The initiated Spark session.
 
     """
-    current_version = "1.0.1"
+    current_version = "1.1.0"
 
     class HnswlibConfig:
 
@@ -186,4 +186,4 @@ def version():
     str
         The current Hnswlib version.
     """
-    return '1.0.1'
+    return '1.1.0'

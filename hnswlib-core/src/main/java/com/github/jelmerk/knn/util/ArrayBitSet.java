@@ -6,7 +6,7 @@ import java.util.Arrays;
 /**
  * Bitset.
  */
-public class ArrayBitSet implements BitSet, Serializable {
+public class ArrayBitSet implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -22,9 +22,17 @@ public class ArrayBitSet implements BitSet, Serializable {
     }
 
     /**
+     * Initializes a new instance of the {@link ArrayBitSet} class. and copies the values
+     * of another bitset
+     * @param count The number of items in the set.
+     */
+    public ArrayBitSet(ArrayBitSet other, int count) {
+        this.buffer = Arrays.copyOf(other.buffer, (count >> 5) + 1);
+    }
+
+    /**
      * {@inheritDoc}
      */
-    @Override
     public boolean contains(int id) {
         int carrier = this.buffer[id >> 5];
         return ((1 << (id & 31)) & carrier) != 0;
@@ -33,7 +41,6 @@ public class ArrayBitSet implements BitSet, Serializable {
     /**
      * {@inheritDoc}
      */
-    @Override
     public void add(int id)  {
         int mask = 1 << (id & 31);
         this.buffer[id >> 5] |= mask;
@@ -42,7 +49,6 @@ public class ArrayBitSet implements BitSet, Serializable {
     /**
      * {@inheritDoc}
      */
-    @Override
     public void remove(int id) {
         int mask = 1 << (id & 31);
         this.buffer[id >> 5] &= ~mask;
@@ -51,7 +57,6 @@ public class ArrayBitSet implements BitSet, Serializable {
     /**
      * {@inheritDoc}
      */
-    @Override
     public void clear() {
         Arrays.fill(this.buffer, 0);
     }

@@ -16,7 +16,7 @@ def spark_context(request):
     Args:
         request: pytest.FixtureRequest object
     """
-    conf = (SparkConf().set('spark.jars.packages', 'com.github.jelmerk:hnswlib-spark_2.3_2.11:1.0.1').setMaster("local[2]").setAppName(APP_NAME))
+    conf = (SparkConf().set('spark.jars.packages', 'com.github.jelmerk:hnswlib-spark_2.3_2.11:1.1.0').setMaster("local[2]").setAppName(APP_NAME))
     sc = SparkContext(conf=conf)
     request.addfinalizer(lambda: sc.stop())
 

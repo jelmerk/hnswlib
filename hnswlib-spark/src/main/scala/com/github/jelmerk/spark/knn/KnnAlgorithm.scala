@@ -247,10 +247,21 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   /** @group getParam */
   final def getDistanceFunction: String = $(distanceFunction)
 
+  /**
+   * Param for the partition identifier
+   */
   final val partitionCol = new Param[String](this, "partitionCol", "column name for the partition identifier")
 
   /** @group getParam */
   final def getPartitionCol: String = $(partitionCol)
+
+  /**
+   * Param to the initial model. All the vectors from the initial model will included in the final output model.
+   */
+  final val initialModelPath = new Param[String](this, "initialModelPath", "path to the initial model")
+
+  /** @group getParam */
+  final def getInitialModelPath: String = $(initialModelPath)
 
   setDefault(identifierCol -> "id", distanceFunction -> "cosine", numPartitions -> 1, numReplicas -> 0)
 }
@@ -268,7 +279,7 @@ private[knn] trait KnnAlgorithmParams extends KnnModelParams {
   * @tparam TIndex type of the index
   */
 private[knn] class KnnModelWriter[
-  TModel <: Model[TModel],
+  TModel <: KnnModelBase[TModel],
   TId: TypeTag,
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
@@ -291,7 +302,7 @@ private[knn] class KnnModelWriter[
       ("uid", instance.uid) ~
       ("identifierType", typeDescription[TId]) ~
       ("vectorType", typeDescription[TVector]) ~
-      ("partitions", instance.numPartitions) ~
+      ("partitions", instance.getNumPartitions) ~
       ("paramMap",  params)
 
     val metadataPath = new Path(path, "metadata").toString
@@ -303,7 +314,7 @@ private[knn] class KnnModelWriter[
 
     val serializableConfiguration = new SerializableConfiguration(sc.hadoopConfiguration)
 
-    sc.range(start = 0, end = instance.numPartitions).foreach { partitionId =>
+    sc.range(start = 0, end = instance.getNumPartitions).foreach { partitionId =>
       val originPath = new Path(modelOutputDir, partitionId.toString)
       val originFileSystem = originPath.getFileSystem(serializableConfiguration.value)
 
@@ -332,7 +343,7 @@ private[knn] class KnnModelWriter[
   * @param ev classtag
   * @tparam TModel type of model
   */
-private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev: ClassTag[TModel])
+private[knn] abstract class KnnModelReader[TModel <: KnnModelBase[TModel]](implicit ev: ClassTag[TModel])
   extends MLReader[TModel] {
 
   private implicit val format: Formats = DefaultFormats
@@ -407,7 +418,11 @@ private[knn] abstract class KnnModelReader[TModel <: Model[TModel]](implicit ev:
  *
  * @tparam TModel type of the model
  **/
-private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[TModel] with KnnModelParams {
+private[knn] abstract class KnnModelBase[TModel <: KnnModelBase[TModel]] extends Model[TModel] with KnnModelParams {
+
+  private[knn] def outputDir: String
+
+  def getNumPartitions: Int
 
   /** @group setParam */
   def setQueryIdentifierCol(value: String): this.type = set(queryIdentifierCol, value)
@@ -452,7 +467,7 @@ private[knn] abstract class KnnModelBase[TModel <: Model[TModel]] extends Model[
   * @tparam TIndex type of the index
   */
 private[knn] trait KnnModelOps[
-  TModel <: Model[TModel],
+  TModel <: KnnModelBase[TModel],
   TId,
   TVector,
   TItem <: Item[TId, TVector] with Product,
@@ -460,10 +475,6 @@ private[knn] trait KnnModelOps[
   TIndex <: Index[TId, TVector, TItem, TDistance]
 ] {
   this: TModel with KnnModelParams =>
-
-  private[knn] def outputDir: String
-
-  private[knn] def numPartitions: Int
 
   protected def loadIndex(in: InputStream): TIndex
 
@@ -510,7 +521,7 @@ private[knn] trait KnnModelOps[
         .as[(TQueryId, TVector)]
         .rdd
         .flatMap { case (queryId, vector) =>
-          Range(0, numPartitions).map { partition =>
+          Range(0, getNumPartitions).map { partition =>
             (partition, (queryId, vector))
           }
         }
@@ -523,14 +534,14 @@ private[knn] trait KnnModelOps[
         val physicalPartition = (partition * numPartitionCopies) + randomCopy
         (physicalPartition, (queryId, vector))
       }
-      .partitionBy(new PartitionIdPassthrough(numPartitions * numPartitionCopies))
+      .partitionBy(new PartitionIdPassthrough(getNumPartitions * numPartitionCopies))
 
     val numThreads =
       if (isSet(parallelism) && getParallelism <= 0) sys.runtime.availableProcessors
       else if (isSet(parallelism)) getParallelism
       else dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
 
-    val neighborsOnAlllQueryPartitions = physicalPartitionAndQueries
+    val neighborsOnAllQueryPartitions = physicalPartitionAndQueries
       .mapPartitions { queriesWithPartition =>
 
         val queries = queriesWithPartition.map(_._2)
@@ -656,7 +667,7 @@ private[knn] trait KnnModelOps[
 
     // take the best k results from all partitions
 
-    val topNeighbors = neighborsOnAlllQueryPartitions
+    val topNeighbors = neighborsOnAllQueryPartitions
       .groupByKey { case (queryId, _) => queryId }
       .flatMapGroups { case (queryId, groups) =>
         val allNeighbors = groups.flatMap { case (_, neighbors) => neighbors}.toList
@@ -682,7 +693,7 @@ private[knn] trait KnnModelOps[
 
 }
 
-private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val uid: String)
+private[knn] abstract class KnnAlgorithm[TModel <: KnnModelBase[TModel]](override val uid: String)
   extends Estimator[TModel] with KnnAlgorithmParams {
 
   /**
@@ -737,6 +748,8 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   /** @group setParam */
   def setOutputFormat(value: String): this.type = set(outputFormat, value)
 
+  def setInitialModelPath(value: String): this.type = set(initialModelPath, value)
+
   override def fit(dataset: Dataset[_]): TModel = {
 
     val identifierType = dataset.schema(getIdentifierCol).dataType
@@ -790,6 +803,22 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
   ](dimensions: Int, maxItemCount: Int, distanceFunction: DistanceFunction[TVector, TDistance])
     (implicit distanceOrdering: Ordering[TDistance], idSerializer: ObjectSerializer[TId], itemSerializer: ObjectSerializer[TItem])
       : TIndex[TId, TVector, TItem, TDistance]
+
+  /**
+   * Load an index
+   *
+   * @param inputStream InputStream to restore the index from
+   * @param minCapacity loaded index needs to have space for at least this man additional items
+   *
+   * @tparam TId       type of the index item identifier
+   * @tparam TVector   type of the index item vector
+   * @tparam TItem     type of the index item
+   * @tparam TDistance type of distance between items
+   * @return create an index
+   */
+  protected def loadIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance](inputStream: InputStream,
+                                                                                             minCapacity: Int)
+    : TIndex[TId, TVector, TItem, TDistance]
 
   /**
     * Creates the model to be returned from fitting the data.
@@ -865,6 +894,12 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
       else if (isSet(parallelism)) getParallelism
       else dataset.sparkSession.sparkContext.getConf.getInt("spark.task.cpus", defaultValue = 1)
 
+    val initialModelOutputDir =
+      if (isSet(initialModelPath)) Some(new Path(getInitialModelPath, "indices").toString)
+      else None
+
+    val serializableConfiguration = new SerializableConfiguration(sparkContext.hadoopConfiguration)
+
     partitionedIndexItems
       .foreachPartition { it: Iterator[TItem] =>
         if (it.hasNext) {
@@ -872,23 +907,39 @@ private[knn] abstract class KnnAlgorithm[TModel <: Model[TModel]](override val u
 
           val items = it.toSeq
 
-          logInfo(partitionId,f"started indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(partitionId,s"started indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
-          val index = createIndex[TId, TVector, TItem, TDistance](items.head.dimensions, items.size, distanceFunctionFactory(getDistanceFunction))
+          val existingIndexOption = initialModelOutputDir
+            .flatMap { dir =>
+              val indexPath = new Path(dir, partitionId.toString)
+              val fs = indexPath.getFileSystem(serializableConfiguration.value)
+
+              if (fs.exists(indexPath)) Some {
+                val inputStream = fs.open(indexPath)
+                loadIndex[TId, TVector, TItem, TDistance](inputStream, items.size)
+              } else {
+                logInfo(partitionId, s"File $indexPath not found.")
+                None
+              }
+            }
+
+          val index = existingIndexOption
+            .getOrElse(createIndex[TId, TVector, TItem, TDistance](items.head.dimensions, items.size, distanceFunctionFactory(getDistanceFunction)))
+
           index.addAll(items, progressUpdateInterval = 5000, listener = (workDone, max) => logDebug(f"partition $partitionId%04d: Indexed $workDone of $max items"), numThreads = numThreads)
 
-          logInfo(partitionId, f"finished indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(partitionId, s"finished indexing ${items.size} items on host ${InetAddress.getLocalHost.getHostName}")
 
           val path = new Path(outputDir, partitionId.toString)
           val fileSystem = path.getFileSystem(serializableHadoopConfiguration.value)
 
           val outputStream = fileSystem.create(path)
 
-          logInfo(partitionId, f"started saving index to $path on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(partitionId, s"started saving index to $path on host ${InetAddress.getLocalHost.getHostName}")
 
           index.save(outputStream)
 
-          logInfo(partitionId, f"finished saving index to $path on host ${InetAddress.getLocalHost.getHostName}")
+          logInfo(partitionId, s"finished saving index to $path on host ${InetAddress.getLocalHost.getHostName}")
         }
       }
 

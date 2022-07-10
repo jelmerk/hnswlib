@@ -46,9 +46,11 @@ private[knn] class BruteForceSimilarityModelImpl[
   TVector : TypeTag,
   TItem <: Item[TId, TVector] with Product : TypeTag,
   TDistance : TypeTag
-](override val uid: String, val outputDir: String, val numPartitions: Int)
+](override val uid: String, val outputDir: String, numPartitions: Int)
  (implicit evId: ClassTag[TId], evVector: ClassTag[TVector], distanceNumeric: Numeric[TDistance])
     extends BruteForceSimilarityModel with KnnModelOps[BruteForceSimilarityModel, TId, TVector, TItem, TDistance, BruteForceIndex[TId, TVector, TItem, TDistance]] {
+
+  override def getNumPartitions: Int = numPartitions
 
   override def transform(dataset: Dataset[_]): DataFrame = typedTransform(dataset)
 
@@ -85,6 +87,9 @@ class BruteForceSimilarity(override val uid: String) extends KnnAlgorithm[BruteF
               dimensions,
               distanceFunction
             )
+
+  override protected def loadIndex[TId, TVector, TItem <: Item[TId, TVector] with Product, TDistance]
+    (inputStream: InputStream, minCapacity: Int): BruteForceIndex[TId, TVector, TItem, TDistance] = BruteForceIndex.loadFromInputStream(inputStream)
 
   override protected def createModel[
     TId: TypeTag,
