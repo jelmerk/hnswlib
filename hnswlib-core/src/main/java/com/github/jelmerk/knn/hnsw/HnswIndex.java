@@ -1,8 +1,20 @@
 package com.github.jelmerk.knn.hnsw;
 
 
-import com.github.jelmerk.knn.*;
-import com.github.jelmerk.knn.util.*;
+import com.esotericsoftware.kryo.Kryo;
+import com.esotericsoftware.kryo.io.Input;
+import com.esotericsoftware.kryo.io.Output;
+import com.github.jelmerk.knn.DistanceFunction;
+import com.github.jelmerk.knn.Index;
+import com.github.jelmerk.knn.Item;
+import com.github.jelmerk.knn.JavaObjectSerializer;
+import com.github.jelmerk.knn.ObjectSerializer;
+import com.github.jelmerk.knn.ProgressListener;
+import com.github.jelmerk.knn.SearchResult;
+import com.github.jelmerk.knn.util.ArrayBitSet;
+import com.github.jelmerk.knn.util.ClassLoaderObjectInputStream;
+import com.github.jelmerk.knn.util.GenericObjectPool;
+import com.github.jelmerk.knn.util.Murmur3;
 import org.eclipse.collections.api.list.primitive.MutableIntList;
 import org.eclipse.collections.api.map.primitive.MutableObjectIntMap;
 import org.eclipse.collections.api.map.primitive.MutableObjectLongMap;
@@ -12,12 +24,30 @@ import org.eclipse.collections.impl.list.mutable.primitive.IntArrayList;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectIntHashMap;
 import org.eclipse.collections.impl.map.mutable.primitive.ObjectLongHashMap;
 
-import java.io.*;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.OutputStream;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.PriorityQueue;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import java.util.concurrent.locks.*;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Implementation of {@link Index} that implements the hnsw algorithm.
@@ -71,6 +101,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private ArrayBitSet excludedCandidates;
 
     private ExactView exactView;
+
+    public HnswIndex() {
+    }
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
@@ -150,7 +183,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             Iterator<TItem> iter = new ItemIterator();
 
-            while(iter.hasNext()) {
+            while (iter.hasNext()) {
                 results.add(iter.next());
             }
 
@@ -428,11 +461,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         PriorityQueue<NodeIdAndDistance<TDistance>> queueClosest = new PriorityQueue<>();
         List<NodeIdAndDistance<TDistance>> returnList = new ArrayList<>();
 
-        while(!topCandidates.isEmpty()) {
+        while (!topCandidates.isEmpty()) {
             queueClosest.add(topCandidates.poll());
         }
 
-        while(!queueClosest.isEmpty()) {
+        while (!queueClosest.isEmpty()) {
             if (returnList.size() >= m) {
                 break;
             }
@@ -526,6 +559,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     /**
      * Changes the maximum capacity of the index.
+     *
      * @param newSize new size of the index
      */
     public void resize(int newSize) {
@@ -537,7 +571,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                     Runtime.getRuntime().availableProcessors());
 
             AtomicReferenceArray<Node<TItem>> newNodes = new AtomicReferenceArray<>(newSize);
-            for(int i = 0; i < this.nodes.length(); i++) {
+            for (int i = 0; i < this.nodes.length(); i++) {
                 newNodes.set(i, this.nodes.get(i));
             }
             this.nodes = newNodes;
@@ -588,43 +622,44 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
                 synchronized (node) {
 
-                    MutableIntList candidates = node.connections[layer];
+                    if (layer < node.connections.length) {
+                        MutableIntList candidates = node.connections[layer];
 
-                    for (int i = 0; i < candidates.size(); i++) {
+                        for (int i = 0; i < candidates.size(); i++) {
 
-                        int candidateId = candidates.get(i);
+                            int candidateId = candidates.get(i);
 
-                        if (!visitedBitSet.contains(candidateId)) {
+                            if (!visitedBitSet.contains(candidateId)) {
 
-                            visitedBitSet.add(candidateId);
+                                visitedBitSet.add(candidateId);
 
-                            Node<TItem> candidateNode = nodes.get(candidateId);
+                                Node<TItem> candidateNode = nodes.get(candidateId);
 
-                            TDistance candidateDistance = distanceFunction.distance(destination,
-                                    candidateNode.item.vector());
+                                TDistance candidateDistance = distanceFunction.distance(destination,
+                                        candidateNode.item.vector());
 
-                            if (topCandidates.size() < k || gt(lowerBound, candidateDistance)) {
+                                if (topCandidates.size() < k || gt(lowerBound, candidateDistance)) {
 
-                                NodeIdAndDistance<TDistance> candidatePair =
-                                        new NodeIdAndDistance<>(candidateId, candidateDistance, maxValueDistanceComparator);
+                                    NodeIdAndDistance<TDistance> candidatePair =
+                                            new NodeIdAndDistance<>(candidateId, candidateDistance, maxValueDistanceComparator);
 
-                                candidateSet.add(candidatePair);
+                                    candidateSet.add(candidatePair);
 
-                                if (!candidateNode.deleted) {
-                                    topCandidates.add(candidatePair);
-                                }
+                                    if (!candidateNode.deleted) {
+                                        topCandidates.add(candidatePair);
+                                    }
 
-                                if (topCandidates.size() > k) {
-                                    topCandidates.poll();
-                                }
+                                    if (topCandidates.size() > k) {
+                                        topCandidates.poll();
+                                    }
 
-                                if (!topCandidates.isEmpty()) {
-                                    lowerBound = topCandidates.peek().distance;
+                                    if (!topCandidates.isEmpty()) {
+                                        lowerBound = topCandidates.peek().distance;
+                                    }
                                 }
                             }
                         }
                     }
-
                 }
             }
 
@@ -754,6 +789,159 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         try (ObjectOutputStream oos = new ObjectOutputStream(out)) {
             oos.writeObject(this);
         }
+    }
+
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> loadKryo(String path) throws IOException {
+        Kryo kryo = new Kryo();
+        kryo.setRegistrationRequired(false);
+        Input input = new Input(Files.newInputStream(Paths.get(path)));
+        HnswIndex<TId, TVector, TItem, TDistance> index = new HnswIndex<>();
+        index.readObjectKryo(kryo, input);
+        input.close();
+        return index;
+    }
+
+    public void saveKryo(String path) throws IOException {
+        Kryo kryo = new Kryo();
+        kryo.setRegistrationRequired(false);
+        Output output = new Output(Files.newOutputStream(Paths.get(path)));
+        writeObjectKryo(kryo, output);
+        output.close();
+    }
+
+    private void writeObjectKryo(Kryo kryo, Output output) {
+        output.writeByte(VERSION_1);
+        output.writeInt(dimensions);
+        kryo.writeClassAndObject(output, distanceFunction);
+        kryo.writeClassAndObject(output, distanceComparator);
+        kryo.writeClassAndObject(output, itemIdSerializer);
+        kryo.writeClassAndObject(output, itemSerializer);
+        output.writeInt(maxItemCount);
+        output.writeInt(m);
+        output.writeInt(maxM);
+        output.writeInt(maxM0);
+        output.writeDouble(levelLambda);
+        output.writeInt(ef);
+        output.writeInt(efConstruction);
+        output.writeBoolean(removeEnabled);
+        output.writeInt(nodeCount);
+        kryo.writeClassAndObject(output, lookup);
+        kryo.writeClassAndObject(output, deletedItemVersions);
+        writeNodesArrayKryo(kryo, output, nodes);
+        output.writeInt(entryPoint == null ? -1 : entryPoint.id);
+    }
+
+    private void readObjectKryo(Kryo kryo, Input input) {
+        @SuppressWarnings("unused") byte version = input.readByte(); // for coping with future incompatible serialization
+        this.dimensions = input.readInt();
+        this.distanceFunction = (DistanceFunction<TVector, TDistance>) kryo.readClassAndObject(input);
+        this.distanceComparator = (Comparator<TDistance>) kryo.readClassAndObject(input);
+        this.maxValueDistanceComparator = new MaxValueComparator<>(distanceComparator);
+        this.itemIdSerializer = (ObjectSerializer<TId>) kryo.readClassAndObject(input);
+        this.itemSerializer = (ObjectSerializer<TItem>) kryo.readClassAndObject(input);
+
+        this.maxItemCount = input.readInt();
+        this.m = input.readInt();
+        this.maxM = input.readInt();
+        this.maxM0 = input.readInt();
+        this.levelLambda = input.readDouble();
+        this.ef = input.readInt();
+        this.efConstruction = input.readInt();
+        this.removeEnabled = input.readBoolean();
+        this.nodeCount = input.readInt();
+        this.lookup = (MutableObjectIntMap<TId>) kryo.readClassAndObject(input);
+        this.deletedItemVersions = (MutableObjectLongMap<TId>) kryo.readClassAndObject(input);
+        this.nodes = readNodesArrayKryo(kryo, input);
+
+        int entrypointNodeId = input.readInt();
+        this.entryPoint = entrypointNodeId == -1 ? null : nodes.get(entrypointNodeId);
+
+        this.globalLock = new ReentrantLock();
+        this.visitedBitSetPool = new GenericObjectPool<>(() -> new ArrayBitSet(this.maxItemCount),
+                Runtime.getRuntime().availableProcessors());
+        this.excludedCandidates = new ArrayBitSet(this.maxItemCount);
+        this.locks = new HashMap<>();
+        this.exactView = new ExactView();
+    }
+
+    public void writeNodesArrayKryo(Kryo kryo, Output output, AtomicReferenceArray<Node<TItem>> nodes) {
+        int nodeCount = 0;
+        int levelsCount = 0;
+        int allNeighboursCount = 0;
+        for (int i = 0; i < nodes.length(); i++) {
+            Node<TItem> node = nodes.get(i);
+            if (node != null) {
+                for (MutableIntList levels : node.connections) {
+                    allNeighboursCount += levels.size();
+                    levelsCount += 1;
+                }
+                nodeCount += 1;
+            }
+        }
+
+        int[] levelIds1 = new int[nodeCount + 1];
+        int[] neighbourListStartIds2 = new int[levelsCount + 1];
+        int[] allNeighboursList3 = new int[allNeighboursCount];
+        List<TItem> items = new ArrayList<>(nodeCount);
+
+        int currentIndex1 = 0;
+        int currentIndex2 = 0;
+        int currentIndex3 = 0;
+        for (int i = 0; i < nodes.length(); i++) {
+            Node<TItem> node = nodes.get(i);
+            if (node != null) {
+                levelIds1[currentIndex1++] = currentIndex2;
+                for (MutableIntList level : node.connections) {
+                    neighbourListStartIds2[currentIndex2++] = currentIndex3;
+                    for (int connection : level.toArray()) {
+                        allNeighboursList3[currentIndex3++] = connection;
+                    }
+                }
+                items.add(node.item);
+            }
+        }
+        levelIds1[nodeCount] = levelIds1[nodeCount - 1];
+        neighbourListStartIds2[levelsCount] = neighbourListStartIds2.length;
+        kryo.writeObject(output, levelIds1);
+        kryo.writeObject(output, neighbourListStartIds2);
+        kryo.writeObject(output, allNeighboursList3);
+        kryo.writeClassAndObject(output, items);
+    }
+
+    private static <TItem> AtomicReferenceArray<Node<TItem>> readNodesArrayKryo(Kryo kryo, Input input) {
+        int[] levelIds1 = kryo.readObject(input, int[].class);
+        int[] neighbourListStartIds2 = kryo.readObject(input, int[].class);
+        int[] allNeighboursList3 = kryo.readObject(input, int[].class);
+        Object itemsObject = kryo.readClassAndObject(input);
+        List<TItem> items = (List<TItem>) itemsObject;
+
+        int nodeCount = levelIds1.length;
+        AtomicReferenceArray<Node<TItem>> nodes = new AtomicReferenceArray<>(nodeCount);
+
+        for (int i = 0; i < nodeCount - 1; i++) {
+            int levelSize = levelIds1[i + 1] - levelIds1[i];
+            int startIndex2 = levelIds1[i];
+            int endIndex2 = startIndex2 + levelSize;
+
+            MutableIntList[] levels = new MutableIntList[levelSize];
+            int levelsIndex = 0;
+            for (int j = startIndex2; j < endIndex2; j++) {
+                int startIndex3 = neighbourListStartIds2[j];
+                int endIndex3 = neighbourListStartIds2[j + 1];
+
+                IntArrayList neighbours = new IntArrayList();
+                for (int n = startIndex3; n < endIndex3; n++) {
+                    neighbours.add(allNeighboursList3[n]);
+                }
+                levels[levelsIndex++] = neighbours;
+            }
+
+            TItem item = (TItem) items.get(i);
+            Node<TItem> node = new Node<>(i, levels, item, false);
+            nodes.set(i, node);
+        }
+
+        return nodes;
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
@@ -913,7 +1101,6 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      * @param <TVector>   Type of the vector to perform distance calculation on
      * @param <TItem>     Type of items stored in the index
      * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
-     *
      * @return The restored index
      * @throws IOException in case of an I/O exception
      */
@@ -956,7 +1143,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> load(InputStream inputStream, ClassLoader classLoader)
             throws IOException {
 
-        try(ObjectInputStream ois = new ClassLoaderObjectInputStream(classLoader, inputStream)) {
+        try (ObjectInputStream ois = new ClassLoaderObjectInputStream(classLoader, inputStream)) {
             return (HnswIndex<TId, TVector, TItem, TDistance>) ois.readObject();
         } catch (ClassNotFoundException e) {
             throw new IllegalArgumentException("Could not read input file.", e);
@@ -1055,11 +1242,11 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Start the process of building a new HNSW index.
      *
-     * @param dimensions the dimensionality of the vectors stored in the index
+     * @param dimensions       the dimensionality of the vectors stored in the index
      * @param distanceFunction the distance function
-     * @param maxItemCount maximum number of items the index can hold
-     * @param <TVector> Type of the vector to perform distance calculation on
-     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @param maxItemCount     maximum number of items the index can hold
+     * @param <TVector>        Type of the vector to perform distance calculation on
+     * @param <TDistance>      Type of distance between items (expect any numeric type: float, double, int, ..)
      * @return a builder
      */
     public static <TVector, TDistance extends Comparable<TDistance>> Builder<TVector, TDistance> newBuilder(
@@ -1075,12 +1262,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Start the process of building a new HNSW index.
      *
-     * @param dimensions the dimensionality of the vectors stored in the index
-     * @param distanceFunction the distance function
+     * @param dimensions         the dimensionality of the vectors stored in the index
+     * @param distanceFunction   the distance function
      * @param distanceComparator used to compare distances
-     * @param maxItemCount maximum number of items the index can hold
-     * @param <TVector> Type of the vector to perform distance calculation on
-     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     * @param maxItemCount       maximum number of items the index can hold
+     * @param <TVector>          Type of the vector to perform distance calculation on
+     * @param <TDistance>        Type of distance between items (expect any numeric type: float, double, int, ..)
      * @return a builder
      */
     public static <TVector, TDistance> Builder<TVector, TDistance> newBuilder(
@@ -1232,7 +1419,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
             do {
                 node = HnswIndex.this.nodes.get(index++);
-            } while(node == null || node.deleted);
+            } while (node == null || node.deleted);
 
             done++;
 
@@ -1283,7 +1470,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
 
-    static class MaxValueComparator<TDistance> implements Comparator<TDistance>, Serializable  {
+    static class MaxValueComparator<TDistance> implements Comparator<TDistance>, Serializable {
 
         private static final long serialVersionUID = 1L;
 
@@ -1307,8 +1494,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Base class for HNSW index builders.
      *
-     * @param <TBuilder> Concrete class that extends from this builder
-     * @param <TVector> Type of the vector to perform distance calculation on
+     * @param <TBuilder>  Concrete class that extends from this builder
+     * @param <TVector>   Type of the vector to perform distance calculation on
      * @param <TDistance> Type of items stored in the index
      */
     public static abstract class BuilderBase<TBuilder extends BuilderBase<TBuilder, TVector, TDistance>, TVector, TDistance> {
@@ -1413,7 +1600,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         /**
          * Constructs a new {@link Builder} instance.
          *
-         * @param dimensions the dimensionality of the vectors stored in the index
+         * @param dimensions       the dimensionality of the vectors stored in the index
          * @param distanceFunction the distance function
          * @param maxItemCount     the maximum number of elements in the index
          */
@@ -1464,9 +1651,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     /**
      * Extension of {@link Builder} that has knows what type of item is going to be stored in the index.
      *
-     * @param <TId> Type of the external identifier of an item
-     * @param <TVector> Type of the vector to perform distance calculation on
-     * @param <TItem> Type of items stored in the index
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
      * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
      */
     public static class RefinedBuilder<TId, TVector, TItem extends Item<TId, TVector>, TDistance>
