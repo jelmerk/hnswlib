@@ -70,4 +70,34 @@ public final class VectorUtils {
         return result;
     }
 
+    /*
+     * Take the range of a 32-bit float and map it to the range of an 8-bit integer for each dimension in a vector
+     */
+    public static byte[] quantize(float[] vector) {
+        byte[] result = new byte[vector.length];
+        for (int i = 0; i < vector.length; i++) {
+
+            float scaled = vector[i] * 128;
+            float clipped = Math.max(-128, Math.min(127, scaled));
+
+            result[i] =  (byte) clipped;
+        }
+        return result;
+    }
+
+    /*
+     * Take the range of a 64-bit double and map it to the range of an 8-bit integer for each dimension in a vector
+     */
+    public static byte[] quantize(double[] vector) {
+        byte[] result = new byte[vector.length];
+        for (int i = 0; i < vector.length; i++) {
+
+            double scaled = vector[i] * 128;
+            double clipped = Math.max(-128, Math.min(127, scaled));
+
+            result[i] =  (byte) clipped;
+        }
+        return result;
+    }
+
 }

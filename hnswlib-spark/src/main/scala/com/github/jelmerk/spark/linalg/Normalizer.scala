@@ -42,7 +42,7 @@ class Normalizer(override val uid: String)
     case ArrayType(DoubleType, _) => dataset.withColumn(getOutputCol, normalizeDoubleArray(col(getInputCol)))
   }
 
-  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+  override def copy(extra: ParamMap): Normalizer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     if (schema.fieldNames.contains(getOutputCol)) {

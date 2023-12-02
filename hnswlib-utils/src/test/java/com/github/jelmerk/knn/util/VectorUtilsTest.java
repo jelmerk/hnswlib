@@ -31,4 +31,14 @@ class VectorUtilsTest {
     void normalizeDoubleVector() {
         assertThat(normalize(doubleVector), is(new double[] { 0.2672612419124244d, 0.5345224838248488d, 0.8017837257372731d }));
     }
+
+    @Test
+    void quantizeFloatVector() {
+        assertThat(quantize(floatVector), is(new byte[]{0x01, 0x02, 0x03}));
+    }
+
+    @Test
+    void quantizeDoubleVector() {
+        assertThat(quantize(doubleVector), is(new byte[]{0x01, 0x02, 0x03}));
+    }
 }

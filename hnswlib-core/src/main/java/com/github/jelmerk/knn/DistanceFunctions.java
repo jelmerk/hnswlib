@@ -332,7 +332,7 @@ public final class DistanceFunctions {
          * @param u Left vector.
          * @param v Right vector.
          *
-         * @return Cosine distance between u and v.
+         * @return Inner product between u and v.
          */
         @Override
         public Double distance(double[] u, double[] v) {
@@ -342,6 +342,32 @@ public final class DistanceFunctions {
             }
 
             return 1 - dot;
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the inner product.
+     */
+    static class ByteInnerProduct implements DistanceFunction<byte[], Float> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates inner product.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Cosine distance between u and v.
+         */
+        @Override
+        public Float distance(byte[] u, byte[] v) {
+            float dot = 0;
+            for (int i = 0; i < u.length; i++) {
+                dot += (u[i] & 0xFF) * (v[i] & 0xFF);
+            }
+
+            return dot;
         }
     }
 
@@ -362,6 +388,32 @@ public final class DistanceFunctions {
          */
         @Override
         public Double distance(double[] u, double[] v) {
+            double sum = 0;
+            for (int i = 0; i < u.length; i++) {
+                double dp = u[i] - v[i];
+                sum += dp * dp;
+            }
+            return Math.sqrt(sum);
+        }
+    }
+
+    /**
+     * Implementation of {@link DistanceFunction} that calculates the euclidean distance.
+     */
+    static class ByteEuclideanDistance implements DistanceFunction<byte[], Float> {
+
+        private static final long serialVersionUID = 1L;
+
+        /**
+         * Calculates euclidean distance.
+         *
+         * @param u Left vector.
+         * @param v Right vector.
+         *
+         * @return Euclidean distance between u and v.
+         */
+        @Override
+        public Float distance(byte[] u, byte[] v) {
             double sum = 0;
             for (int i = 0; i < u.length; i++) {
                 double dp = u[i] - v[i];
