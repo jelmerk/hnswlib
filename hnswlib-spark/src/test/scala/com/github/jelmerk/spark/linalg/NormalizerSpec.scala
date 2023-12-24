@@ -3,14 +3,14 @@ package com.github.jelmerk.spark.linalg
 import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.DataFrame
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
 case class InputRow[TVector](vector: TVector)
 
 case class OutputRow[TVector](vector: TVector, normalized: TVector)
 
-class NormalizerSpec extends FunSuite with DataFrameSuiteBase {
+class NormalizerSpec extends AnyFunSuite with DataFrameSuiteBase {
 
   test("normalize vector") {
 

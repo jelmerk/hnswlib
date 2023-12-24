@@ -1,4 +1,4 @@
-[![Build Status](https://app.travis-ci.com/jelmerk/hnswlib.svg?branch=master)](https://app.travis-ci.com/jelmerk/hnswlib)
+[![Build Status](https://github.com/jelmerk/hnswlib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/jelmerk/hnswlib/actions/workflows/ci.yml)
 
 Hnswlib
 =======

@@ -10,8 +10,8 @@ import org.apache.commons.lang.builder.{EqualsBuilder, HashCodeBuilder}
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
-import org.scalatest.FunSuite
-import org.scalatest.Matchers._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers._
 import org.scalatest.prop.TableDrivenPropertyChecks._
 
 case class PrePartitionedInputRow[TId, TVector](partition: Int, id: TId, vector: TVector)
@@ -36,7 +36,7 @@ case class MinimalOutputRow[TId, TDistance](id: TId, neighbors: Seq[Neighbor[TId
   override def hashCode(): Int = HashCodeBuilder.reflectionHashCode(this)
 }
 
-class HnswSimilaritySpec extends FunSuite with DataFrameSuiteBase {
+class HnswSimilaritySpec extends AnyFunSuite with DataFrameSuiteBase {
 
   // for some reason kryo cannot serialize the hnswindex so configure it to make sure it never gets serialized
   override def conf: SparkConf = super.conf

@@ -4,10 +4,10 @@ import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, 
 
 import com.github.jelmerk.knn.scalalike.{Item, ObjectSerializer}
 import org.apache.spark.ml.linalg.{Vectors, Vector}
-import org.scalatest.FunSuite
-import org.scalatest.Matchers._
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers._
 
-class SerializerSpec extends FunSuite {
+class SerializerSpec extends AnyFunSuite {
 
   test("serialize objects") {
     validateSerializability(IntSerializer, 1)

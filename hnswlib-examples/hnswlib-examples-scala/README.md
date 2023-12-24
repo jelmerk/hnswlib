@@ -5,4 +5,4 @@ Example scala application.
 
 To run execute
 
-    mvn exec:scala
+    sbt run

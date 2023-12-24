@@ -22,8 +22,9 @@ public class ArrayBitSet implements Serializable {
     }
 
     /**
-     * Initializes a new instance of the {@link ArrayBitSet} class. and copies the values
-     * of another bitset
+     * Initializes a new instance of the {@link ArrayBitSet} class. and copies the values of another bitset.
+     *
+     * @param other other bitset
      * @param count The number of items in the set.
      */
     public ArrayBitSet(ArrayBitSet other, int count) {
@@ -31,15 +32,17 @@ public class ArrayBitSet implements Serializable {
     }
 
     /**
-     * {@inheritDoc}
+     * Returns true if this set contains the specified element
      */
-    public boolean contains(int id) {
-        int carrier = this.buffer[id >> 5];
-        return ((1 << (id & 31)) & carrier) != 0;
+    public boolean contains(int bitIndex) {
+        int carrier = this.buffer[bitIndex >> 5];
+        return ((1 << (bitIndex & 31)) & carrier) != 0;
     }
 
     /**
-     * {@inheritDoc}
+     * Add element to the bitset.
+     *
+     * @param id element to add
      */
     public void add(int id)  {
         int mask = 1 << (id & 31);
@@ -47,7 +50,9 @@ public class ArrayBitSet implements Serializable {
     }
 
     /**
-     * {@inheritDoc}
+     * Removes element from the bitset.
+     *
+     * @param id element to remove
      */
     public void remove(int id) {
         int mask = 1 << (id & 31);
@@ -55,7 +60,7 @@ public class ArrayBitSet implements Serializable {
     }
 
     /**
-     * {@inheritDoc}
+     * Clears the bitset.
      */
     public void clear() {
         Arrays.fill(this.buffer, 0);

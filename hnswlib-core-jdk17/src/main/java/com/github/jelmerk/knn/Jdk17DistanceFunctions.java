@@ -333,28 +333,64 @@ public final class Jdk17DistanceFunctions {
         }
     }
 
+    /**
+     * Calculates the cosine distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_COSINE_DISTANCE = new VectorFloat128CosineDistance();
 
+    /**
+     * Calculates the cosine distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_COSINE_DISTANCE = new VectorFloat256CosineDistance();
 
+    /**
+     * Calculates the inner product distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_INNER_PRODUCT = new VectorFloat128InnerProduct();
 
+    /**
+     * Calculates the inner product distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_INNER_PRODUCT = new VectorFloat256InnerProduct();
 
+    /**
+     * Calculates the euclidean distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_EUCLIDEAN_DISTANCE = new VectorFloat128EuclideanDistance();
 
+    /**
+     * Calculates the euclidean distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_EUCLIDEAN_DISTANCE = new VectorFloat256EuclideanDistance();
 
+    /**
+     * Calculates the manhattan distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_MANHATTAN_DISTANCE = new VectorFloat128ManhattanDistance();
 
+    /**
+     * Calculates the manhattan distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_MANHATTAN_DISTANCE = new VectorFloat256ManhattanDistance();
 
+    /**
+     * Calculates the canberra distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_CANBERRA_DISTANCE = new VectorFloat128CanberraDistance();
 
+    /**
+     * Calculates the canberra distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_CANBERRA_DISTANCE = new VectorFloat256CanberraDistance();
 
+    /**
+     * Calculates the bray curtis distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_128_BRAY_CURTIS_DISTANCE = new VectorFloat128BrayCurtisDistance();
 
+    /**
+     * Calculates the bray curtis distance.
+     */
     public static final DistanceFunction<float[], Float> VECTOR_FLOAT_256_BRAY_CURTIS_DISTANCE = new VectorFloat256BrayCurtisDistance();
 
 

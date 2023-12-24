@@ -1,0 +1,21 @@
+name: Release pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Semantic version. For example 1.0.0
+        required: true
+
+jobs:
+  ci-pipeline:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+      - name: Release
+        run: |
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git tag -a v${{ github.event.inputs.version }} -m "next release"
+          git push --tags

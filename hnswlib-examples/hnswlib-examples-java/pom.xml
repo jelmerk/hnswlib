@@ -4,16 +4,21 @@
 
     <modelVersion>4.0.0</modelVersion>
 
+    <groupId>com.github.jelmerk</groupId>
     <artifactId>hnswlib-examples-java</artifactId>
-
-    <parent>
-        <groupId>com.github.jelmerk</groupId>
-        <artifactId>hnswlib-examples-parent-pom</artifactId>
-        <version>1.1.0</version>
-        <relativePath>..</relativePath>
-    </parent>
+    <version>0.0.1-SNAPSHOT</version>
 
     <description>Examples for the core java library</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.build.outputEncoding>UTF-8</project.build.outputEncoding>
+
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+
+        <hnswlib.version>1.1.0</hnswlib.version>
+    </properties>
 
     <build>
         <plugins>
@@ -39,13 +44,13 @@
         <dependency>
             <groupId>com.github.jelmerk</groupId>
             <artifactId>hnswlib-core</artifactId>
-            <version>${project.version}</version>
+            <version>${hnswlib.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.github.jelmerk</groupId>
             <artifactId>hnswlib-utils</artifactId>
-            <version>${project.version}</version>
+            <version>${hnswlib.version}</version>
         </dependency>
     </dependencies>
 

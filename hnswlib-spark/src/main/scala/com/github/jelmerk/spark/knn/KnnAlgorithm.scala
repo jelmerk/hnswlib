@@ -9,6 +9,7 @@ import scala.language.{higherKinds, implicitConversions}
 import scala.reflect.ClassTag
 import scala.reflect.runtime.universe._
 import scala.util.Try
+import scala.Seq
 import org.apache.hadoop.fs.{FileUtil, Path}
 import org.apache.spark.{Partitioner, TaskContext}
 import org.apache.spark.internal.Logging
@@ -23,7 +24,6 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.json4s.jackson.JsonMethods._
 import org.json4s._
-import org.json4s.JsonDSL._
 import com.github.jelmerk.knn.scalalike._
 import com.github.jelmerk.knn.util.NamedThreadFactory
 import com.github.jelmerk.spark.linalg.functions.VectorDistanceFunctions
@@ -289,21 +289,26 @@ private[knn] class KnnModelWriter[
     extends MLWriter {
 
   override protected def saveImpl(path: String): Unit = {
-    val params =
+    val params = JObject(
       instance.extractParamMap().toSeq.toList
         // cannot use parse because of incompatibilities between json4s 3.2.11 used by spark 2.3 and 3.6.6 used by spark 2.4
-        .map { case ParamPair(param, value) => param.name -> mapper.readValue(param.jsonEncode(value), classOf[JValue]) }
-        .toMap
+        .map { case ParamPair(param, value) =>
+          val fieldName = param.name
+          val fieldValue = mapper.readValue(param.jsonEncode(value), classOf[JValue])
+          JField(fieldName, fieldValue)
+        }
+    )
 
-    val metaData: JObject =
-      ("class" -> instance.getClass.getName) ~
-      ("timestamp" -> System.currentTimeMillis()) ~
-      ("sparkVersion", sc.version) ~
-      ("uid", instance.uid) ~
-      ("identifierType", typeDescription[TId]) ~
-      ("vectorType", typeDescription[TVector]) ~
-      ("partitions", instance.getNumPartitions) ~
-      ("paramMap",  params)
+    val metaData = JObject(List(
+      JField("class", JString(instance.getClass.getName)),
+      JField("timestamp", JLong(System.currentTimeMillis())),
+      JField("sparkVersion", JString(sc.version)),
+      JField("uid", JString(instance.uid)),
+      JField("identifierType", JString(typeDescription[TId])),
+      JField("vectorType", JString(typeDescription[TVector])),
+      JField("partitions", JInt(instance.getNumPartitions)),
+      JField("paramMap", params)
+    ))
 
     val metadataPath = new Path(path, "metadata").toString
     sc.parallelize(Seq(compact(metaData)), numSlices = 1).saveAsTextFile(metadataPath)
@@ -669,7 +674,7 @@ private[knn] trait KnnModelOps[
 
     val topNeighbors = neighborsOnAllQueryPartitions
       .groupByKey { case (queryId, _) => queryId }
-      .flatMapGroups { case (queryId, groups) =>
+      .flatMapGroups { (queryId, groups) =>
         val allNeighbors = groups.flatMap { case (_, neighbors) => neighbors}.toList
         Iterator.single(queryId -> allNeighbors.sortBy(_.distance).take(getK))
       }

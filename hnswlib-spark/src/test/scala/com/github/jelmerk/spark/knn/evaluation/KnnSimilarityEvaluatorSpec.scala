@@ -1,15 +1,15 @@
 package com.github.jelmerk.spark.knn.evaluation
 
-import com.holdenkarau.spark.testing.DataFrameSuiteBase
-import org.scalatest.FunSuite
-import org.scalatest.Matchers._
+import com.github.jelmerk.spark.SharedSparkContext
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatest.matchers.should.Matchers._
 
 case class Neighbor[TId, TDistance](neighbor: TId, distance: TDistance)
 
-class KnnSimilarityEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
+class KnnSimilarityEvaluatorSpec extends AnyFunSuite with SharedSparkContext {
 
   test("evaluate performance") {
-    val sqlCtx = sqlContext
+    val sqlCtx = spark
     import sqlCtx.implicits._
 
     val evaluator = new KnnSimilarityEvaluator()
@@ -25,7 +25,7 @@ class KnnSimilarityEvaluatorSpec extends FunSuite with DataFrameSuiteBase {
   }
 
   test("evaluate performance empty lists") {
-    val sqlCtx = sqlContext
+    val sqlCtx = spark
     import sqlCtx.implicits._
 
     val evaluator = new KnnSimilarityEvaluator()

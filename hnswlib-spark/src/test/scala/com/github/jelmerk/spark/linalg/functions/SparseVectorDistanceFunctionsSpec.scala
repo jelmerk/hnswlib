@@ -3,11 +3,11 @@ package com.github.jelmerk.spark.linalg.functions
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.linalg.Vectors
 import org.scalactic.{Equality, TolerantNumerics}
-import org.scalatest.FunSuite
+import org.scalatest.funsuite.AnyFunSuite
 
 import scala.util.Random
 
-class SparseVectorDistanceFunctionsSpec extends FunSuite {
+class SparseVectorDistanceFunctionsSpec extends AnyFunSuite {
 
   private implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(0.001)
   private val random = new Random(1000L)

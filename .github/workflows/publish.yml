@@ -1,0 +1,48 @@
+name: Publish pipeline
+
+on:
+  workflow_dispatch:
+
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  publish-artifacts:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        spark:
+          - 2.4.8
+          - 3.0.2
+          - 3.1.3
+          - 3.2.4
+          - 3.3.2
+          - 3.4.1
+          - 3.5.0
+
+    env:
+      ENV: 'ci'
+      SPARK_VERSION: ${{ matrix.spark }}
+      NEXUS_USER: ${{ secrets.NEXUS_USER }}
+      NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: |
+            3.7
+            3.9
+      - name: Import GPG Key
+        uses: crazy-max/ghaction-import-gpg@v1
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      - name: Publish artifacts
+        run: |
+          sbt -java-home "$JAVA_HOME_17_X64" clean +publishSigned -DsparkVersion="$SPARK_VERSION"
