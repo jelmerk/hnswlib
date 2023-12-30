@@ -1,5 +1,6 @@
 package com.github.jelmerk.knn.util;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.Arrays;
 

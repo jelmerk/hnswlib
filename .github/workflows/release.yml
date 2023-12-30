@@ -1,5 +1,8 @@
 name: Release pipeline
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
     inputs:
@@ -13,6 +16,8 @@ jobs:
     steps:
       - name: Checkout main branch
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.RELEASE_TOKEN }}
       - name: Release
         run: |
           git config --global user.email "action@github.com"

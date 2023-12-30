@@ -1,5 +1,8 @@
 name: CI pipeline
 
+permissions:
+  checks: write
+
 on:
   pull_request:
     paths:
@@ -9,38 +12,24 @@ on:
       - '*'
     tags-ignore:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+    paths-ignore:
+      - '**.md'
 
 jobs:
   ci-pipeline:
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        spark:
-          - 2.4.8
-          - 3.0.2
-          - 3.1.3
-          - 3.2.4
-          - 3.3.2
-          - 3.4.1
-          - 3.5.0
+
     env:
       ENV: 'ci'
-      SPARK_VERSION: ${{ matrix.spark }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - uses: actions/setup-python@v5
-        with:
-          python-version: |
-            3.7
-            3.9
       - name: Build and test
         run: |
-          sbt -java-home "$JAVA_HOME_17_X64" clean +test -DsparkVersion="$SPARK_VERSION"
+          sbt -java-home "$JAVA_HOME_17_X64" clean +test
       - name: Publish Unit test results
         uses: mikepenz/action-junit-report@v4
         with:
