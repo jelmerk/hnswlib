@@ -25,11 +25,10 @@ jobs:
         with:
           fetch-depth: 0
       - name: Import GPG Key
-        uses: crazy-max/ghaction-import-gpg@v1
+        uses: crazy-max/ghaction-import-gpg@v6
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       - name: Publish artifacts
         run: |
-          sbt -java-home "$JAVA_HOME_17_X64" clean +publishSigned
-          sbt -java-home "$JAVA_HOME_17_X64" sonatypeBundleRelease
+          sbt -java-home "$JAVA_HOME_17_X64" clean +publishSigned sonatypeBundleRelease

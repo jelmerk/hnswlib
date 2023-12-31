@@ -4,7 +4,6 @@ ThisBuild / scalaVersion := "2.12.18"
 ThisBuild / fork := true
 
 ThisBuild / dynverSonatypeSnapshots := true
-ThisBuild / publishMavenStyle := true
 
 ThisBuild / versionScheme := Some("early-semver")
 
