@@ -126,4 +126,68 @@ package object scalalike {
     */
   val doubleSparseVectorInnerProduct: DistanceFunction[SparseVector[Array[Double]], Double] =
     JDistanceFunctions.DOUBLE_SPARSE_VECTOR_INNER_PRODUCT.distance
+
+  object jdk17DistanceFunctions {
+
+    /**
+     * Calculates the cosine distance.
+     */
+    val vectorFloat128CosineDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_COSINE_DISTANCE.distance
+
+    /**
+     * Calculates the cosine distance.
+     */
+    val vectorFloat256CosineDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_COSINE_DISTANCE.distance
+
+    /**
+     * Calculates the inner product.
+     */
+    val vectorFloat128InnerProduct: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_INNER_PRODUCT.distance
+
+    /**
+     * Calculates the inner product.
+     */
+    val vectorFloat256InnerProduct: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_INNER_PRODUCT.distance
+
+    /**
+     * Calculates the euclidean distance.
+     */
+    val vectorFloat128EuclideanDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_EUCLIDEAN_DISTANCE.distance
+
+    /**
+     * Calculates the euclidean distance.
+     */
+    val vectorFloat256EuclideanDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_EUCLIDEAN_DISTANCE.distance
+
+    /**
+     * Calculates the manhattan distance.
+     */
+    val vectorFloat128ManhattanDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_MANHATTAN_DISTANCE.distance
+
+    /**
+     * Calculates the manhattan distance.
+     */
+    val vectorFloat256ManhattanDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_MANHATTAN_DISTANCE.distance
+
+    /**
+     * Calculates the canberra distance.
+     */
+    val vectorFloat128CanberraDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_CANBERRA_DISTANCE.distance
+
+    /**
+     * Calculates the canberra distance.
+     */
+    val vectorFloat256CanberraDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_CANBERRA_DISTANCE.distance
+
+    /**
+     * Calculates the bray curtis distance.
+     */
+    val vectorFloat128BrayCurtisDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_128_BRAY_CURTIS_DISTANCE.distance
+
+    /**
+     * Calculates the bray curtis distance.
+     */
+    val vectorFloat256BrayCurtisDistance: DistanceFunction[Array[Float], Float] = Jdk17DistanceFunctions.VECTOR_FLOAT_256_BRAY_CURTIS_DISTANCE.distance
+
+  }
 }

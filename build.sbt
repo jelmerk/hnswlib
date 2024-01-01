@@ -145,6 +145,7 @@ lazy val hnswlibMetricsDropwizard = (project in file("hnswlib-metrics-dropwizard
 lazy val hnswlibScala = (project in file("hnswlib-scala"))
   .dependsOn(hnswlibCore)
   .dependsOn(hnswlibMetricsDropwizard % Optional)
+  .dependsOn(hnswlibCoreJdk17 % Optional)
   .settings(
     name               := "hnswlib-scala",
     crossScalaVersions := List("2.11.12", "2.12.18", "2.13.10"),
