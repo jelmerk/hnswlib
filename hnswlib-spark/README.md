@@ -1,0 +1,1 @@
+Spark support was moved to [hnswlib-spark](https://github.com/jelmerk/hnswlib-spark)
