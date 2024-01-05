@@ -5,15 +5,13 @@ permissions:
 
 on:
   pull_request:
-    paths:
-      - '**'
-  push:
-    branches:
-      - '*'
-    tags-ignore:
-      - 'v[0-9]+.[0-9]+.[0-9]+'
     paths-ignore:
       - '**.md'
+  push:
+    branches-ignore:
+      - '!master'
+    tags-ignore:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 jobs:
   ci-pipeline:
