@@ -8,9 +8,9 @@ import static com.github.jelmerk.knn.util.VectorUtils.*;
 
 class VectorUtilsTest {
 
-    private float[] floatVector = { 0.01f, 0.02f, 0.03f };
+    private final float[] floatVector = { 0.01f, 0.02f, 0.03f };
 
-    private double[] doubleVector = { 0.01d, 0.02d, 0.03d };
+    private final double[] doubleVector = { 0.01d, 0.02d, 0.03d };
 
     @Test
     void calculateFloatVectorMagnitude() {

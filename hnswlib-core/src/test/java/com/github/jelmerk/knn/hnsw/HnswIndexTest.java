@@ -17,18 +17,18 @@ class HnswIndexTest {
 
     private HnswIndex<String, float[], TestItem, Float> index;
 
-    private int maxItemCount = 100;
-    private int m = 12;
-    private int efConstruction = 250;
-    private int ef = 20;
-    private int dimensions = 2;
-    private DistanceFunction<float[], Float> distanceFunction = DistanceFunctions.FLOAT_COSINE_DISTANCE;
-    private ObjectSerializer<String> itemIdSerializer = new JavaObjectSerializer<>();
-    private ObjectSerializer<TestItem> itemSerializer = new JavaObjectSerializer<>();
+    private final int maxItemCount = 100;
+    private final int m = 12;
+    private final int efConstruction = 250;
+    private final int ef = 20;
+    private final int dimensions = 2;
+    private final DistanceFunction<float[], Float> distanceFunction = DistanceFunctions.FLOAT_COSINE_DISTANCE;
+    private final ObjectSerializer<String> itemIdSerializer = new JavaObjectSerializer<>();
+    private final ObjectSerializer<TestItem> itemSerializer = new JavaObjectSerializer<>();
 
-    private TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
-    private TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
-    private TestItem item3 = new TestItem("3", new float[] { 0.4300f, 0.9891f }, 10);
+    private final TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
+    private final TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
+    private final TestItem item3 = new TestItem("3", new float[] { 0.4300f, 0.9891f }, 10);
 
     @BeforeEach
     void setUp() {

@@ -47,12 +47,12 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
 
     private final int sampleFrequency;
 
-    private AtomicLong searchCount = new AtomicLong();
+    private final AtomicLong searchCount = new AtomicLong();
 
     private final AccuracyTestThread accuracyEvaluator;
 
     /**
-     * Constructs a new com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator.
+     * Constructs a new {@link com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator}.
      *
      * @param metricRegistry metric registry to publish the metric in
      * @param clazz the first element of the name
@@ -95,13 +95,13 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
     }
 
     /**
-     * Constructs a new com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator.
+     * Constructs a new {@link com.github.jelmerk.knn.metrics.dropwizard.StatisticsDecorator}
      *
      * @param indexName name of the index. Will be used as part of the metric path
      * @param approximativeIndex the approximative index
      * @param groundTruthIndex the brute force index
      * @param maxPrecisionSampleFrequency at most maxPrecisionSampleFrequency the results from the approximative index
-     *                                    will be compared with those of the groundTruthIndex to establish the the runtime
+     *                                    will be compared with those of the groundTruthIndex to establish the runtime
      *                                    precision of the index.
      */
     public StatisticsDecorator(String indexName,
@@ -117,11 +117,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean add(TItem item) {
-        final Timer.Context context = addTimer.time();
-        try {
+        try (Timer.Context ignored = addTimer.time()) {
             return approximativeIndex.add(item);
-        } finally {
-            context.stop();
         }
     }
 
@@ -130,11 +127,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean remove(TId id, long version) {
-        final Timer.Context context = removeTimer.time();
-        try {
+        try (Timer.Context ignored = removeTimer.time()) {
             return approximativeIndex.remove(id, version);
-        } finally {
-            context.stop();
         }
     }
 
@@ -151,11 +145,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public Optional<TItem> get(TId id) {
-        final Timer.Context context = getTimer.time();
-        try {
+        try (Timer.Context ignored = getTimer.time()) {
             return approximativeIndex.get(id);
-        } finally {
-            context.stop();
         }
     }
 
@@ -164,11 +155,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public boolean contains(TId id) {
-        final Timer.Context context = containsTimer.time();
-        try {
+        try (Timer.Context ignored = containsTimer.time()) {
             return approximativeIndex.contains(id);
-        } finally {
-            context.stop();
         }
     }
 
@@ -187,11 +175,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
     public List<SearchResult<TItem, TDistance>> findNearest(TVector vector, int k) {
         List<SearchResult<TItem, TDistance>> searchResults;
 
-        final Timer.Context context = findNearestTimer.time();
-        try {
+        try (Timer.Context ignored = findNearestTimer.time()) {
             searchResults = approximativeIndex.findNearest(vector, k);
-        } finally {
-            context.stop();
         }
 
         if (searchCount.getAndIncrement() % sampleFrequency == 0) {
@@ -205,11 +190,8 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
      */
     @Override
     public void save(OutputStream out) throws IOException {
-        final Timer.Context context = saveTimer.time();
-        try {
+        try (Timer.Context ignored = saveTimer.time()) {
             approximativeIndex.save(out);
-        } finally {
-            context.stop();
         }
     }
 
@@ -255,6 +237,7 @@ public class StatisticsDecorator<TId, TVector, TItem extends Item<TId, TVector>,
                     }
                 }
             } catch (InterruptedException e) {
+                running = false;
                 Thread.currentThread().interrupt();
             }
         }

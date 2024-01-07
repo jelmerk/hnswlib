@@ -239,8 +239,8 @@ public final class Jdk17DistanceFunctions {
             float sum = vecSum.reduceLanes(VectorOperators.ADD);
             for (; i < u.length; i++) {
                 double num = Math.abs(u[i] - v[i]);
-                double denom = Math.abs(u[i]) + Math.abs(v[i]);
-                sum += num == 0.0 && denom == 0.0 ? 0.0 : num / denom;
+                double denominator = Math.abs(u[i]) + Math.abs(v[i]);
+                sum += (float) (num == 0.0 && denominator == 0.0 ? 0.0 : num / denominator);
             }
 
             return sum;
@@ -260,14 +260,14 @@ public final class Jdk17DistanceFunctions {
                 FloatVector vecU = FloatVector.fromArray(SPECIES_FLOAT_256, u, i);
                 FloatVector vecV = FloatVector.fromArray(SPECIES_FLOAT_256, v, i);
                 FloatVector num = vecU.sub(vecV).abs();
-                FloatVector denom = vecU.abs().add(vecV.abs());
-                vecSum = vecSum.add(num.div(denom));
+                FloatVector denominator = vecU.abs().add(vecV.abs());
+                vecSum = vecSum.add(num.div(denominator));
             }
             float sum = vecSum.reduceLanes(VectorOperators.ADD);
             for (; i < u.length; i++) {
                 double num = Math.abs(u[i] - v[i]);
-                double denom = Math.abs(u[i]) + Math.abs(v[i]);
-                sum += num == 0.0 && denom == 0.0 ? 0.0 : num / denom;
+                double denominator = Math.abs(u[i]) + Math.abs(v[i]);
+                sum += (float) (num == 0.0 && denominator == 0.0 ? 0.0 : num / denominator);
             }
 
             return sum;

@@ -184,8 +184,8 @@ public final class DistanceFunctions {
             float sum = 0;
             for (int i = 0; i < u.length; i++) {
                 float num = Math.abs(u[i] - v[i]);
-                float denom = Math.abs(u[i]) + Math.abs(v[i]);
-                sum += num == 0.0 && denom == 0.0 ? 0.0 : num / denom;
+                float denominator = Math.abs(u[i]) + Math.abs(v[i]);
+                sum += num == 0.0 && denominator == 0.0 ? (float) 0.0 : num / denominator;
             }
             return sum;
         }
@@ -255,8 +255,8 @@ public final class DistanceFunctions {
             for (int i = 0; i < u.length; i++) {
                 num += (u[i] + x) * (v[i] + y);
 
-                den1 += Math.abs(Math.pow(u[i] + x, 2));
-                den2 += Math.abs(Math.pow(v[i] + x, 2));
+                den1 += (float) Math.abs(Math.pow(u[i] + x, 2));
+                den2 += (float) Math.abs(Math.pow(v[i] + x, 2));
             }
 
             return 1f - (num / ((float) Math.sqrt(den1) * (float) Math.sqrt(den2)));

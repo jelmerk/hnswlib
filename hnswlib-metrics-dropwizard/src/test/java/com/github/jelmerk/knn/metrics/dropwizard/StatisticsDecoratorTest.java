@@ -31,21 +31,21 @@ class StatisticsDecoratorTest {
     @Mock
     private Index<String, float[], TestItem, Float> groundTruthIndex;
 
-    private String indexName  = "testindex";
-
-    private int maxAccuracySampleFrequency = 1;
+    private final String indexName = "test_index";
 
     private MetricRegistry metricRegistry;
 
-    private TestItem item1 = new TestItem("1", new float[0]);
-    private TestItem item2 = new TestItem("2", new float[0]);
+    private final TestItem item1 = new TestItem("1", new float[0]);
+    private final TestItem item2 = new TestItem("2", new float[0]);
 
-    private int k = 10;
+    private final int k = 10;
 
     private StatisticsDecorator<String, float[], TestItem, Float, Index<String, float[], TestItem, Float>, Index<String, float[], TestItem, Float>> decorator;
 
     @BeforeEach
     void setUp() {
+        int maxAccuracySampleFrequency = 1;
+
         this.metricRegistry = new MetricRegistry();
         this.decorator = new StatisticsDecorator<>(metricRegistry, StatisticsDecoratorTest.class,
                 indexName, approximativeIndex, groundTruthIndex, maxAccuracySampleFrequency);

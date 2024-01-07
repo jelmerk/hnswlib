@@ -7,19 +7,19 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 class DistanceFunctionsTest {
 
-    private SparseVector<float[]> sparseFloatVector1 = new SparseVector<>(new int[] {0, 1, 2}, new float[] { 0.01f, 0.02f, 0.03f } );
-    private SparseVector<float[]> sparseFloatVector2 = new SparseVector<>(new int[] {0, 1, 2}, new float[] { 0.03f, 0.02f, 0.01f } );
+    private final SparseVector<float[]> sparseFloatVector1 = new SparseVector<>(new int[] {0, 1, 2}, new float[] { 0.01f, 0.02f, 0.03f } );
+    private final SparseVector<float[]> sparseFloatVector2 = new SparseVector<>(new int[] {0, 1, 2}, new float[] { 0.03f, 0.02f, 0.01f } );
 
-    private SparseVector<double[]> sparseDoubleVector1 = new SparseVector<>(new int[] {0, 1, 2}, new double[] { 0.01d, 0.02d, 0.03d } );
-    private SparseVector<double[]> sparseDoubleVector2 = new SparseVector<>(new int[] {0, 1, 2}, new double[] { 0.03d, 0.02d, 0.01d } );
+    private final SparseVector<double[]> sparseDoubleVector1 = new SparseVector<>(new int[] {0, 1, 2}, new double[] { 0.01d, 0.02d, 0.03d } );
+    private final SparseVector<double[]> sparseDoubleVector2 = new SparseVector<>(new int[] {0, 1, 2}, new double[] { 0.03d, 0.02d, 0.01d } );
 
-    private float[] floatVector1 = new float[] { 0.01f, 0.02f, 0.03f };
-    private float[] floatVector2 = new float[] { 0.03f, 0.02f, 0.01f };
+    private final float[] floatVector1 = new float[] { 0.01f, 0.02f, 0.03f };
+    private final float[] floatVector2 = new float[] { 0.03f, 0.02f, 0.01f };
 
-    private double[] doubleVector1 = new double[] { 0.01d, 0.02d, 0.03d };
-    private double[] doubleVector2 = new double[] { 0.03d, 0.02d, 0.01d };
+    private final double[] doubleVector1 = new double[] { 0.01d, 0.02d, 0.03d };
+    private final double[] doubleVector2 = new double[] { 0.03d, 0.02d, 0.01d };
 
-    private double error = 1e-4;
+    private final double error = 1e-4;
 
     @Test
     void floatSparseVectorInnerProduct() {

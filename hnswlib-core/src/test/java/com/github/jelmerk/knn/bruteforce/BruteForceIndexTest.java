@@ -15,12 +15,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 class BruteForceIndexTest {
 
-    private int dimensions = 2;
+    private final int dimensions = 2;
     private BruteForceIndex<String, float[], TestItem, Float> index;
 
-    private TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
-    private TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
-    private TestItem item3 = new TestItem("3", new float[] { 0.4300f, 0.9891f }, 10);
+    private final TestItem item1 = new TestItem("1", new float[] { 0.0110f, 0.2341f }, 10);
+    private final TestItem item2 = new TestItem("2", new float[] { 0.2300f, 0.3891f }, 10);
+    private final TestItem item3 = new TestItem("3", new float[] { 0.4300f, 0.9891f }, 10);
 
     @BeforeEach
     void setUp() {
