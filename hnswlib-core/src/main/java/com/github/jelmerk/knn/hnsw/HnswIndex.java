@@ -33,6 +33,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         implements Index<TId, TVector, TItem, TDistance> {
 
     private static final byte VERSION_1 = 0x01;
+    private static final byte VERSION_2 = 0x02;
 
     private static final long serialVersionUID = 1L;
 
@@ -42,6 +43,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     private Comparator<TDistance> distanceComparator;
     private MaxValueComparator<TDistance> maxValueDistanceComparator;
 
+    private boolean immutable;
     private int dimensions;
     private int maxItemCount;
     private int m;
@@ -74,6 +76,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
     private HnswIndex(RefinedBuilder<TId, TVector, TItem, TDistance> builder) {
 
+        this.immutable = builder.immutable;
         this.dimensions = builder.dimensions;
         this.maxItemCount = builder.maxItemCount;
         this.distanceFunction = builder.distanceFunction;
@@ -202,6 +205,9 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
      */
     @Override
     public boolean add(TItem item) {
+        if (immutable) {
+            throw new UnsupportedOperationException("Index is immutable");
+        }
         if (item.dimensions() != dimensions) {
             throw new IllegalArgumentException("Item does not have dimensionality of : " + dimensions);
         }
@@ -757,7 +763,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
     }
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
-        oos.writeByte(VERSION_1);
+        oos.writeByte(VERSION_2);
         oos.writeInt(dimensions);
         oos.writeObject(distanceFunction);
         oos.writeObject(distanceComparator);
@@ -776,6 +782,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         writeMutableObjectLongMap(oos, deletedItemVersions);
         writeNodesArray(oos, nodes);
         oos.writeInt(entryPoint == null ? -1 : entryPoint.id);
+        oos.writeBoolean(immutable);
     }
 
     @SuppressWarnings("unchecked")
@@ -802,6 +809,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         this.nodes = readNodesArray(ois, itemSerializer, maxM0, maxM);
 
         int entrypointNodeId = ois.readInt();
+
+        this.immutable = version != VERSION_1 && ois.readBoolean();
         this.entryPoint = entrypointNodeId == -1 ? null : nodes.get(entrypointNodeId);
 
         this.globalLock = new ReentrantLock();
@@ -1069,7 +1078,26 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
 
         Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
 
-        return new Builder<>(dimensions, distanceFunction, distanceComparator, maxItemCount);
+        return new Builder<>(false, dimensions, distanceFunction, distanceComparator, maxItemCount);
+    }
+
+    /**
+     * Creates an immutable empty index.
+     *
+     * @return the empty index
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> HnswIndex<TId, TVector, TItem, TDistance> empty() {
+        Builder<TVector, TDistance> builder = new Builder<>(true, 0, new DistanceFunction<TVector, TDistance>() {
+            @Override
+            public TDistance distance(TVector u, TVector v) {
+                throw new UnsupportedOperationException();
+            }
+        }, new DummyComparator<>(), 0);
+        return builder.build();
     }
 
     /**
@@ -1089,7 +1117,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             Comparator<TDistance> distanceComparator,
             int maxItemCount) {
 
-        return new Builder<>(dimensions, distanceFunction, distanceComparator, maxItemCount);
+        return new Builder<>(false, dimensions, distanceFunction, distanceComparator, maxItemCount);
     }
 
     private int assignLevel(TId value, double lambda) {
@@ -1318,6 +1346,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         public static final int DEFAULT_EF_CONSTRUCTION = 200;
         public static final boolean DEFAULT_REMOVE_ENABLED = false;
 
+        boolean immutable;
         int dimensions;
         DistanceFunction<TVector, TDistance> distanceFunction;
         Comparator<TDistance> distanceComparator;
@@ -1329,11 +1358,12 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         int efConstruction = DEFAULT_EF_CONSTRUCTION;
         boolean removeEnabled = DEFAULT_REMOVE_ENABLED;
 
-        BuilderBase(int dimensions,
+        BuilderBase(boolean immutable,
+                    int dimensions,
                     DistanceFunction<TVector, TDistance> distanceFunction,
                     Comparator<TDistance> distanceComparator,
                     int maxItemCount) {
-
+            this.immutable = immutable;
             this.dimensions = dimensions;
             this.distanceFunction = distanceFunction;
             this.distanceComparator = distanceComparator;
@@ -1417,12 +1447,13 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @param distanceFunction the distance function
          * @param maxItemCount     the maximum number of elements in the index
          */
-        Builder(int dimensions,
+        Builder(boolean immutable,
+                int dimensions,
                 DistanceFunction<TVector, TDistance> distanceFunction,
                 Comparator<TDistance> distanceComparator,
                 int maxItemCount) {
 
-            super(dimensions, distanceFunction, distanceComparator, maxItemCount);
+            super(immutable, dimensions, distanceFunction, distanceComparator, maxItemCount);
         }
 
         @Override
@@ -1440,7 +1471,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
          * @return the builder
          */
         public <TId, TItem extends Item<TId, TVector>> RefinedBuilder<TId, TVector, TItem, TDistance> withCustomSerializers(ObjectSerializer<TId> itemIdSerializer, ObjectSerializer<TItem> itemSerializer) {
-            return new RefinedBuilder<>(dimensions, distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
+            return new RefinedBuilder<>(immutable, dimensions, distanceFunction, distanceComparator, maxItemCount, m, ef, efConstruction,
                     removeEnabled, itemIdSerializer, itemSerializer);
         }
 
@@ -1475,7 +1506,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         private ObjectSerializer<TId> itemIdSerializer;
         private ObjectSerializer<TItem> itemSerializer;
 
-        RefinedBuilder(int dimensions,
+        RefinedBuilder(boolean immutable,
+                       int dimensions,
                        DistanceFunction<TVector, TDistance> distanceFunction,
                        Comparator<TDistance> distanceComparator,
                        int maxItemCount,
@@ -1486,7 +1518,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
                        ObjectSerializer<TId> itemIdSerializer,
                        ObjectSerializer<TItem> itemSerializer) {
 
-            super(dimensions, distanceFunction, distanceComparator, maxItemCount);
+            super(immutable, dimensions, distanceFunction, distanceComparator, maxItemCount);
 
             this.m = m;
             this.ef = ef;

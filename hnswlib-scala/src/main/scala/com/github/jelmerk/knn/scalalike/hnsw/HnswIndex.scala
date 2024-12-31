@@ -115,8 +115,21 @@ object HnswIndex {
       if(removeEnabled) builder.withRemoveEnabled().build()
       else builder.build()
 
-    new HnswIndex[TId, TVector, TItem, TDistance](jIndex)
+    new HnswIndex(jIndex)
+  }
 
+  /**
+   * Creates an immutable empty index.
+   *
+   * @tparam TId Type of the external identifier of an item
+   * @tparam TVector Type of the vector to perform distance calculation on
+   * @tparam TItem Type of items stored in the index
+   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+   * @return the index
+   */
+  def empty[TId,  TVector, TItem <: Item[TId, TVector], TDistance]: HnswIndex[TId, TVector, TItem, TDistance] = {
+    val jIndex: JHnswIndex[TId, TVector, TItem, TDistance] = JHnswIndex.empty()
+    new HnswIndex(jIndex)
   }
 
 }
@@ -140,13 +153,22 @@ class HnswIndex[TId, TVector, TItem <: Item[TId, TVector], TDistance] private (d
   /**
     * This distance function.
     */
-  val distanceFunction: DistanceFunction[TVector, TDistance] = delegate
-    .getDistanceFunction.asInstanceOf[ScalaDistanceFunctionAdapter[TVector, TDistance]].scalaFunction
+  val distanceFunction: DistanceFunction[TVector, TDistance] = delegate.getDistanceFunction match {
+    case a: ScalaDistanceFunctionAdapter[TVector, TDistance] => a.scalaFunction
+    case f => new DistanceFunction[TVector, TDistance] {
+      override def apply(v1: TVector, v2: TVector): TDistance = f.distance(v1, v2)
+    }
+  }
 
   /**
     * The ordering used to compare distances
     */
-  val distanceOrdering: Ordering[TDistance] = delegate.getDistanceComparator.asInstanceOf[Ordering[TDistance]]
+  val distanceOrdering: Ordering[TDistance] = delegate.getDistanceComparator match {
+    case ordering: Ordering[TDistance] => ordering
+    case c => new Ordering[TDistance] {
+      override def compare(x: TDistance, y: TDistance): Int = c.compare(x, y)
+    }
+  }
 
   /**
     * The maximum number of items the index can hold.

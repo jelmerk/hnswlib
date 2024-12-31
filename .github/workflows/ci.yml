@@ -4,15 +4,13 @@ permissions:
   checks: write
 
 on:
-  pull_request:
-    paths-ignore:
-      - '**.md'
   push:
     branches-ignore:
       - '!master'
     tags-ignore:
       - 'v[0-9]+.[0-9]+.[0-9]+'
-
+    paths-ignore:
+      - '**.md'
 jobs:
   ci-pipeline:
     runs-on: ubuntu-22.04
