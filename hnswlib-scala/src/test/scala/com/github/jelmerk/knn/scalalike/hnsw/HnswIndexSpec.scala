@@ -187,4 +187,9 @@ class HnswIndexSpec extends AnyFunSuite {
     index.asExactIndex.size should be (1)
   }
 
+  test("creates an empty immutable index") {
+    val index = HnswIndex.empty[String, Array[Float], TestItem, Float]
+    index.size should be (0)
+  }
+
 }

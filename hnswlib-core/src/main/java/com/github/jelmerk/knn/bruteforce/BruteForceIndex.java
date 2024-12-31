@@ -5,6 +5,7 @@ import com.github.jelmerk.knn.Index;
 import com.github.jelmerk.knn.Item;
 import com.github.jelmerk.knn.SearchResult;
 import com.github.jelmerk.knn.util.ClassLoaderObjectInputStream;
+import com.github.jelmerk.knn.util.DummyComparator;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -26,6 +27,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
 
     private static final long serialVersionUID = 1L;
 
+    private final boolean immutable;
     private final int dimensions;
     private final DistanceFunction<TVector, TDistance> distanceFunction;
     private final Comparator<TDistance> distanceComparator;
@@ -34,6 +36,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
     private final Map<TId, Long> deletedItemVersions;
 
     private BruteForceIndex(BruteForceIndex.Builder<TVector, TDistance> builder) {
+        this.immutable = builder.immutable;
         this.dimensions = builder.dimensions;
         this.distanceFunction = builder.distanceFunction;
         this.distanceComparator = builder.distanceComparator;
@@ -79,6 +82,9 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      */
     @Override
     public boolean add(TItem item) {
+        if (immutable) {
+            throw new UnsupportedOperationException("Index is immutable");
+        }
         if (item.dimensions() != dimensions) {
             throw new IllegalArgumentException("Item does not have dimensionality of : " + dimensions);
         }
@@ -286,7 +292,7 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
         Builder <TVector, TDistance> newBuilder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction) {
 
         Comparator<TDistance> distanceComparator = Comparator.naturalOrder();
-        return new Builder<>(dimensions, distanceFunction, distanceComparator);
+        return new Builder<>(false, dimensions, distanceFunction, distanceComparator);
     }
 
     /**
@@ -301,7 +307,23 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
      */
     public static <TVector, TDistance> Builder <TVector, TDistance> newBuilder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
 
-        return new Builder<>(dimensions, distanceFunction, distanceComparator);
+        return new Builder<>(false, dimensions, distanceFunction, distanceComparator);
+    }
+
+    /**
+     * Creates an immutable empty index.
+     *
+     * @return the empty index
+     * @param <TId>       Type of the external identifier of an item
+     * @param <TVector>   Type of the vector to perform distance calculation on
+     * @param <TItem>     Type of items stored in the index
+     * @param <TDistance> Type of distance between items (expect any numeric type: float, double, int, ..)
+     */
+    public static <TId, TVector, TItem extends Item<TId, TVector>, TDistance> BruteForceIndex<TId, TVector, TItem, TDistance> empty() {
+        BruteForceIndex.Builder<TVector, TDistance> builder = new BruteForceIndex.Builder<>(true,0, (DistanceFunction<TVector, TDistance>) (u, v) -> {
+            throw new UnsupportedOperationException();
+        }, new DummyComparator<>());
+        return builder.build();
     }
 
     /**
@@ -318,7 +340,10 @@ public class BruteForceIndex<TId, TVector, TItem extends Item<TId, TVector>, TDi
 
         private final Comparator<TDistance> distanceComparator;
 
-        Builder(int dimensions, DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+        private final boolean immutable;
+
+        Builder(boolean immutable, int dimensions, DistanceFunction<TVector, TDistance> distanceFunction, Comparator<TDistance> distanceComparator) {
+            this.immutable = immutable;
             this.dimensions = dimensions;
             this.distanceFunction = distanceFunction;
             this.distanceComparator = distanceComparator;

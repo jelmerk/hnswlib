@@ -87,6 +87,20 @@ object BruteForceIndex {
 
     new BruteForceIndex[TId, TVector, TItem, TDistance](jIndex)
   }
+
+  /**
+   * Creates an immutable empty index.
+   *
+   * @tparam TId Type of the external identifier of an item
+   * @tparam TVector Type of the vector to perform distance calculation on
+   * @tparam TItem Type of items stored in the index
+   * @tparam TDistance Type of distance between items (expect any numeric type: float, double, int, ..)
+   * @return the index
+   */
+  def empty[TId,  TVector, TItem <: Item[TId, TVector], TDistance]: BruteForceIndex[TId, TVector, TItem, TDistance] = {
+    val jIndex: JBruteForceIndex[TId, TVector, TItem, TDistance] = JBruteForceIndex.empty()
+    new BruteForceIndex(jIndex)
+  }
 }
 
 /**

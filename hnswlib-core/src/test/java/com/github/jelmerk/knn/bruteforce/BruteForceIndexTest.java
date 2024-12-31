@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BruteForceIndexTest {
 
@@ -150,6 +151,20 @@ class BruteForceIndexTest {
                 BruteForceIndex.load(new ByteArrayInputStream(in.toByteArray()));
 
         assertThat(loadedIndex.size(), is(1));
+    }
+
+    @Test
+    void emptyIndexIsImmutable() {
+        BruteForceIndex<String, float[], TestItem, Float> index = BruteForceIndex.empty();
+
+        assertThrows(
+                UnsupportedOperationException.class,
+                () -> index.add(item1),
+                "Index should be immutable"
+        );
+
+        assertThat(index.size(), is(0));
+        assertThat(index.getDimensions(), is(0));
     }
 
 
