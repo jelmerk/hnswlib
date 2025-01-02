@@ -217,7 +217,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         IntArrayList[] connections = new IntArrayList[randomLevel + 1];
 
         for (int level = 0; level <= randomLevel; level++) {
-            int levelM = randomLevel == 0 ? maxM0 : maxM;
+            int levelM = level == 0 ? maxM0 : maxM;
             connections[level] = new IntArrayList(levelM);
         }
 
