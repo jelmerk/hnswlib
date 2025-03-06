@@ -11,19 +11,29 @@ Example usage
 -------------
 
 ```java
-import com.github.jelmerk.knn.*;
-import com.github.jelmerk.knn.hnsw.*;
+import com.github.jelmerk.hnswlib.core.DistanceFunctions;
+import com.github.jelmerk.hnswlib.core.SearchResult;
+import com.github.jelmerk.hnswlib.core.hnsw.*;
 
 HnswIndex<String, float[], Word, Float> index = HnswIndex
-    .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, dimensions, words.size())
+        .newBuilder(DistanceFunctions.FLOAT_COSINE_DISTANCE, dimensions, words.size())
         .withM(10)
         .build();
 
-index.addAll(words);
+index.
+
+addAll(words);
 
 List<SearchResult<Word, Float>> nearest = index.findNeighbors("king", 10);
 
-for (SearchResult<Word, Float> result : nearest) {
-    System.out.println(result.item().id() + " " + result.getDistance());
-}
+for(
+SearchResult<Word, Float> result :nearest){
+        System.out.
+
+println(result.item().
+
+id() +" "+result.
+
+getDistance());
+        }
 ```

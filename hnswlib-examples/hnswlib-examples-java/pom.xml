@@ -34,7 +34,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <mainClass>com.github.jelmerk.knn.examples.FastText</mainClass>
+                    <mainClass>com.github.jelmerk.hnswlib.examples.FastText</mainClass>
                 </configuration>
             </plugin>
         </plugins>
