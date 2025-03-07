@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.examples
+package com.github.jelmerk.hnswlib.examples
 
 import java.net.URL
 import java.nio.file.{Files, Path, Paths}
@@ -6,9 +6,9 @@ import java.util.zip.GZIPInputStream
 
 import scala.io.{Codec, Source, StdIn}
 
-import com.github.jelmerk.knn.examples.IoUtils._
-import com.github.jelmerk.knn.scalalike._
-import com.github.jelmerk.knn.scalalike.hnsw._
+import com.github.jelmerk.hnswlib.examples.IoUtils._
+import com.github.jelmerk.hnswlib.scala._
+import com.github.jelmerk.hnswlib.scala.hnsw._
 
 @SerialVersionUID(1L) case class Word(id: String, vector: Array[Float]) extends Item[String, Array[Float]] {
   override def dimensions(): Int = vector.length

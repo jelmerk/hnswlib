@@ -1,6 +1,6 @@
 package com.github.jelmerk.hnswlib.examples;
 
-import com.github.jelmerk.hnswlib.Item;
+import com.github.jelmerk.hnswlib.core.Item;
 
 import java.util.Arrays;
 

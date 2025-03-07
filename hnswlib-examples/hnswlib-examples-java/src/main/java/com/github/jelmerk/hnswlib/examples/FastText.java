@@ -10,10 +10,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.zip.GZIPInputStream;
 
-import com.github.jelmerk.hnswlib.DistanceFunctions;
-import com.github.jelmerk.hnswlib.Index;
-import com.github.jelmerk.hnswlib.SearchResult;
-import com.github.jelmerk.hnswlib.hnsw.HnswIndex;
+import com.github.jelmerk.hnswlib.core.DistanceFunctions;
+import com.github.jelmerk.hnswlib.core.Index;
+import com.github.jelmerk.hnswlib.core.SearchResult;
+import com.github.jelmerk.hnswlib.core.hnsw.HnswIndex;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 

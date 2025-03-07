@@ -6,4 +6,4 @@ scalaVersion := "2.12.18"
 
 Compile / mainClass := Some("com.github.jelmerk.knn.examples.FastText")
 
-libraryDependencies += "com.github.jelmerk" %% "hnswlib-scala" % "1.1.0"
+libraryDependencies += "com.github.jelmerk" %% "hnswlib-scala" % "1.2.0"

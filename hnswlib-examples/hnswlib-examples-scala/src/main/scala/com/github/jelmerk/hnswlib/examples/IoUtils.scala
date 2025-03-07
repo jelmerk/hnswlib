@@ -1,4 +1,4 @@
-package com.github.jelmerk.knn.examples
+package com.github.jelmerk.hnswlib.examples
 
 import scala.language.reflectiveCalls
 
