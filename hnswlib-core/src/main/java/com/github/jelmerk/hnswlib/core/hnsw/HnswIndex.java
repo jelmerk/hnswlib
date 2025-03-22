@@ -16,6 +16,7 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.concurrent.locks.*;
 
@@ -212,7 +213,7 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
             throw new IllegalArgumentException("Item does not have dimensionality of : " + dimensions);
         }
 
-        int randomLevel = assignLevel(item.id(), this.levelLambda);
+        int randomLevel = assignLevel(this.levelLambda);
 
         IntArrayList[] connections = new IntArrayList[randomLevel + 1];
 
@@ -1120,23 +1121,8 @@ public class HnswIndex<TId, TVector, TItem extends Item<TId, TVector>, TDistance
         return new Builder<>(false, dimensions, distanceFunction, distanceComparator, maxItemCount);
     }
 
-    private int assignLevel(TId value, double lambda) {
-
-        // by relying on the external id to come up with the level, the graph construction should be a lot mor stable
-        // see : https://github.com/nmslib/hnswlib/issues/28
-
-        int hashCode = value.hashCode();
-
-        byte[] bytes = new byte[]{
-                (byte) (hashCode >> 24),
-                (byte) (hashCode >> 16),
-                (byte) (hashCode >> 8),
-                (byte) hashCode
-        };
-
-        double random = Math.abs((double) Murmur3.hash32(bytes) / (double) Integer.MAX_VALUE);
-
-        double r = -Math.log(random) * lambda;
+    public int assignLevel(double lambda) {
+        double r = -Math.log(ThreadLocalRandom.current().nextDouble()) * lambda;
         return (int) r;
     }
 
